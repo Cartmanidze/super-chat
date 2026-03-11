@@ -1,6 +1,6 @@
-﻿homeserver:
+homeserver:
   address: http://synapse:8008
-  domain: matrix.example.com
+  domain: ${MATRIX_SERVER_NAME}
   software: standard
 
 appservice:
@@ -9,20 +9,21 @@ appservice:
   port: 29317
   id: telegram
   bot:
-    username: telegrambot
-    displayname: Telegram Bridge
-  as_token: change-me
-  hs_token: change-me
-  database: postgres://mautrix_telegram:change-me@postgres/mautrix_telegram?sslmode=disable
+    username: ${MAUTRIX_BOT_USERNAME}
+    displayname: ${MAUTRIX_BOT_DISPLAYNAME}
+  as_token: ${MAUTRIX_AS_TOKEN}
+  hs_token: ${MAUTRIX_HS_TOKEN}
 
 telegram:
-  api_id: 123456
-  api_hash: change-me
+  api_id: ${MAUTRIX_TELEGRAM_API_ID}
+  api_hash: ${MAUTRIX_TELEGRAM_API_HASH}
+
+database: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/mautrix_telegram?sslmode=disable
 
 bridge:
   permissions:
-    '*': relaybot
-    matrix.example.com: user
+    "*": relaybot
+    ${MATRIX_SERVER_NAME}: user
   relaybot:
     enabled: false
   backfill:

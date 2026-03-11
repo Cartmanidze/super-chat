@@ -1,6 +1,6 @@
-﻿server_name: matrix.example.com
+server_name: ${MATRIX_SERVER_NAME}
 pid_file: /data/homeserver.pid
-public_baseurl: https://matrix.example.com/
+public_baseurl: ${MATRIX_PUBLIC_BASEURL}
 report_stats: false
 
 listeners:
@@ -15,19 +15,19 @@ listeners:
 database:
   name: psycopg2
   args:
-    user: synapse
-    password: change-me
+    user: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
     database: synapse
     host: postgres
     cp_min: 5
     cp_max: 10
 
-registration_shared_secret: change-me
+registration_shared_secret: ${MATRIX_REGISTRATION_SHARED_SECRET}
 enable_registration: false
 enable_registration_without_verification: false
 
 media_store_path: /data/media_store
-signing_key_path: /data/matrix.example.com.signing.key
+signing_key_path: ${MATRIX_SIGNING_KEY_PATH}
 trusted_key_servers:
   - server_name: matrix.org
 

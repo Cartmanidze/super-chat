@@ -1,33 +1,34 @@
-﻿services:
+services:
   postgres:
     image: postgres:16
     restart: unless-stopped
     environment:
-      POSTGRES_DB: postgres
-      POSTGRES_USER: ${POSTGRES_SUPERUSER}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_MULTIPLE_DATABASES: ${POSTGRES_MULTIPLE_DATABASES}
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_SUPERUSER} -d postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
 
   synapse:
-    image: ${SYNAPSE_IMAGE}
+    image: matrixdotorg/synapse:v1.128.0
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
     environment:
-      SYNAPSE_CONFIG_PATH: ${SYNAPSE_CONFIG_PATH}
+      SYNAPSE_CONFIG_PATH: /data/homeserver.yaml
     volumes:
       - ./synapse:/data
 
   mautrix-telegram:
-    image: ${MAUTRIX_TELEGRAM_IMAGE}
+    image: dock.mau.dev/mautrix/telegram:latest
     restart: unless-stopped
     depends_on:
       postgres:
@@ -37,10 +38,78 @@
     volumes:
       - ./mautrix:/data
 
+  superchat-web:
+    build:
+      context: ../..
+      dockerfile: src/SuperChat.Web/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+      ConnectionStrings__SuperChatDb: ${SUPERCHAT_PERSISTENCE_CONNECTION}
+      Persistence__Provider: Postgres
+      Persistence__ConnectionString: ${SUPERCHAT_PERSISTENCE_CONNECTION}
+      Persistence__AutoInitialize: "true"
+      SuperChat__BaseUrl: ${SUPERCHAT_BASE_URL}
+      SuperChat__AllowedEmails__0: ${SUPERCHAT_ALLOWED_EMAILS__0}
+      SuperChat__AllowedEmails__1: ${SUPERCHAT_ALLOWED_EMAILS__1}
+      SuperChat__MagicLinkMinutes: ${SUPERCHAT_MAGIC_LINK_MINUTES}
+      SuperChat__ApiSessionDays: ${SUPERCHAT_API_SESSION_DAYS}
+      SuperChat__DevSeedSampleData: ${SUPERCHAT_DEV_SEED_SAMPLE_DATA}
+      Matrix__HomeserverUrl: ${MATRIX_PUBLIC_BASEURL}
+      Matrix__AdminAccessToken: ${MATRIX_ADMIN_ACCESS_TOKEN}
+      Matrix__UserIdPrefix: ${MATRIX_USER_ID_PREFIX}
+      TelegramBridge__BotUserId: ${TELEGRAM_BRIDGE_BOT_USER_ID}
+      TelegramBridge__WebLoginBaseUrl: ${TELEGRAM_BRIDGE_WEB_LOGIN_BASE_URL}
+      Email__FromSender: ${EMAIL_FROM}
+      Email__SmtpHost: ${EMAIL_SMTP_HOST}
+      Email__SmtpPort: ${EMAIL_SMTP_PORT}
+      DeepSeek__ApiKey: ${DEEPSEEK_API_KEY}
+      DeepSeek__Model: ${DEEPSEEK_MODEL}
+
+  superchat-api:
+    build:
+      context: ../..
+      dockerfile: src/SuperChat.Api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+      ConnectionStrings__SuperChatDb: ${SUPERCHAT_PERSISTENCE_CONNECTION}
+      Persistence__Provider: Postgres
+      Persistence__ConnectionString: ${SUPERCHAT_PERSISTENCE_CONNECTION}
+      Persistence__AutoInitialize: "true"
+      SuperChat__BaseUrl: ${SUPERCHAT_BASE_URL}
+      SuperChat__AllowedEmails__0: ${SUPERCHAT_ALLOWED_EMAILS__0}
+      SuperChat__AllowedEmails__1: ${SUPERCHAT_ALLOWED_EMAILS__1}
+      SuperChat__MagicLinkMinutes: ${SUPERCHAT_MAGIC_LINK_MINUTES}
+      SuperChat__ApiSessionDays: ${SUPERCHAT_API_SESSION_DAYS}
+      SuperChat__DevSeedSampleData: ${SUPERCHAT_DEV_SEED_SAMPLE_DATA}
+      Matrix__HomeserverUrl: ${MATRIX_PUBLIC_BASEURL}
+      Matrix__AdminAccessToken: ${MATRIX_ADMIN_ACCESS_TOKEN}
+      Matrix__UserIdPrefix: ${MATRIX_USER_ID_PREFIX}
+      TelegramBridge__BotUserId: ${TELEGRAM_BRIDGE_BOT_USER_ID}
+      TelegramBridge__WebLoginBaseUrl: ${TELEGRAM_BRIDGE_WEB_LOGIN_BASE_URL}
+      Email__FromSender: ${EMAIL_FROM}
+      Email__SmtpHost: ${EMAIL_SMTP_HOST}
+      Email__SmtpPort: ${EMAIL_SMTP_PORT}
+      DeepSeek__ApiKey: ${DEEPSEEK_API_KEY}
+      DeepSeek__Model: ${DEEPSEEK_MODEL}
+
   caddy:
     image: caddy:2.8
     restart: unless-stopped
     depends_on:
+      superchat-web:
+        condition: service_started
+      superchat-api:
+        condition: service_started
       synapse:
         condition: service_started
     ports:
@@ -50,8 +119,6 @@
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
-    extra_hosts:
-      - host.docker.internal:host-gateway
 
 volumes:
   postgres-data:

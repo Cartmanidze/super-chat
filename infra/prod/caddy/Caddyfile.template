@@ -1,15 +1,15 @@
 {
-  email {$CADDY_ACME_EMAIL}
+  email ${CADDY_ACME_EMAIL}
 }
 
-{$SUPERCHAT_WEB_HOST} {
+${SUPERCHAT_WEB_HOST} {
   reverse_proxy superchat-web:8080
 }
 
-{$SUPERCHAT_API_HOST} {
+${SUPERCHAT_API_HOST} {
   reverse_proxy superchat-api:8080
 }
 
-{$SUPERCHAT_MATRIX_HOST} {
+${MATRIX_SERVER_NAME} {
   reverse_proxy synapse:8008
 }

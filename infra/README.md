@@ -3,7 +3,7 @@
 This folder now has two tracks:
 
 - `infra/docker-compose.yml`: local bootstrap for development
-- `infra/prod/`: VPS-oriented templates for the pilot stack
+- `infra/prod/`: VPS-oriented pilot deployment
 
 ## Local bootstrap
 
@@ -12,7 +12,7 @@ This folder now has two tracks:
 3. Run `dotnet run --project src/SuperChat.Web`.
 4. Run `dotnet run --project src/SuperChat.Api`.
 
-The local stack now initializes three PostgreSQL databases through `infra/postgres/init/01-create-databases.sh`:
+The local stack initializes three PostgreSQL databases through `infra/postgres/init/01-create-databases.sh`:
 
 - `superchat_app`
 - `synapse`
@@ -22,13 +22,15 @@ The local stack now initializes three PostgreSQL databases through `infra/postgr
 
 1. Copy `infra/prod/.env.example` to `infra/prod/.env`.
 2. Fill Matrix, Telegram, SMTP, DeepSeek, and Postgres secrets.
-3. Copy `infra/prod/synapse/homeserver.yaml.example` to `infra/prod/synapse/homeserver.yaml` and render the placeholders.
-4. Generate or fill `infra/prod/synapse/telegram-registration.yaml` from the example template.
-5. Copy `infra/prod/mautrix/config.yaml.example` to `infra/prod/mautrix/config.yaml` and render the placeholders.
-6. Start the pilot stack with `docker compose --env-file infra/prod/.env -f infra/prod/docker-compose.yml up -d --build`.
+3. Install `envsubst`, for example via `gettext-base`.
+4. Run `bash infra/prod/scripts/render-configs.sh`.
+5. Run `bash infra/prod/scripts/preflight.sh`.
+6. Run `bash infra/prod/scripts/deploy.sh`.
 
 ## Notes
 
 - `infra/prod/` assumes `SuperChat.Web` and `SuperChat.Api` run as separate containers.
-- `infra/prod/Caddyfile` expects dedicated hosts for app, api, and matrix.
+- `infra/prod/caddy/Caddyfile.template` is the only source for Caddy config; runtime `Caddyfile` is generated.
+- `infra/prod/synapse/homeserver.yaml.template`, `infra/prod/synapse/telegram-registration.yaml.template`, and `infra/prod/mautrix/config.yaml.template` are the source templates; runtime `.yaml` files are generated artifacts.
+- This gets the VPS stack running, but the app-side Telegram connect flow is still bootstrap logic until the real management-room and `/sync` integration lands.
 - These are still bootstrap templates, not a full hardened ops package with monitoring, backups, or secret rotation.

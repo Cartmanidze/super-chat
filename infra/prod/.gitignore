@@ -1,0 +1,11 @@
+.env
+backups/
+caddy/Caddyfile
+mautrix/config.yaml
+synapse/homeserver.yaml
+synapse/telegram-registration.yaml
+synapse/*.signing.key
+synapse/media_store/
+synapse/*.log
+mautrix/*.session*
+mautrix/*.db
