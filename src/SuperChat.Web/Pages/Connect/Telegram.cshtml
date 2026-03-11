@@ -6,9 +6,9 @@
 
 <section class="stack">
   <div class="section-card">
-    <p class="eyebrow">Bridge bootstrap</p>
+    <p class="eyebrow">Bridge orchestration</p>
     <h1>Connect Telegram without exposing Element</h1>
-    <p>Your hidden Matrix identity is provisioned automatically. The next step is bridge login, sample sync, and the first digest surfaces.</p>
+    <p>Your hidden Matrix identity is provisioned automatically. The app opens a private management room with the bridge, waits for the login prompt, and then starts syncing real Telegram messages.</p>
 
     <dl class="definition-grid">
       <div>
@@ -31,7 +31,11 @@
 
     @if (Model.Connection.WebLoginUrl is not null)
     {
-      <p class="notice">Bridge web login placeholder: <a href="@Model.Connection.WebLoginUrl">@Model.Connection.WebLoginUrl</a></p>
+      <p class="notice">Bridge web login: <a href="@Model.Connection.WebLoginUrl">@Model.Connection.WebLoginUrl</a></p>
+    }
+    else if (Model.Connection.State == SuperChat.Domain.Model.TelegramConnectionState.BridgePending)
+    {
+      <p class="notice">The bridge is preparing the login prompt. Refresh this page in a few seconds to pick up the web login link.</p>
     }
 
     <div class="hero-actions">
@@ -39,6 +43,6 @@
       <a class="button secondary" asp-page="/Settings/Connections">Inspect connection details</a>
     </div>
 
-    <p class="hint">In development mode the app seeds sample synced messages shortly after connection so the product surface becomes inspectable.</p>
+    <p class="hint">In development mode the app still seeds sample messages so the product surface remains inspectable without a live Telegram account.</p>
   </div>
 </section>

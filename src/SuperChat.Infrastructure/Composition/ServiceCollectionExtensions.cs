@@ -36,6 +36,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<TimeProvider>(TimeProvider.System);
         services.AddSingleton(sp => sp.GetRequiredService<IOptions<PilotOptions>>().Value);
         services.AddSingleton(sp => sp.GetRequiredService<IOptions<MatrixOptions>>().Value);
+        services.AddHttpClient<MatrixApiClient>((serviceProvider, client) =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<MatrixOptions>>().Value;
+            client.BaseAddress = new Uri(options.HomeserverUrl.TrimEnd('/'));
+        });
         services.AddDbContextFactory<SuperChatDbContext>((serviceProvider, optionsBuilder) =>
         {
             var persistence = serviceProvider.GetRequiredService<IOptions<PersistenceOptions>>().Value;
@@ -67,8 +72,8 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<IAuthFlowService, AuthFlowService>();
         services.AddSingleton<IApiSessionService, ApiSessionService>();
-        services.AddSingleton<IMatrixProvisioningService, BootstrapMatrixProvisioningService>();
-        services.AddSingleton<ITelegramConnectionService, BootstrapTelegramConnectionService>();
+        services.AddSingleton<IMatrixProvisioningService, MatrixProvisioningService>();
+        services.AddSingleton<ITelegramConnectionService, TelegramConnectionService>();
         services.AddSingleton<IMessageNormalizationService, MessageNormalizationService>();
         services.AddSingleton<IExtractedItemService, ExtractedItemService>();
         services.AddSingleton<HeuristicStructuredExtractionService>();

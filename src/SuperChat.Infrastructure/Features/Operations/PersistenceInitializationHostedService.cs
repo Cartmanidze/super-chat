@@ -23,6 +23,7 @@ public sealed class PersistenceInitializationHostedService(
 
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         await dbContext.Database.EnsureCreatedAsync(cancellationToken);
+        await UpgradeSchemaAsync(dbContext, cancellationToken);
 
         var configuredInvites = pilotOptions.Value.AllowedEmails
             .Select(email => email.Trim().ToLowerInvariant())
@@ -64,5 +65,26 @@ public sealed class PersistenceInitializationHostedService(
     public Task StopAsync(CancellationToken cancellationToken)
     {
         return Task.CompletedTask;
+    }
+
+    private static async Task UpgradeSchemaAsync(SuperChatDbContext dbContext, CancellationToken cancellationToken)
+    {
+        if (!dbContext.Database.IsNpgsql())
+        {
+            return;
+        }
+
+        await dbContext.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE telegram_connections
+            ADD COLUMN IF NOT EXISTS management_room_id text NULL;
+
+            CREATE TABLE IF NOT EXISTS sync_checkpoints (
+                user_id uuid PRIMARY KEY,
+                next_batch_token text NULL,
+                updated_at timestamptz NOT NULL
+            );
+            """,
+            cancellationToken);
     }
 }

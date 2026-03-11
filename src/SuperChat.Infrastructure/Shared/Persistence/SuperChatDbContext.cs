@@ -18,6 +18,8 @@ public sealed class SuperChatDbContext(DbContextOptions<SuperChatDbContext> opti
 
     public DbSet<TelegramConnectionEntity> TelegramConnections => Set<TelegramConnectionEntity>();
 
+    public DbSet<SyncCheckpointEntity> SyncCheckpoints => Set<SyncCheckpointEntity>();
+
     public DbSet<NormalizedMessageEntity> NormalizedMessages => Set<NormalizedMessageEntity>();
 
     public DbSet<ExtractedItemEntity> ExtractedItems => Set<ExtractedItemEntity>();
@@ -92,10 +94,20 @@ public sealed class SuperChatDbContext(DbContextOptions<SuperChatDbContext> opti
             entity.Property(item => item.UserId).HasColumnName("user_id");
             entity.Property(item => item.State).HasColumnName("state").HasConversion(telegramStateConverter);
             entity.Property(item => item.WebLoginUrl).HasColumnName("web_login_url");
+            entity.Property(item => item.ManagementRoomId).HasColumnName("management_room_id");
             entity.Property(item => item.UpdatedAt).HasColumnName("updated_at");
             entity.Property(item => item.LastSyncedAt).HasColumnName("last_synced_at");
             entity.Property(item => item.DevelopmentSeededAt).HasColumnName("development_seeded_at");
             entity.HasIndex(item => item.State);
+        });
+
+        modelBuilder.Entity<SyncCheckpointEntity>(entity =>
+        {
+            entity.ToTable("sync_checkpoints");
+            entity.HasKey(item => item.UserId);
+            entity.Property(item => item.UserId).HasColumnName("user_id");
+            entity.Property(item => item.NextBatchToken).HasColumnName("next_batch_token");
+            entity.Property(item => item.UpdatedAt).HasColumnName("updated_at");
         });
 
         modelBuilder.Entity<NormalizedMessageEntity>(entity =>
@@ -196,9 +208,17 @@ public sealed class TelegramConnectionEntity
     public Guid UserId { get; set; }
     public TelegramConnectionState State { get; set; }
     public string? WebLoginUrl { get; set; }
+    public string? ManagementRoomId { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public DateTimeOffset? LastSyncedAt { get; set; }
     public DateTimeOffset? DevelopmentSeededAt { get; set; }
+}
+
+public sealed class SyncCheckpointEntity
+{
+    public Guid UserId { get; set; }
+    public string? NextBatchToken { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
 }
 
 public sealed class NormalizedMessageEntity
