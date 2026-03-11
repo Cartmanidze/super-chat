@@ -9,6 +9,7 @@ public sealed class SuperChatStore
     private readonly ConcurrentDictionary<string, PilotInvite> _invites;
     private readonly ConcurrentDictionary<string, AppUser> _usersByEmail = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, MagicLinkToken> _magicLinks = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, ApiSession> _apiSessions = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<Guid, MatrixIdentity> _matrixIdentities = new();
     private readonly ConcurrentDictionary<Guid, TelegramConnection> _connections = new();
     private readonly ConcurrentDictionary<string, NormalizedMessage> _messages = new(StringComparer.Ordinal);
@@ -33,6 +34,7 @@ public sealed class SuperChatStore
     public int KnownUserCount => _usersByEmail.Count;
     public int PendingMessageCount => _messages.Values.Count(message => !message.Processed);
     public int ExtractedItemCount => _items.Count;
+    public int ActiveSessionCount => _apiSessions.Count;
 
     public MagicLinkToken CreateMagicLink(string email, DateTimeOffset expiresAt)
     {
@@ -56,6 +58,39 @@ public sealed class SuperChatStore
     {
         _usersByEmail.TryGetValue(email.Trim().ToLowerInvariant(), out var user);
         return user;
+    }
+
+    public AppUser? FindUserById(Guid userId)
+    {
+        return _usersByEmail.Values.FirstOrDefault(user => user.Id == userId);
+    }
+
+    public ApiSession CreateApiSession(AppUser user, DateTimeOffset expiresAt, DateTimeOffset now)
+    {
+        var session = new ApiSession(user.Id, Guid.NewGuid().ToString("N"), now, expiresAt);
+        _apiSessions[session.Token] = session;
+        return session;
+    }
+
+    public AppUser? FindUserBySessionToken(string token, DateTimeOffset now)
+    {
+        if (!_apiSessions.TryGetValue(token, out var session))
+        {
+            return null;
+        }
+
+        if (session.ExpiresAt <= now)
+        {
+            _apiSessions.TryRemove(token, out _);
+            return null;
+        }
+
+        return FindUserById(session.UserId);
+    }
+
+    public void RevokeApiSession(string token)
+    {
+        _apiSessions.TryRemove(token, out _);
     }
 
     public AppUser GetOrCreateUser(string email, DateTimeOffset now)

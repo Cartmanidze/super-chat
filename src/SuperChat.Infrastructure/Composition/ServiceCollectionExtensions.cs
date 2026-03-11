@@ -33,6 +33,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<MatrixOptions>>().Value);
         services.AddSingleton<SuperChatStore>();
         services.AddSingleton<IAuthFlowService, InMemoryAuthFlowService>();
+        services.AddSingleton<IApiSessionService, InMemoryApiSessionService>();
         services.AddSingleton<IMatrixProvisioningService, InMemoryMatrixProvisioningService>();
         services.AddSingleton<ITelegramConnectionService, BootstrapTelegramConnectionService>();
         services.AddSingleton<IMessageNormalizationService, MessageNormalizationService>();

@@ -2,12 +2,12 @@
 
 ## Flow
 
-`Telegram -> mautrix-telegram -> Synapse -> SuperChat.Web -> AI extraction -> digest/search UI`
+`Telegram -> mautrix-telegram -> Synapse -> SuperChat.Web / SuperChat.Api -> AI extraction -> digest/search UI`
 
 The repository starts as a modular monolith and keeps two clearly separated contours:
 
 - `infra/`: Synapse, mautrix-telegram, Postgres, Mailpit, Caddy
-- `src/`: product app, auth, hidden Matrix provisioning, sync bootstrap, extraction, digest, search, feedback
+- `src/`: product app, separate mobile-facing API, auth, hidden Matrix provisioning, sync bootstrap, extraction, digest, search, feedback
 
 ## Bounded modules
 
@@ -19,6 +19,7 @@ The repository starts as a modular monolith and keeps two clearly separated cont
 - `Digest`: `Today` and `Waiting`
 - `Search`: structured search over extracted data
 - `Feedback`: pilot usefulness signal
+- `Api`: token-based `/api/v1/*` contract for future mobile clients
 
 ## Key flows
 
@@ -33,6 +34,12 @@ The repository starts as a modular monolith and keeps two clearly separated cont
 1. Signed-in user opens `/connect/telegram`.
 2. App shows hidden Matrix user and bridge bootstrap status.
 3. In development bootstrap mode the app marks the bridge as connected and seeds sample sync data.
+
+### Mobile/API auth
+
+1. Client requests a magic link through `POST /api/v1/auth/magic-links`.
+2. Client exchanges the token through `POST /api/v1/auth/token-exchange`.
+3. API returns a bearer token used for `/api/v1/me`, `/api/v1/dashboard/*`, `/api/v1/search`, and Telegram integration endpoints.
 
 ### Sync and extraction
 

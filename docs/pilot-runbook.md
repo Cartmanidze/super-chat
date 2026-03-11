@@ -6,9 +6,12 @@
 - Start `docker compose -f infra/docker-compose.yml up -d`
 - Run `dotnet test`
 - Run `dotnet run --project src/SuperChat.Web`
+- Run `dotnet run --project src/SuperChat.Api`
 - Verify `/health`
+- Verify `/api/v1/health`
 - Request a magic link with an invited email
 - Verify redirect to `/connect/telegram`
+- Verify API token exchange and `/api/v1/me`
 - Start Telegram connection and confirm sample sync produces cards on `/today`
 - Submit one feedback entry
 

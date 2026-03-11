@@ -8,6 +8,8 @@ public sealed class PilotOptions
 
     public int MagicLinkMinutes { get; set; } = 15;
 
+    public int ApiSessionDays { get; set; } = 30;
+
     public bool DevSeedSampleData { get; set; } = true;
 
     public string[] AllowedEmails { get; set; } = ["pilot@example.com"];

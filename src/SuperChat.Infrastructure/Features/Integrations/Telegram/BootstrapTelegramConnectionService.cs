@@ -9,9 +9,10 @@ namespace SuperChat.Infrastructure.Services;
 public sealed class BootstrapTelegramConnectionService(
     SuperChatStore store,
     IOptions<TelegramBridgeOptions> bridgeOptions,
+    IOptions<PilotOptions> pilotOptions,
     TimeProvider timeProvider) : ITelegramConnectionService
 {
-    public Task<TelegramConnection> StartAsync(AppUser user, CancellationToken cancellationToken)
+    public async Task<TelegramConnection> StartAsync(AppUser user, CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow();
         var options = bridgeOptions.Value;
@@ -19,7 +20,13 @@ public sealed class BootstrapTelegramConnectionService(
         var connection = new TelegramConnection(user.Id, TelegramConnectionState.BridgePending, loginUrl, now, null);
 
         store.UpsertConnection(connection);
-        return Task.FromResult(connection);
+
+        if (pilotOptions.Value.DevSeedSampleData)
+        {
+            return await CompleteDevelopmentConnectionAsync(user, cancellationToken);
+        }
+
+        return connection;
     }
 
     public Task<TelegramConnection> CompleteDevelopmentConnectionAsync(AppUser user, CancellationToken cancellationToken)
