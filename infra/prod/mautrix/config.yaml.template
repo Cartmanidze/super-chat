@@ -8,17 +8,15 @@ appservice:
   hostname: 0.0.0.0
   port: 29317
   id: telegram
-  bot:
-    username: ${MAUTRIX_BOT_USERNAME}
-    displayname: ${MAUTRIX_BOT_DISPLAYNAME}
+  bot_username: ${MAUTRIX_BOT_USERNAME}
+  bot_displayname: ${MAUTRIX_BOT_DISPLAYNAME}
   as_token: ${MAUTRIX_AS_TOKEN}
   hs_token: ${MAUTRIX_HS_TOKEN}
+  database: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/mautrix_telegram?sslmode=disable
 
 telegram:
   api_id: ${MAUTRIX_TELEGRAM_API_ID}
   api_hash: ${MAUTRIX_TELEGRAM_API_HASH}
-
-database: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/mautrix_telegram?sslmode=disable
 
 bridge:
   permissions:

@@ -7,6 +7,7 @@ listeners:
   - port: 8008
     tls: false
     type: http
+    bind_addresses: ['0.0.0.0']
     x_forwarded: true
     resources:
       - names: [client, federation]
@@ -14,6 +15,7 @@ listeners:
 
 database:
   name: psycopg2
+  allow_unsafe_locale: true
   args:
     user: ${POSTGRES_USER}
     password: ${POSTGRES_PASSWORD}
