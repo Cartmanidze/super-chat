@@ -1,0 +1,44 @@
+@page "/feedback"
+@model SuperChat.Web.Pages.Feedback.IndexModel
+@{
+  ViewData["Title"] = "Feedback";
+}
+
+<section class="stack">
+  <div class="section-card">
+    <p class="eyebrow">Pilot signal</p>
+    <h1>Send product feedback</h1>
+    <p>Use this during the pilot to mark whether the digest and search are actually useful.</p>
+
+    <form method="post" class="stack">
+      <div>
+        <label asp-for="Area">Area</label>
+        <select asp-for="Area">
+          <option value="today">Today</option>
+          <option value="waiting">Waiting</option>
+          <option value="search">Search</option>
+        </select>
+      </div>
+
+      <div>
+        <label asp-for="Useful">Useful</label>
+        <select asp-for="Useful">
+          <option value="true">Useful</option>
+          <option value="false">Not useful</option>
+        </select>
+      </div>
+
+      <div>
+        <label asp-for="Note">Note</label>
+        <textarea asp-for="Note" rows="4" placeholder="What felt right or noisy?"></textarea>
+      </div>
+
+      <button type="submit" class="button primary">Submit feedback</button>
+    </form>
+
+    @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+    {
+      <p class="notice flush">@Model.StatusMessage</p>
+    }
+  </div>
+</section>

@@ -1,0 +1,29 @@
+homeserver:
+  address: https://matrix.localhost
+  domain: matrix.localhost
+  software: standard
+
+appservice:
+  address: http://mautrix-telegram:29317
+  hostname: 0.0.0.0
+  port: 29317
+  id: telegram
+  bot:
+    username: telegrambot
+    displayname: Telegram Bridge
+  as_token: "replace-me"
+  hs_token: "replace-me"
+
+bridge:
+  permissions:
+    "*": relaybot
+    "matrix.localhost": user
+  relaybot:
+    enabled: false
+  backfill:
+    enabled: false
+  sync_direct_chats: true
+
+telegram:
+  api_id: 123456
+  api_hash: replace-me

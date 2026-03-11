@@ -1,0 +1,36 @@
+@page "/settings/connections"
+@model SuperChat.Web.Pages.Settings.ConnectionsModel
+@{
+  ViewData["Title"] = "Connections";
+}
+
+<section class="stack">
+  <div class="section-card">
+    <p class="eyebrow">Settings</p>
+    <h1>Connections overview</h1>
+
+    <dl class="definition-grid">
+      <div>
+        <dt>Product email</dt>
+        <dd>@Model.Email</dd>
+      </div>
+      <div>
+        <dt>Matrix user</dt>
+        <dd>@Model.MatrixUserId</dd>
+      </div>
+      <div>
+        <dt>Telegram state</dt>
+        <dd>@Model.ConnectionState</dd>
+      </div>
+      <div>
+        <dt>Last sync</dt>
+        <dd>@(Model.LastSyncedAt?.ToString("u") ?? "waiting")</dd>
+      </div>
+    </dl>
+
+    <form method="post" asp-page-handler="Disconnect" class="hero-actions">
+      <button type="submit" class="button primary">Disconnect Telegram</button>
+      <a class="button secondary" asp-page="/Connect/Telegram">Back to connect flow</a>
+    </form>
+  </div>
+</section>

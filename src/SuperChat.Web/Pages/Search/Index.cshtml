@@ -1,0 +1,38 @@
+@page "/search"
+@model SuperChat.Web.Pages.Search.IndexModel
+@{
+  ViewData["Title"] = "Search";
+}
+
+<section class="stack">
+  <div class="section-head">
+    <p class="eyebrow">Structured search</p>
+    <h1>Search extracted work, not raw chat dumps</h1>
+  </div>
+
+  <form method="get" class="search-form">
+    <input asp-for="Query" placeholder="proposal, Friday, Marina..." />
+    <button type="submit" class="button primary">Search</button>
+  </form>
+
+  @if (Model.Results.Count == 0 && !string.IsNullOrWhiteSpace(Model.Query))
+  {
+    <div class="empty-state">
+      <p>No matches yet for "@Model.Query".</p>
+    </div>
+  }
+  else if (Model.Results.Count > 0)
+  {
+    <div class="stack">
+      @foreach (var result in Model.Results)
+      {
+        <article class="section-card">
+          <span class="pill">@result.Kind</span>
+          <h2>@result.Title</h2>
+          <p>@result.Summary</p>
+          <small>@result.SourceRoom · @result.ObservedAt.ToString("u")</small>
+        </article>
+      }
+    </div>
+  }
+</section>

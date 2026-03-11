@@ -1,0 +1,17 @@
+@page "/auth/verify"
+@model SuperChat.Web.Pages.Auth.VerifyModel
+@{
+  ViewData["Title"] = "Verify link";
+}
+
+<section class="stack">
+  <div class="section-card">
+    <h1>Verifying access</h1>
+    <p>@Model.StatusMessage</p>
+
+    @if (!Model.Success)
+    {
+      <a class="button secondary" asp-page="/Auth/RequestLink">Request another link</a>
+    }
+  </div>
+</section>

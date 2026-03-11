@@ -1,0 +1,44 @@
+@page "/connect/telegram"
+@model SuperChat.Web.Pages.Connect.TelegramModel
+@{
+  ViewData["Title"] = "Connect Telegram";
+}
+
+<section class="stack">
+  <div class="section-card">
+    <p class="eyebrow">Bridge bootstrap</p>
+    <h1>Connect Telegram without exposing Element</h1>
+    <p>Your hidden Matrix identity is provisioned automatically. The next step is bridge login, sample sync, and the first digest surfaces.</p>
+
+    <dl class="definition-grid">
+      <div>
+        <dt>Matrix user</dt>
+        <dd>@Model.MatrixUserId</dd>
+      </div>
+      <div>
+        <dt>Status</dt>
+        <dd>@Model.Connection.State</dd>
+      </div>
+      <div>
+        <dt>Last sync</dt>
+        <dd>@(Model.Connection.LastSyncedAt?.ToString("u") ?? "waiting")</dd>
+      </div>
+    </dl>
+
+    <form method="post">
+      <button type="submit" class="button primary">Start Telegram connection</button>
+    </form>
+
+    @if (Model.Connection.WebLoginUrl is not null)
+    {
+      <p class="notice">Bridge web login placeholder: <a href="@Model.Connection.WebLoginUrl">@Model.Connection.WebLoginUrl</a></p>
+    }
+
+    <div class="hero-actions">
+      <a class="button secondary" asp-page="/Dashboard/Today">Open Today</a>
+      <a class="button secondary" asp-page="/Settings/Connections">Inspect connection details</a>
+    </div>
+
+    <p class="hint">In development mode the app seeds sample synced messages shortly after connection so the product surface becomes inspectable.</p>
+  </div>
+</section>

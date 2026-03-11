@@ -1,0 +1,692 @@
+Проект super-chat
+
+Сразу важная поправка: в текущем API DeepSeek нет модели с названием **“DeepSeek 4”**. В документации сейчас доступны **`deepseek-chat`** и **`deepseek-reasoner`**, обе привязаны к **DeepSeek‑V3.2**, а JSON Output поддерживается официально. Для MVP я бы брал **`deepseek-chat`** как основную модель и только потом, если понадобится, точечно добавил **`deepseek-reasoner`** для тяжёлых запросов. ([DeepSeek API Docs][1])
+
+используй не OpenAi для api, потому что он не доступен из рф, надо юзать напрямую или как-то ещё, чтобы был доступ с vps из рф
+
+
+## 1. Что именно ты строишь
+
+Не “новый мессенджер”.
+Ты строишь **AI‑слой над Telegram через Matrix**.
+
+Снаружи пользователь видит **твой сайт**.
+Внутри работают:
+
+* **Telegram bridge**
+* **Matrix homeserver**
+* **твой backend**
+* **DeepSeek API**
+* **твоя БД**
+
+Matrix здесь нужен как **входная шина сообщений**: bridges официально живут как **Application Services**, а Matrix Client‑Server API официально предназначен для отправки сообщений, управления комнатами и синхронизации истории через клиентский слой. ([Matrix Specification][2])
+
+Итоговая схема:
+
+```text
+Telegram
+  ↓
+mautrix-telegram
+  ↓
+Synapse
+  ↓
+твой .NET backend
+  ↓
+DeepSeek API
+  ↓
+твоя PostgreSQL
+  ↓
+твой web UI
+```
+
+## 2. Главное решение по UX
+
+Ты выбрал **правильный, но более сложный вариант**:
+
+> пользователь **не ходит в Element**
+> пользователь видит **только твой UI**
+> Telegram подключается прямо из твоего интерфейса
+
+Это реально сделать.
+
+Почему это сложнее: в обычной документации `mautrix-telegram` логин идёт через **management room** с bridge bot, а если у пользователя включён 2FA, docs прямо рекомендуют **web login**, иначе пароль или токен могут оказаться в базе homeserver в plaintext. Мы просто **спрячем этот flow** за своим интерфейсом. ([Mau.fi][3])
+
+## 3. Финальная архитектура MVP
+
+### Что будет на сервере
+
+На одном VPS:
+
+* **Ubuntu 24.04**
+* **Caddy** или **Nginx**
+* **Synapse**
+* **PostgreSQL**
+* **mautrix-telegram**
+* **твой ASP.NET Core backend**
+* **служебный Element Web** только для админа и дебага, не для пользователя
+
+Почему именно **PostgreSQL**: Synapse в официальной документации пишет, что по умолчанию использует SQLite ради удобства, но **почти всем инсталляциям стоит выбрать PostgreSQL**. ([matrix-org.github.io][4])
+
+### Что будет у пользователя
+
+У пользователя:
+
+* Telegram
+* твой сайт / PWA
+
+И всё.
+Никаких Matrix‑логинов, никакого Element.
+
+### Что будет в облаке вне твоего сервера
+
+* **DeepSeek API**
+
+Так как API OpenAI‑compatible, ты можешь использовать стандартный OpenAI‑style клиент и просто поменять `base_url`. ([DeepSeek API Docs][1])
+
+## 4. Что купить и подготовить
+
+### Минимум для старта
+
+Тебе нужно:
+
+* **1 VPS**
+* **1 домен**
+* **1 DeepSeek API key**
+* **1 Telegram `api_id` + `api_hash`**
+
+`api_id` и `api_hash` Telegram выдаются через `my.telegram.org` в разделе **API development tools**. ([Telegram Core][5])
+
+### Какой VPS я бы взял
+
+Для закрытого пилота:
+
+используй сервер tranify для разворачивания там проекта, ssh этого vps находится в C:\Users\PierDunn\.ssh
+
+Этого хватит, потому что ты пока не крутишь свою LLM локально на сервере — inference идёт во внешний DeepSeek.
+
+### Что ещё подготовить
+
+* отдельный домен, например:
+
+  * `app.yourdomain.com`
+  * `matrix.yourdomain.com`
+* почту для magic link
+* место для бэкапов базы
+* `.env` для секретов
+* приватный git-репозиторий
+
+## 5. Как будет выглядеть логин пользователя без Element
+
+Вот правильный flow.
+
+### Шаг 1. Вход в твой продукт
+
+Пользователь открывает твой сайт и логинится:
+
+* по magic link,
+* или по invite + пароль.
+
+Это **не Matrix login**.
+Это обычный логин в твой сервис.
+
+### Шаг 2. Backend создаёт скрытого Matrix‑пользователя
+
+После первого входа backend сам создаёт технический Matrix account через **Synapse Admin API**:
+
+* `PUT /_synapse/admin/v2/users/<user_id>`
+
+Этот endpoint официально создаёт или изменяет account для заданного `user_id`. ([Element HQ][6])
+
+### Шаг 3. Backend получает токен за этого пользователя
+
+Потом backend получает **access token от имени этого скрытого Matrix‑пользователя** через:
+
+* `POST /_synapse/admin/v1/users/<user_id>/login`
+
+Synapse официально поддерживает этот flow как **Login as a user**. ([Element HQ][6])
+
+### Шаг 4. Пользователь нажимает “Подключить Telegram”
+
+Вот тут начинается не Matrix, а **bridge login**.
+
+Bridge docs говорят, что логин должен идти в **management room**, то есть в приватной комнате без других людей, только пользователь и bridge bot. Мы делаем такую комнату **скрыто и автоматически** через Matrix API. ([Mau.fi][3])
+
+### Шаг 5. Backend сам запускает bridge login
+
+Backend от имени скрытого Matrix‑пользователя:
+
+* создаёт management room,
+* добавляет туда bridge bot,
+* отправляет в комнату `login`,
+* читает ответ bridge bot через `/sync`.
+
+Matrix Client‑Server API как раз позволяет клиентам **управлять комнатами** и **синхронизировать историю**. ([Matrix Specification][7])
+
+### Шаг 6. В твоём UI появляется окно “Подключите Telegram”
+
+Bridge bot вернёт пользователю путь логина.
+Если включён 2FA, docs рекомендуют **web login**. Значит ты берёшь этот web login flow и показываешь его внутри своего UI — в модалке, popup или встроенной странице под своим доменом. ([Mau.fi][3])
+
+### Шаг 7. Пользователь вводит:
+
+* номер телефона
+* код
+* при необходимости пароль 2FA
+
+После успеха bridge подключает Telegram.
+
+### Шаг 8. Backend видит, что Telegram подключён
+
+Backend дальше через Matrix `/sync` проверяет:
+
+* пришёл ли ответ от bridge bot,
+* создались ли portal rooms,
+* пошли ли новые Telegram events.
+
+Пользователь видит только:
+
+* “Telegram подключён”
+* и дальше твой продуктовый UI.
+
+## 6. Где и как будут храниться данные
+
+### Где лежат raw messages
+
+**Raw messages будут лежать в Synapse**, потому что Matrix homeserver по своей природе хранит историю и синхронизирует её клиентам. Client‑Server API прямо описан как API для **synchronise conversation history**. ([Matrix Specification][7])
+
+### Как сделать так, чтобы raw messages не лежали вечно
+
+У Synapse есть **message retention policies**.
+Они задаются через `max_lifetime`: после этого Synapse перестаёт отдавать сообщение клиентам, а затем purge job удаляет его из базы. Если retention не настроен, сообщение не purge’ится автоматически. ([matrix-org.github.io][8])
+
+### Что я рекомендую для MVP
+
+Для пилота:
+
+* raw messages в Synapse: **14 дней**
+* в твоей БД не держать вторую вечную копию raw text
+* хранить у себя только:
+
+  * `tasks`
+  * `meetings`
+  * `commitments`
+  * `waiting_on`
+  * `digest_items`
+  * `matrix_room_id`
+  * `matrix_event_id`
+  * позже `embeddings`
+
+### Что делать с историей старых чатов
+
+У mautrix backfill работает автоматически, и docs прямо советуют **настроить backfill до начала использования**. Плюс historical backfill по сути нормально работает только в **новых пустых комнатах**, иначе порядок сообщений получается кривым. ([Mau.fi][9])
+
+Мой совет:
+
+* **в MVP почти выключить backfill**
+* не тянуть человеку годы старой переписки
+* начать с:
+
+  * новых сообщений,
+  * и максимум небольшой recent history
+
+## 7. Какой стек выбрать
+
+Я бы выбрал такой стек.
+
+### Инфраструктура
+
+* **Ubuntu 24.04**
+* **Docker Compose**
+* **Caddy**
+* **Synapse**
+* **PostgreSQL 16**
+* **mautrix-telegram**
+
+### Backend
+
+* **ASP.NET Core 8**
+* **Hosted Services**
+* **Npgsql**
+* **Dapper** или **EF Core**
+
+### UI
+
+Для пилота я бы **не делал отдельную SPA**.
+Я бы взял:
+
+* **ASP.NET Core + Razor Pages**
+* **HTMX**
+* **Alpine.js**
+
+Почему: это быстрее всего для одного разработчика. У тебя будет:
+
+* обычный сайт,
+* модалки,
+* быстрые формы,
+* минимум фронтовой боли.
+
+### AI
+
+* **DeepSeek API**
+* основной режим: `deepseek-chat`
+* JSON Output включён
+* позже при желании — `deepseek-reasoner` для сложных вопросов
+
+DeepSeek JSON Output официально поддерживается через `response_format: {"type":"json_object"}`, и docs отдельно требуют, чтобы в prompt было слово `json` и пример нужного формата. ([DeepSeek API Docs][10])
+
+## 8. Как устроить код
+
+Я бы делал **один монорепозиторий**.
+
+```text
+/infra
+  docker-compose.yml
+  synapse/
+  mautrix/
+  caddy/
+
+/src
+  App.Web
+  App.Api
+  App.Workers
+  App.Domain
+  App.Infrastructure
+  App.Contracts
+
+/docs
+  architecture.md
+  prompts.md
+  pilot-runbook.md
+```
+
+### Что где
+
+* `App.Web` — сайт и UI
+* `App.Api` — внутреннее API
+* `App.Workers` — фоновые воркеры
+* `App.Domain` — бизнес-модели
+* `App.Infrastructure` — Matrix, DeepSeek, Postgres
+* `App.Contracts` — DTO и JSON schemas
+
+## 9. Какие сервисы должны быть в коде
+
+### 1. AuthService
+
+Отвечает за вход в твой продукт.
+
+### 2. MatrixProvisioningService
+
+Делает:
+
+* создание скрытого Matrix user
+* получение access token через admin login-as-user
+* привязку app user ↔ matrix user
+
+### 3. TelegramConnectionService
+
+Делает:
+
+* создание management room
+* отправку `login`
+* ожидание ответа bridge
+* показ web login flow в твоём UI
+* проверку статуса подключения
+
+### 4. MatrixSyncWorker
+
+Читает новые события через `/sync`.
+
+### 5. NormalizationService
+
+Превращает Matrix event в твой нормальный объект:
+
+```json
+{
+  "source": "telegram",
+  "matrixRoomId": "...",
+  "matrixEventId": "...",
+  "senderName": "...",
+  "text": "...",
+  "sentAt": "..."
+}
+```
+
+### 6. ExtractionWorker
+
+Берёт сообщения и отправляет их в DeepSeek.
+
+### 7. DigestWorker
+
+Собирает:
+
+* “Сегодня важно”
+* “Ждут ответа”
+* “Новые обещания”
+* “Новые встречи”
+
+### 8. SearchService
+
+На MVP можно сделать сначала простой поиск по extracted data.
+Векторный поиск подключишь позже.
+
+## 10. Как должна работать AI-часть
+
+На MVP не пытайся “понимать всё”.
+
+Сделай только 4 типа сущностей:
+
+* `task`
+* `meeting`
+* `commitment`
+* `waiting_on`
+
+### Какой JSON просить у модели
+
+Вот такого вида:
+
+```json
+{
+  "items": [
+    {
+      "kind": "task",
+      "title": "Отправить договор",
+      "person": "Иван",
+      "deadline": "2026-03-15",
+      "priority": "high",
+      "confidence": 0.86,
+      "summary": "Пользователь обещал отправить договор Ивану завтра"
+    }
+  ]
+}
+```
+
+### Какую модель использовать
+
+Сначала только:
+
+* `deepseek-chat`
+
+`deepseek-reasoner` пока не включай.
+Иначе ты раньше времени усложнишь цену и latency.
+
+## 11. Порядок разработки по неделям
+
+### Неделя 0 — подготовка
+
+Сделай:
+
+* домен
+* VPS
+* API key DeepSeek
+* Telegram `api_id` и `api_hash`
+* git repo
+* `.env` и секреты
+* список пилотных пользователей
+
+### Неделя 1 — инфраструктура
+
+Цель:
+**поднять голый Matrix и backend skeleton**
+
+Сделай:
+
+* Docker Compose
+* Caddy
+* Synapse
+* PostgreSQL
+* пустой ASP.NET проект
+* health endpoint
+
+Готово, если:
+
+* Matrix сервер доступен
+* Postgres работает
+* твой backend отвечает `/health`
+
+### Неделя 2 — bridge
+
+Цель:
+**Telegram message должен попасть в Matrix**
+
+Сделай:
+
+* mautrix-telegram
+* appservice registration
+* bridge bot
+* тестовый логин руками
+* минимум backfill
+* короткий retention
+
+Application Services должны быть вручную сконфигурированы на homeserver через registration file; это нормальная Matrix-модель. ([Matrix Specification][2])
+
+Готово, если:
+
+* bridge логинится
+* Telegram message виден в Matrix
+
+### Неделя 3 — скрытый Matrix user + кастомный Telegram connect flow
+
+Цель:
+**пользователь подключает Telegram через твой UI, без Element**
+
+Сделай:
+
+* login в твой продукт
+* создание Matrix user через Admin API
+* login-as-user token
+* management room creation
+* отправку `login`
+* чтение ответа bridge через `/sync`
+* показ bridge web login в своей модалке
+
+Готово, если:
+
+* новый пользователь подключает Telegram не видя Element
+
+### Неделя 4 — ingestion и нормализация
+
+Цель:
+**твой backend стабильно получает и нормализует сообщения**
+
+Сделай:
+
+* MatrixSyncWorker
+* фильтр service events
+* фильтр edits / joins / status
+* таблицу `normalized_messages`
+
+Готово, если:
+
+* у тебя в БД появляются новые Telegram messages
+
+### Неделя 5 — DeepSeek extraction
+
+Цель:
+**из сообщений появляются структурированные сущности**
+
+Сделай:
+
+* DeepSeek client
+* JSON mode
+* retry/timeout
+* extraction pipeline
+* таблицы:
+
+  * `tasks`
+  * `meetings`
+  * `commitments`
+  * `waiting_on`
+
+Готово, если:
+
+* из 20–30 тестовых сообщений ты получаешь валидный JSON и полезные сущности
+
+### Неделя 6 — продуктовый UI
+
+Цель:
+**появляется первая польза**
+
+Сделай экраны:
+
+* “Сегодня важно”
+* “Ждут ответа”
+* “Поиск”
+* “Подключения”
+
+Готово, если:
+
+* человек открывает сайт и понимает, что делать дальше
+
+### Неделя 7 — внутренний пилот
+
+Запусти на 3–5 людях.
+
+Смотри:
+
+* где ломается логин
+* где модель шумит
+* где слишком много мусора
+* где digest полезен
+
+### Неделя 8 — закрытый внешний пилот
+
+Запусти на 5–10 людях одной когорты:
+
+* фаундеры
+* рекрутеры
+* sales/bizdev
+* агентства
+
+Не смешивай аудитории.
+
+## 12. Какие экраны сделать в UI
+
+### Экран 1 — Welcome
+
+* вход по email
+* короткое объяснение пользы
+
+### Экран 2 — Connect Telegram
+
+* кнопка “Подключить Telegram”
+* модалка web login
+* индикатор статуса подключения
+
+### Экран 3 — Today
+
+* 3–10 карточек “что важно сегодня”
+
+### Экран 4 — Waiting for Reply
+
+* список людей и диалогов, где, вероятно, ждут ответа
+
+### Экран 5 — Search
+
+* строка запроса
+* результаты
+* ссылки на исходный диалог/контекст
+
+### Экран 6 — Feedback
+
+* “это полезно / не полезно”
+* “скрыть”
+* “неверно определено”
+
+Этот feedback потом очень поможет подкрутить prompts.
+
+## 13. Что не делать в первом MVP
+
+Не делай до пилота:
+
+* WhatsApp
+* Discord
+* свой mobile app
+* universal inbox
+* on-device AI
+* сложный graph intelligence
+* автоответы
+* CRM-интеграции
+* локальную LLM дома
+
+Сейчас твоя задача — **не построить всё**, а **доказать полезность**.
+
+## 14. Что мониторить
+
+Минимум:
+
+* bridge up/down
+* Synapse up/down
+* backend up/down
+* DeepSeek errors
+* invalid JSON rate
+* messages ingested/day
+* digest usefulness
+
+### Главные продуктовые метрики
+
+* сколько пользователей подключили Telegram
+* сколько из них вернулись на следующий день
+* сколько людей открыли “Сегодня важно”
+* сколько раз поиск был реально полезен
+
+## 15. Что нужно сделать перед выпуском пилота
+
+### Технически
+
+* включить HTTPS
+* сделать backup Postgres
+* включить retention
+* ограничить backfill
+* скрыть все внутренние Matrix routes
+* закрыть регистрацию на homeserver
+* оставить только invite-only flow в твоём продукте
+
+### Продуктово
+
+* короткая onboarding страница
+* понятный privacy текст
+* кнопка disconnect Telegram
+* логирование ошибок подключения
+
+## 16. Главный риск, который нельзя игнорировать
+
+У Telegram в текущих API Terms есть очень широкая формулировка: они запрещают использовать, получать доступ или агрегировать данные с платформы Telegram, чтобы train, fine-tune или иным образом участвовать в development / enhancement / deployment of AI/ML models. Эта формулировка широкая и может затрагивать твой use case. Поэтому **закрытый пилот сделать можно как исследование**, но **до публичного выпуска я бы обязательно сделал отдельную legal-проверку**. ([Telegram Core][11])
+
+## 17. Мой финальный короткий совет
+
+Если совсем коротко, то твой план должен быть таким:
+
+2. **Поставь Synapse + Postgres + mautrix-telegram**
+3. **Сделай скрытых Matrix users через Admin API**
+4. **Спрячь bridge login в свой UI**
+5. **Читай события через `/sync`**
+6. **Обрабатывай их через `deepseek-chat` в JSON mode**
+7. **Показывай только три вещи: Today, Waiting, Search**
+8. **Запускай закрытый пилот на 5–10 людях**
+9. **Только после этого думай про второй канал**
+
+Важно: сделай прослойку для ии так, чтобы можно было легко заменить на любую другую модель или вообще на собственную какую-то, которую развернем в будущем на своём сервере
+
+Самая первая реальная веха проекта:
+
+> **пользователь вошёл в твой сайт → нажал “Подключить Telegram” → не увидел Element → подключил Telegram → получил первый полезный блок “Сегодня важно”.**
+
+Вот это и есть твой настоящий MVP.
+
+Если хочешь, следующим сообщением я дам тебе уже **совсем прикладной набор**:
+
+* список контейнеров для `docker-compose`,
+* порядок запуска,
+* и skeleton структуры таблиц в Postgres.
+
+[1]: https://api-docs.deepseek.com/ "Your First API Call | DeepSeek API Docs"
+[2]: https://spec.matrix.org/v1.17/application-service-api/ "Application Service API | Matrix Specification"
+[3]: https://docs.mau.fi/bridges/python/telegram/authentication.html "Authentication - mautrix-bridges"
+[4]: https://matrix-org.github.io/synapse/v1.73/setup/installation.html "Installation - Synapse"
+[5]: https://core.telegram.org/api/obtaining_api_id "Creating your Telegram Application"
+[6]: https://element-hq.github.io/synapse/latest/admin_api/user_admin_api.html "Users - Synapse"
+[7]: https://spec.matrix.org/latest/client-server-api/ "Client-Server API | Matrix Specification"
+[8]: https://matrix-org.github.io/synapse/latest/message_retention_policies.html "Message Retention Policies - Synapse"
+[9]: https://docs.mau.fi/bridges/general/backfill.html "Backfilling messages - mautrix-bridges"
+[10]: https://api-docs.deepseek.com/guides/json_mode?utm_source=chatgpt.com "JSON Output"
+[11]: https://core.telegram.org/api/terms "Telegram API Terms of Service"

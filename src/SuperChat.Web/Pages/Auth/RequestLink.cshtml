@@ -1,0 +1,33 @@
+@page "/auth/request-link"
+@model SuperChat.Web.Pages.Auth.RequestLinkModel
+@{
+  ViewData["Title"] = "Request magic link";
+}
+
+<section class="stack">
+  <div class="section-card">
+    <h1>Request magic link</h1>
+    <p>Only invited pilot emails can enter the bootstrap.</p>
+
+    <form method="post" class="stack">
+      <div>
+        <label asp-for="Email">Email</label>
+        <input asp-for="Email" type="email" placeholder="pilot@example.com" />
+      </div>
+      <button type="submit" class="button primary">Send link</button>
+    </form>
+
+    @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+    {
+      <p class="notice">@Model.StatusMessage</p>
+    }
+
+    @if (Model.DevelopmentLink is not null)
+    {
+      <div class="dev-link">
+        <p>Development shortcut</p>
+        <a href="@Model.DevelopmentLink">@Model.DevelopmentLink</a>
+      </div>
+    }
+  </div>
+</section>

@@ -1,0 +1,48 @@
+@page
+@model IndexModel
+@{
+  ViewData["Title"] = "super-chat";
+}
+
+<section class="hero">
+  <div class="hero-copy">
+    <p class="eyebrow">Telegram clarity, routed through Matrix</p>
+    <h1>Turn scattered chats into a daily brief that feels usable on day one.</h1>
+    <p class="lede">
+      This bootstrap keeps the real architecture intact: invite-only auth, hidden Matrix identities, Telegram bridge integration,
+      extraction, digest, and a focused pilot surface.
+    </p>
+
+    @if (Model.IsSignedIn)
+    {
+      <div class="hero-actions">
+        <a class="button primary" asp-page="/Dashboard/Today">Open Today</a>
+        <a class="button secondary" asp-page="/Connect/Telegram">Manage Telegram connection</a>
+      </div>
+    }
+    else
+    {
+      <form method="post" asp-page="/Auth/RequestLink" class="auth-panel">
+        <label asp-for="Email">Pilot email</label>
+        <input asp-for="Email" type="email" placeholder="pilot@example.com" />
+        <button type="submit" class="button primary">Request magic link</button>
+      </form>
+      <p class="hint">Invite-only bootstrap. In development the app reveals the generated link directly after submission.</p>
+    }
+  </div>
+
+  <div class="hero-rail">
+    <div class="metric-card">
+      <span>Milestone</span>
+      <strong>Login → connect Telegram → first “Today” card</strong>
+    </div>
+    <div class="metric-card">
+      <span>Bounded modules</span>
+      <strong>Auth, Matrix provisioning, Telegram connect, sync, extraction, digest, search</strong>
+    </div>
+    <div class="metric-card">
+      <span>Current bootstrap mode</span>
+      <strong>@Model.BootstrapModeSummary</strong>
+    </div>
+  </div>
+</section>

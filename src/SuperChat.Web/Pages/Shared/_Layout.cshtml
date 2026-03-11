@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>@ViewData["Title"] - super-chat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+  <link rel="stylesheet" href="~/SuperChat.Web.styles.css" asp-append-version="true" />
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" asp-page="/Index">super-chat</a>
+      <nav class="topnav">
+        <a asp-page="/Connect/Telegram">Connect</a>
+        <a asp-page="/Dashboard/Today">Today</a>
+        <a asp-page="/Dashboard/Waiting">Waiting</a>
+        <a asp-page="/Search/Index">Search</a>
+        <a asp-page="/Feedback/Index">Feedback</a>
+        <a asp-page="/Settings/Connections">Settings</a>
+        @if (User.Identity?.IsAuthenticated ?? false)
+        {
+          <form method="post" asp-page="/Auth/SignOut" class="inline-form">
+            <button type="submit" class="nav-button">Sign out</button>
+          </form>
+        }
+      </nav>
+    </header>
+
+    <main class="page-body">
+      @RenderBody()
+    </main>
+  </div>
+
+  @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
