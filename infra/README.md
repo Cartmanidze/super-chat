@@ -26,10 +26,12 @@ The local stack initializes three PostgreSQL databases through `infra/postgres/i
 4. Run `bash infra/prod/scripts/render-configs.sh`.
 5. Run `bash infra/prod/scripts/preflight.sh`.
 6. Run `bash infra/prod/scripts/deploy.sh`.
+7. Verify the dedicated bridge host serves the mautrix public site under `/public/`.
 
 ## Notes
 
 - `infra/prod/` assumes `SuperChat.Web` and `SuperChat.Api` run as separate containers.
+- `infra/prod/` expects a dedicated bridge host such as `bridge.example.com` for mautrix public login pages.
 - `infra/prod/caddy/Caddyfile.template` is the only source for Caddy config; runtime `Caddyfile` is generated.
 - `infra/prod/synapse/homeserver.yaml.template`, `infra/prod/synapse/telegram-registration.yaml.template`, and `infra/prod/mautrix/config.yaml.template` are the source templates; runtime `.yaml` files are generated artifacts.
 - This gets the VPS stack running, but the app-side Telegram connect flow is still bootstrap logic until the real management-room and `/sync` integration lands.

@@ -13,3 +13,8 @@ ${SUPERCHAT_API_HOST} {
 ${MATRIX_SERVER_NAME} {
   reverse_proxy synapse:8008
 }
+
+${TELEGRAM_BRIDGE_HOST} {
+  redir / /public/ 308
+  reverse_proxy mautrix-telegram:29317
+}

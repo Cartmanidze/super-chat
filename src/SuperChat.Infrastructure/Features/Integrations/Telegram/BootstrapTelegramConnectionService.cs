@@ -17,7 +17,7 @@ public sealed class BootstrapTelegramConnectionService(
     {
         var now = timeProvider.GetUtcNow();
         var options = bridgeOptions.Value;
-        var loginUrl = new Uri($"{options.WebLoginBaseUrl.TrimEnd('/')}/?user={Uri.EscapeDataString(user.Email)}");
+        var loginUrl = new Uri(options.WebLoginBaseUrl.TrimEnd('/'));
         var connection = new TelegramConnectionEntity
         {
             UserId = user.Id,

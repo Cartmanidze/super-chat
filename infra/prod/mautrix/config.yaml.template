@@ -7,6 +7,10 @@ appservice:
   address: http://mautrix-telegram:29317
   hostname: 0.0.0.0
   port: 29317
+  public:
+    enabled: true
+    prefix: /public
+    external: ${TELEGRAM_BRIDGE_WEB_LOGIN_BASE_URL}
   id: telegram
   bot_username: ${MAUTRIX_BOT_USERNAME}
   bot_displayname: ${MAUTRIX_BOT_DISPLAYNAME}

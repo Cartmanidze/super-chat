@@ -112,6 +112,8 @@ services:
         condition: service_started
       synapse:
         condition: service_started
+      mautrix-telegram:
+        condition: service_started
     ports:
       - "80:80"
       - "443:443"
