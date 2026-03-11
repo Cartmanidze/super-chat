@@ -1,0 +1,30 @@
+﻿homeserver:
+  address: http://synapse:8008
+  domain: matrix.example.com
+  software: standard
+
+appservice:
+  address: http://mautrix-telegram:29317
+  hostname: 0.0.0.0
+  port: 29317
+  id: telegram
+  bot:
+    username: telegrambot
+    displayname: Telegram Bridge
+  as_token: change-me
+  hs_token: change-me
+  database: postgres://mautrix_telegram:change-me@postgres/mautrix_telegram?sslmode=disable
+
+telegram:
+  api_id: 123456
+  api_hash: change-me
+
+bridge:
+  permissions:
+    '*': relaybot
+    matrix.example.com: user
+  relaybot:
+    enabled: false
+  backfill:
+    enabled: false
+  sync_direct_chats: true

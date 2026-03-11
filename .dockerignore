@@ -1,0 +1,7 @@
+**/bin/
+**/obj/
+.git/
+.github/
+infra/postgres-data/
+infra/**/.env
+infra/**/data/

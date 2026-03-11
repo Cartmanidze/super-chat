@@ -1,13 +1,14 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using SuperChat.Contracts.Configuration;
 using SuperChat.Domain.Model;
 using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.State;
+using SuperChat.Infrastructure.Persistence;
 
 namespace SuperChat.Infrastructure.Services;
 
 public sealed class BootstrapTelegramConnectionService(
-    SuperChatStore store,
+    IDbContextFactory<SuperChatDbContext> dbContextFactory,
     IOptions<TelegramBridgeOptions> bridgeOptions,
     IOptions<PilotOptions> pilotOptions,
     TimeProvider timeProvider) : ITelegramConnectionService
@@ -17,46 +18,109 @@ public sealed class BootstrapTelegramConnectionService(
         var now = timeProvider.GetUtcNow();
         var options = bridgeOptions.Value;
         var loginUrl = new Uri($"{options.WebLoginBaseUrl.TrimEnd('/')}/?user={Uri.EscapeDataString(user.Email)}");
-        var connection = new TelegramConnection(user.Id, TelegramConnectionState.BridgePending, loginUrl, now, null);
+        var connection = new TelegramConnectionEntity
+        {
+            UserId = user.Id,
+            State = TelegramConnectionState.BridgePending,
+            WebLoginUrl = loginUrl.ToString(),
+            UpdatedAt = now
+        };
 
-        store.UpsertConnection(connection);
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var existing = await dbContext.TelegramConnections.SingleOrDefaultAsync(item => item.UserId == user.Id, cancellationToken);
+        if (existing is null)
+        {
+            dbContext.TelegramConnections.Add(connection);
+        }
+        else
+        {
+            existing.State = connection.State;
+            existing.WebLoginUrl = connection.WebLoginUrl;
+            existing.UpdatedAt = connection.UpdatedAt;
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
 
         if (pilotOptions.Value.DevSeedSampleData)
         {
             return await CompleteDevelopmentConnectionAsync(user, cancellationToken);
         }
 
-        return connection;
+        return connection.ToDomain();
     }
 
-    public Task<TelegramConnection> CompleteDevelopmentConnectionAsync(AppUser user, CancellationToken cancellationToken)
+    public async Task<TelegramConnection> CompleteDevelopmentConnectionAsync(AppUser user, CancellationToken cancellationToken)
     {
-        var existing = store.GetConnection(user.Id);
-        var connection = existing with
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var existing = await FindOrCreateConnectionAsync(dbContext, user.Id, cancellationToken);
+        existing.State = TelegramConnectionState.Connected;
+        existing.UpdatedAt = timeProvider.GetUtcNow();
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return existing.ToDomain();
+    }
+
+    public async Task<TelegramConnection> GetStatusAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var existing = await FindOrCreateConnectionAsync(dbContext, userId, cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return existing.ToDomain();
+    }
+
+    public async Task DisconnectAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var existing = await FindOrCreateConnectionAsync(dbContext, userId, cancellationToken);
+        existing.State = TelegramConnectionState.Disconnected;
+        existing.UpdatedAt = timeProvider.GetUtcNow();
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<TelegramConnection>> GetReadyForDevelopmentSyncAsync(CancellationToken cancellationToken)
+    {
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var connections = await dbContext.TelegramConnections
+            .AsNoTracking()
+            .Where(item => item.State == TelegramConnectionState.Connected && item.DevelopmentSeededAt == null)
+            .OrderBy(item => item.UpdatedAt)
+            .ToListAsync(cancellationToken);
+
+        return connections.Select(item => item.ToDomain()).ToList();
+    }
+
+    public async Task MarkSynchronizedAsync(Guid userId, DateTimeOffset synchronizedAt, CancellationToken cancellationToken)
+    {
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var existing = await FindOrCreateConnectionAsync(dbContext, userId, cancellationToken);
+        existing.LastSyncedAt = synchronizedAt;
+        existing.UpdatedAt = synchronizedAt;
+        existing.DevelopmentSeededAt = synchronizedAt;
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private static async Task<TelegramConnectionEntity> FindOrCreateConnectionAsync(
+        SuperChatDbContext dbContext,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var existing = await dbContext.TelegramConnections.SingleOrDefaultAsync(item => item.UserId == userId, cancellationToken);
+        if (existing is not null)
         {
-            State = TelegramConnectionState.Connected,
-            UpdatedAt = timeProvider.GetUtcNow()
+            return existing;
+        }
+
+        var connection = new TelegramConnectionEntity
+        {
+            UserId = userId,
+            State = TelegramConnectionState.NotStarted,
+            UpdatedAt = DateTimeOffset.UtcNow
         };
 
-        store.UpsertConnection(connection);
-        return Task.FromResult(connection);
-    }
-
-    public Task<TelegramConnection> GetStatusAsync(Guid userId, CancellationToken cancellationToken)
-    {
-        return Task.FromResult(store.GetConnection(userId));
-    }
-
-    public Task DisconnectAsync(Guid userId, CancellationToken cancellationToken)
-    {
-        var existing = store.GetConnection(userId);
-        store.UpsertConnection(existing with
-        {
-            State = TelegramConnectionState.Disconnected,
-            UpdatedAt = timeProvider.GetUtcNow(),
-            LastSyncedAt = existing.LastSyncedAt
-        });
-
-        return Task.CompletedTask;
+        dbContext.TelegramConnections.Add(connection);
+        return connection;
     }
 }

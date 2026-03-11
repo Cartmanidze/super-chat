@@ -1,0 +1,31 @@
+homeserver:
+  address: https://${SUPERCHAT_MATRIX_HOST}
+  domain: ${MATRIX_SERVER_NAME}
+  software: standard
+
+appservice:
+  address: http://mautrix-telegram:29317
+  hostname: 0.0.0.0
+  port: 29317
+  id: telegram
+  bot:
+    username: ${MAUTRIX_BOT_USERNAME}
+    displayname: ${MAUTRIX_BOT_DISPLAYNAME}
+  as_token: "${MAUTRIX_AS_TOKEN}"
+  hs_token: "${MAUTRIX_HS_TOKEN}"
+
+database: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/mautrix_telegram?sslmode=disable
+
+bridge:
+  permissions:
+    "*": relaybot
+    "${MATRIX_SERVER_NAME}": user
+  relaybot:
+    enabled: false
+  backfill:
+    enabled: false
+  sync_direct_chats: true
+
+telegram:
+  api_id: ${MAUTRIX_TELEGRAM_API_ID}
+  api_hash: ${MAUTRIX_TELEGRAM_API_HASH}

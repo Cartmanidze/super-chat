@@ -1,12 +1,21 @@
-using SuperChat.Domain.Model;
+﻿using SuperChat.Domain.Model;
 
 namespace SuperChat.Infrastructure.Abstractions;
 
 public interface IMessageNormalizationService
 {
-    bool TryStore(Guid userId, string roomId, string eventId, string senderName, string text, DateTimeOffset sentAt);
+    Task<bool> TryStoreAsync(
+        Guid userId,
+        string roomId,
+        string eventId,
+        string senderName,
+        string text,
+        DateTimeOffset sentAt,
+        CancellationToken cancellationToken);
 
-    IReadOnlyList<NormalizedMessage> GetPendingMessages();
+    Task<IReadOnlyList<NormalizedMessage>> GetPendingMessagesAsync(CancellationToken cancellationToken);
 
-    void MarkProcessed(IEnumerable<Guid> messageIds);
+    Task<IReadOnlyList<NormalizedMessage>> GetRecentMessagesAsync(Guid userId, int take, CancellationToken cancellationToken);
+
+    Task MarkProcessedAsync(IEnumerable<Guid> messageIds, CancellationToken cancellationToken);
 }

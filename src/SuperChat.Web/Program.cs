@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Extensions.Options;
 using SuperChat.Contracts.Configuration;
 using SuperChat.Infrastructure.Services;
-using SuperChat.Infrastructure.State;
+using SuperChat.Infrastructure.Abstractions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -48,20 +48,22 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapGet("/health", (
-    SuperChatStore store,
+app.MapGet("/health", async (
+    IHealthSnapshotService healthSnapshotService,
     IOptions<PilotOptions> pilotOptions,
     IOptions<DeepSeekOptions> deepSeekOptions,
-    IOptions<TelegramBridgeOptions> telegramOptions) =>
+    IOptions<TelegramBridgeOptions> telegramOptions,
+    CancellationToken cancellationToken) =>
 {
+    var snapshot = await healthSnapshotService.GetAsync(cancellationToken);
     return Results.Json(new
     {
         status = "ok",
         demoMode = pilotOptions.Value.DevSeedSampleData,
-        invitedUsers = store.AllowedEmailCount,
-        knownUsers = store.KnownUserCount,
-        pendingMessages = store.PendingMessageCount,
-        extractedItems = store.ExtractedItemCount,
+        invitedUsers = snapshot.AllowedEmailCount,
+        knownUsers = snapshot.KnownUserCount,
+        pendingMessages = snapshot.PendingMessageCount,
+        extractedItems = snapshot.ExtractedItemCount,
         aiModel = deepSeekOptions.Value.Model,
         bridgeBot = telegramOptions.Value.BotUserId
     });

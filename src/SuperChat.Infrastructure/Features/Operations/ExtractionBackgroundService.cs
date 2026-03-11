@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Hosting;
+﻿using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using SuperChat.Infrastructure.Abstractions;
 
@@ -7,7 +7,7 @@ namespace SuperChat.Infrastructure.HostedServices;
 public sealed class ExtractionBackgroundService(
     IMessageNormalizationService normalizationService,
     IAiStructuredExtractionService extractionService,
-    State.SuperChatStore store,
+    IExtractedItemService extractedItemService,
     ILogger<ExtractionBackgroundService> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -16,7 +16,7 @@ public sealed class ExtractionBackgroundService(
 
         while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken))
         {
-            var pendingMessages = normalizationService.GetPendingMessages();
+            var pendingMessages = await normalizationService.GetPendingMessagesAsync(stoppingToken);
             if (pendingMessages.Count == 0)
             {
                 continue;
@@ -27,11 +27,11 @@ public sealed class ExtractionBackgroundService(
             foreach (var message in pendingMessages)
             {
                 var items = await extractionService.ExtractAsync(message, stoppingToken);
-                store.AddExtractedItems(items);
+                await extractedItemService.AddRangeAsync(items, stoppingToken);
                 processedIds.Add(message.Id);
             }
 
-            normalizationService.MarkProcessed(processedIds);
+            await normalizationService.MarkProcessedAsync(processedIds, stoppingToken);
             logger.LogInformation("Processed {MessageCount} messages into extracted items.", processedIds.Count);
         }
     }

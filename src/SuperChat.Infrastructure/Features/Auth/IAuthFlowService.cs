@@ -1,4 +1,4 @@
-using SuperChat.Domain.Model;
+﻿using SuperChat.Domain.Model;
 
 namespace SuperChat.Infrastructure.Abstractions;
 
@@ -8,5 +8,5 @@ public interface IAuthFlowService
 
     Task<AuthVerificationResult> VerifyAsync(string token, CancellationToken cancellationToken);
 
-    AppUser? FindUser(string email);
+    Task<AppUser?> FindUserAsync(string email, CancellationToken cancellationToken);
 }

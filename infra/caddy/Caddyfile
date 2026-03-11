@@ -1,9 +1,13 @@
-{
+﻿{
   email {$CADDY_ACME_EMAIL}
 }
 
 app.localhost {
   reverse_proxy host.docker.internal:8080
+}
+
+api.localhost {
+  reverse_proxy host.docker.internal:5050
 }
 
 matrix.localhost {

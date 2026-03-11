@@ -8,15 +8,16 @@
 - Separate `/api/v1/*` host for future mobile clients
 - Hidden Matrix identity bootstrap per user
 - Telegram connection bootstrap flow with a development bridge stub
-- In-memory message normalization, extraction, digest, search, and feedback paths
+- PostgreSQL-backed auth, connection state, message normalization, extraction, digest, search, and feedback paths
 - Docker Compose skeleton for Postgres, Synapse, mautrix-telegram, Caddy, and Mailpit
+- Production bootstrap under `infra/prod/` for VPS pilot deployment
 - CI workflow for build and tests
 
 ## Quick start
 
 1. Copy `.env.example` to `.env` and fill the secrets you already have.
 2. Start the infra stack from `infra/`.
-3. Run `dotnet test SuperChat.sln`.
+3. Run `dotnet test SuperChat.sln -m:1`.
 4. Run `dotnet run --project src/SuperChat.Web`.
 5. Run `dotnet run --project src/SuperChat.Api`.
 6. Open the web app or call the API with one of the emails from `SuperChat__AllowedEmails`.
@@ -34,4 +35,4 @@ Key API routes in bootstrap mode:
 - `POST /api/v1/feedback`
 - `GET /api/v1/health`
 
-In development, the requested magic link is returned directly in responses and the Telegram connect flow can seed demo messages so the `Today`, `Waiting`, and `Search` surfaces show product value before the real bridge is wired.
+In development, the requested magic link is returned directly in responses and the Telegram connect flow can seed demo messages so the `Today`, `Waiting`, and `Search` surfaces show product value before the real bridge is wired. By default the app can still fall back to EF Core in-memory storage, but the provided `.env.example` now points local bootstrap at PostgreSQL so `SuperChat.Web` and `SuperChat.Api` share the same state.

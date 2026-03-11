@@ -1,18 +1,24 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using SuperChat.Infrastructure.Persistence;
 
 namespace SuperChat.Api.Tests;
 
-public sealed class ApiSmokeTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly ApiTestApplicationFactory _factory;
 
-    public ApiSmokeTests(WebApplicationFactory<Program> factory)
+    public ApiSmokeTests(ApiTestApplicationFactory factory)
     {
         _factory = factory;
     }
@@ -125,4 +131,52 @@ public sealed class ApiSmokeTests : IClassFixture<WebApplicationFactory<Program>
     private sealed record MeEnvelope(Guid Id, string Email, string? MatrixUserId, string TelegramState);
 
     private sealed record TelegramConnectionEnvelope(string State, string? MatrixUserId, Uri? WebLoginUrl, DateTimeOffset? LastSyncedAt, bool RequiresAction);
+}
+
+public sealed class ApiTestApplicationFactory : WebApplicationFactory<Program>
+{
+    private readonly string _databasePath = Path.Combine(Path.GetTempPath(), $"superchat-api-{Guid.NewGuid():N}.db");
+
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        builder.UseEnvironment("Development");
+        builder.ConfigureAppConfiguration((_, config) =>
+        {
+            config.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:SuperChatDb"] = $"Data Source={_databasePath}",
+                ["Persistence:Provider"] = "Sqlite",
+                ["SuperChat:AllowedEmails:0"] = "pilot@example.com",
+                ["SuperChat:ApiSessionDays"] = "30",
+                ["SuperChat:DevSeedSampleData"] = "true"
+            });
+        });
+        builder.ConfigureServices(services =>
+        {
+            services.RemoveAll(typeof(IDbContextFactory<SuperChatDbContext>));
+            services.RemoveAll(typeof(DbContextOptions<SuperChatDbContext>));
+            services.AddDbContextFactory<SuperChatDbContext>(options => options.UseSqlite($"Data Source={_databasePath}"));
+        });
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+
+        if (!disposing)
+        {
+            return;
+        }
+
+        try
+        {
+            if (File.Exists(_databasePath))
+            {
+                File.Delete(_databasePath);
+            }
+        }
+        catch
+        {
+        }
+    }
 }

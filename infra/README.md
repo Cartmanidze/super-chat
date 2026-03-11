@@ -1,28 +1,34 @@
-# infra bootstrap
+# infra
 
-This folder contains the local and VPS bootstrap for the Matrix/Telegram side of `super-chat`.
+This folder now has two tracks:
 
-## Containers
-
-- `postgres`: app data, Synapse DB, future persistence
-- `mailpit`: development SMTP for magic links
-- `synapse`: Matrix homeserver
-- `mautrix-telegram`: Telegram bridge
-- `caddy`: public entrypoint and TLS termination
-
-## What to fill in before first real run
-
-1. `infra/synapse/homeserver.yaml`
-2. `infra/mautrix/config.yaml`
-3. Root `.env`
-4. Telegram `api_id` and `api_hash`
-5. Synapse admin token and bridge appservice tokens
+- `infra/docker-compose.yml`: local bootstrap for development
+- `infra/prod/`: VPS-oriented templates for the pilot stack
 
 ## Local bootstrap
 
-1. Start infra: `docker compose -f infra/docker-compose.yml up -d`
-2. Open Mailpit at `http://localhost:8025`
-3. Run the web app outside Docker with `dotnet run --project src/SuperChat.Web`
-4. Point Caddy upstreams to the app and Matrix endpoints you actually use
+1. Copy root `.env.example` to `.env`.
+2. Start infra with `docker compose -f infra/docker-compose.yml up -d`.
+3. Run `dotnet run --project src/SuperChat.Web`.
+4. Run `dotnet run --project src/SuperChat.Api`.
 
-The compose stack is intentionally a bootstrap, not a production-ready hardened deployment. It exists to get Synapse, the bridge, SMTP, and TLS wiring into one visible place from the first commit.
+The local stack now initializes three PostgreSQL databases through `infra/postgres/init/01-create-databases.sh`:
+
+- `superchat_app`
+- `synapse`
+- `mautrix_telegram`
+
+## VPS pilot bootstrap
+
+1. Copy `infra/prod/.env.example` to `infra/prod/.env`.
+2. Fill Matrix, Telegram, SMTP, DeepSeek, and Postgres secrets.
+3. Copy `infra/prod/synapse/homeserver.yaml.example` to `infra/prod/synapse/homeserver.yaml` and render the placeholders.
+4. Generate or fill `infra/prod/synapse/telegram-registration.yaml` from the example template.
+5. Copy `infra/prod/mautrix/config.yaml.example` to `infra/prod/mautrix/config.yaml` and render the placeholders.
+6. Start the pilot stack with `docker compose --env-file infra/prod/.env -f infra/prod/docker-compose.yml up -d --build`.
+
+## Notes
+
+- `infra/prod/` assumes `SuperChat.Web` and `SuperChat.Api` run as separate containers.
+- `infra/prod/Caddyfile` expects dedicated hosts for app, api, and matrix.
+- These are still bootstrap templates, not a full hardened ops package with monitoring, backups, or secret rotation.

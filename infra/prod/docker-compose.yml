@@ -1,0 +1,59 @@
+﻿services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: ${POSTGRES_SUPERUSER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_SUPERUSER} -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  synapse:
+    image: ${SYNAPSE_IMAGE}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SYNAPSE_CONFIG_PATH: ${SYNAPSE_CONFIG_PATH}
+    volumes:
+      - ./synapse:/data
+
+  mautrix-telegram:
+    image: ${MAUTRIX_TELEGRAM_IMAGE}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      synapse:
+        condition: service_started
+    volumes:
+      - ./mautrix:/data
+
+  caddy:
+    image: caddy:2.8
+    restart: unless-stopped
+    depends_on:
+      synapse:
+        condition: service_started
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    extra_hosts:
+      - host.docker.internal:host-gateway
+
+volumes:
+  postgres-data:
+  caddy-data:
+  caddy-config:

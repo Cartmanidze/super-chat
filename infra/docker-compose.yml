@@ -1,17 +1,18 @@
-services:
+﻿services:
   postgres:
     image: postgres:16
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-superchat}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-superchat}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -24,7 +25,7 @@ services:
       - "${MAILPIT_UI_PORT:-8025}:8025"
 
   synapse:
-    image: matrixdotorg/synapse:v1.128.0
+    image: ${SYNAPSE_IMAGE:-matrixdotorg/synapse:v1.128.0}
     restart: unless-stopped
     depends_on:
       postgres:
@@ -37,9 +38,11 @@ services:
       - "${SYNAPSE_PORT:-8008}:8008"
 
   mautrix-telegram:
-    image: dock.mau.dev/mautrix/telegram:latest
+    image: ${MAUTRIX_TELEGRAM_IMAGE:-dock.mau.dev/mautrix/telegram:latest}
     restart: unless-stopped
     depends_on:
+      postgres:
+        condition: service_healthy
       synapse:
         condition: service_started
     volumes:

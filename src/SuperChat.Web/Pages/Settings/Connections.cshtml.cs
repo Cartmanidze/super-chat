@@ -1,8 +1,7 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.State;
 using SuperChat.Web.Security;
 
 namespace SuperChat.Web.Pages.Settings;
@@ -11,7 +10,7 @@ namespace SuperChat.Web.Pages.Settings;
 public sealed class ConnectionsModel(
     IAuthFlowService authFlowService,
     ITelegramConnectionService telegramConnectionService,
-    SuperChatStore store) : PageModel
+    IMatrixProvisioningService matrixProvisioningService) : PageModel
 {
     public string Email { get; private set; } = string.Empty;
 
@@ -28,7 +27,7 @@ public sealed class ConnectionsModel(
 
     public async Task<IActionResult> OnPostDisconnectAsync(CancellationToken cancellationToken)
     {
-        var user = authFlowService.FindUser(User.GetEmail());
+        var user = await authFlowService.FindUserAsync(User.GetEmail(), cancellationToken);
         if (user is null)
         {
             return RedirectToPage("/Index");
@@ -41,13 +40,13 @@ public sealed class ConnectionsModel(
     private async Task LoadAsync(CancellationToken cancellationToken)
     {
         Email = User.GetEmail();
-        var user = authFlowService.FindUser(Email);
+        var user = await authFlowService.FindUserAsync(Email, cancellationToken);
         if (user is null)
         {
             return;
         }
 
-        MatrixUserId = store.GetMatrixIdentity(user.Id)?.MatrixUserId ?? "pending";
+        MatrixUserId = (await matrixProvisioningService.GetIdentityAsync(user.Id, cancellationToken))?.MatrixUserId ?? "pending";
         var connection = await telegramConnectionService.GetStatusAsync(user.Id, cancellationToken);
         ConnectionState = connection.State.ToString();
         LastSyncedAt = connection.LastSyncedAt;

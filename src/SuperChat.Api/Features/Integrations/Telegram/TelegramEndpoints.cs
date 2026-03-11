@@ -1,9 +1,8 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using SuperChat.Api.Features.Auth;
 using SuperChat.Api.Security;
 using SuperChat.Domain.Model;
 using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.State;
 
 namespace SuperChat.Api.Features.Integrations.Telegram;
 
@@ -17,12 +16,12 @@ public static class TelegramEndpoints
         group.MapGet(string.Empty, async (
             HttpContext httpContext,
             ITelegramConnectionService telegramConnectionService,
-            SuperChatStore store,
+            IMatrixProvisioningService matrixProvisioningService,
             CancellationToken cancellationToken) =>
         {
             var userId = httpContext.User.GetRequiredUserId();
             var connection = await telegramConnectionService.GetStatusAsync(userId, cancellationToken);
-            var matrixIdentity = store.GetMatrixIdentity(userId);
+            var matrixIdentity = await matrixProvisioningService.GetIdentityAsync(userId, cancellationToken);
             return Results.Ok(ToResponse(connection, matrixIdentity?.MatrixUserId));
         });
 
@@ -30,30 +29,30 @@ public static class TelegramEndpoints
             HttpContext httpContext,
             IAuthFlowService authFlowService,
             ITelegramConnectionService telegramConnectionService,
-            SuperChatStore store,
+            IMatrixProvisioningService matrixProvisioningService,
             CancellationToken cancellationToken) =>
         {
-            var user = authFlowService.FindUser(httpContext.User.GetRequiredEmail());
+            var user = await authFlowService.FindUserAsync(httpContext.User.GetRequiredEmail(), cancellationToken);
             if (user is null)
             {
                 return Results.Unauthorized();
             }
 
             var connection = await telegramConnectionService.StartAsync(user, cancellationToken);
-            var matrixIdentity = store.GetMatrixIdentity(user.Id);
+            var matrixIdentity = await matrixProvisioningService.GetIdentityAsync(user.Id, cancellationToken);
             return Results.Ok(ToResponse(connection, matrixIdentity?.MatrixUserId));
         });
 
         group.MapDelete(string.Empty, async (
             HttpContext httpContext,
             ITelegramConnectionService telegramConnectionService,
-            SuperChatStore store,
+            IMatrixProvisioningService matrixProvisioningService,
             CancellationToken cancellationToken) =>
         {
             var userId = httpContext.User.GetRequiredUserId();
             await telegramConnectionService.DisconnectAsync(userId, cancellationToken);
             var connection = await telegramConnectionService.GetStatusAsync(userId, cancellationToken);
-            var matrixIdentity = store.GetMatrixIdentity(userId);
+            var matrixIdentity = await matrixProvisioningService.GetIdentityAsync(userId, cancellationToken);
             return Results.Ok(ToResponse(connection, matrixIdentity?.MatrixUserId));
         });
 

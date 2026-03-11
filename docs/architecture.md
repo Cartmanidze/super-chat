@@ -50,4 +50,6 @@ The repository starts as a modular monolith and keeps two clearly separated cont
 
 ## Current implementation boundary
 
-The repo now implements a working bootstrap. Real Synapse Admin API calls, real bridge management rooms, and real DeepSeek HTTP calls are still intentionally isolated behind services so we can replace development behavior incrementally instead of rewriting the whole app.
+The repo now implements a working bootstrap with one `SuperChatDbContext` as the persistence seam. Feature services talk to EF Core directly instead of going through a custom storage layer, and production can point that context at PostgreSQL while tests and isolated local runs stay on the EF in-memory provider.
+
+Real Synapse Admin API calls, real bridge management rooms, and real DeepSeek HTTP calls are still intentionally isolated behind services so we can replace development behavior incrementally instead of rewriting the whole app.

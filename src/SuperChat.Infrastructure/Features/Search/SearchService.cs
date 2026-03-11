@@ -1,20 +1,22 @@
-using SuperChat.Contracts.ViewModels;
+﻿using SuperChat.Contracts.ViewModels;
 using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.State;
 
 namespace SuperChat.Infrastructure.Services;
 
-public sealed class SearchService(SuperChatStore store) : ISearchService
+public sealed class SearchService(
+    IExtractedItemService extractedItemService,
+    IMessageNormalizationService messageNormalizationService) : ISearchService
 {
-    public Task<IReadOnlyList<SearchResultViewModel>> SearchAsync(Guid userId, string query, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<SearchResultViewModel>> SearchAsync(Guid userId, string query, CancellationToken cancellationToken)
     {
         var normalizedQuery = query.Trim();
         if (string.IsNullOrWhiteSpace(normalizedQuery))
         {
-            return Task.FromResult<IReadOnlyList<SearchResultViewModel>>([]);
+            return [];
         }
 
-        var results = store.GetExtractedItems(userId)
+        var extractedItems = await extractedItemService.GetForUserAsync(userId, cancellationToken);
+        var results = extractedItems
             .Where(item =>
                 item.Title.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
                 item.Summary.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
@@ -24,17 +26,18 @@ public sealed class SearchService(SuperChatStore store) : ISearchService
             .Select(item => new SearchResultViewModel(item.Title, item.Summary, item.Kind.ToString(), item.SourceRoom, item.ObservedAt))
             .ToList();
 
-        if (results.Count == 0)
+        if (results.Count > 0)
         {
-            results = store.GetRecentMessages(userId, 20)
-                .Where(message =>
-                    message.Text.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
-                    message.SenderName.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
-                    message.MatrixRoomId.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase))
-                .Select(message => new SearchResultViewModel(message.SenderName, message.Text, "Message", message.MatrixRoomId, message.SentAt))
-                .ToList();
+            return results;
         }
 
-        return Task.FromResult<IReadOnlyList<SearchResultViewModel>>(results);
+        var recentMessages = await messageNormalizationService.GetRecentMessagesAsync(userId, 20, cancellationToken);
+        return recentMessages
+            .Where(message =>
+                message.Text.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
+                message.SenderName.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
+                message.MatrixRoomId.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase))
+            .Select(message => new SearchResultViewModel(message.SenderName, message.Text, "Message", message.MatrixRoomId, message.SentAt))
+            .ToList();
     }
 }

@@ -1,5 +1,5 @@
-homeserver:
-  address: https://matrix.localhost
+﻿homeserver:
+  address: http://synapse:8008
   domain: matrix.localhost
   software: standard
 
@@ -11,19 +11,20 @@ appservice:
   bot:
     username: telegrambot
     displayname: Telegram Bridge
-  as_token: "replace-me"
-  hs_token: "replace-me"
+  as_token: replace-me
+  hs_token: replace-me
+  database: postgres://postgres:postgres@postgres/mautrix_telegram?sslmode=disable
+
+telegram:
+  api_id: 123456
+  api_hash: replace-me
 
 bridge:
   permissions:
-    "*": relaybot
-    "matrix.localhost": user
+    '*': relaybot
+    matrix.localhost: user
   relaybot:
     enabled: false
   backfill:
     enabled: false
   sync_direct_chats: true
-
-telegram:
-  api_id: 123456
-  api_hash: replace-me

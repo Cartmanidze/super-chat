@@ -1,4 +1,4 @@
-server_name: matrix.localhost
+﻿server_name: matrix.localhost
 pid_file: /data/homeserver.pid
 public_baseurl: https://matrix.localhost/
 report_stats: false
@@ -17,12 +17,12 @@ database:
   args:
     user: postgres
     password: postgres
-    database: superchat
+    database: synapse
     host: postgres
     cp_min: 5
     cp_max: 10
 
-registration_shared_secret: "replace-me"
+registration_shared_secret: replace-me
 enable_registration: false
 enable_registration_without_verification: false
 
