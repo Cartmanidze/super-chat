@@ -12,129 +12,394 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="Nav.Connect" xml:space="preserve"><value>Подключить</value></data>
-  <data name="Nav.Today" xml:space="preserve"><value>Сегодня</value></data>
-  <data name="Nav.Waiting" xml:space="preserve"><value>В ожидании</value></data>
-  <data name="Nav.Search" xml:space="preserve"><value>Поиск</value></data>
-  <data name="Nav.Feedback" xml:space="preserve"><value>Обратная связь</value></data>
-  <data name="Nav.Settings" xml:space="preserve"><value>Настройки</value></data>
-  <data name="Nav.SignOut" xml:space="preserve"><value>Выйти</value></data>
-  <data name="Nav.Language" xml:space="preserve"><value>Язык</value></data>
-  <data name="Common.Email" xml:space="preserve"><value>Email</value></data>
-  <data name="Common.Status" xml:space="preserve"><value>Статус</value></data>
-  <data name="Common.LastSync" xml:space="preserve"><value>Последняя синхронизация</value></data>
-  <data name="Common.Waiting" xml:space="preserve"><value>ожидание</value></data>
-  <data name="Common.Pending" xml:space="preserve"><value>ещё не готово</value></data>
-  <data name="Home.Eyebrow" xml:space="preserve"><value>Порядок в Telegram через Matrix</value></data>
-  <data name="Home.Title" xml:space="preserve"><value>Превращайте разрозненные чаты в ежедневную выжимку, которой можно пользоваться уже в первый день.</value></data>
-  <data name="Home.Lede" xml:space="preserve"><value>Этот bootstrap сохраняет реальную архитектуру: инвайтный доступ, скрытые Matrix identity, Telegram bridge, extraction, digest и сфокусированную pilot-поверхность.</value></data>
-  <data name="Home.OpenToday" xml:space="preserve"><value>Открыть Today</value></data>
-  <data name="Home.ManageTelegramConnection" xml:space="preserve"><value>Управлять подключением Telegram</value></data>
-  <data name="Home.PilotEmailLabel" xml:space="preserve"><value>Пилотный email</value></data>
-  <data name="Home.PilotEmailPlaceholder" xml:space="preserve"><value>pilot@example.com</value></data>
-  <data name="Home.RequestMagicLink" xml:space="preserve"><value>Запросить magic link</value></data>
-  <data name="Home.InviteOnlyHint" xml:space="preserve"><value>Доступ только по приглашению. В development-режиме приложение сразу показывает сгенерированную ссылку после отправки формы.</value></data>
-  <data name="Home.Metric.Milestone.Label" xml:space="preserve"><value>Веха</value></data>
-  <data name="Home.Metric.Milestone.Value" xml:space="preserve"><value>Вход -> подключение Telegram -> первая карточка Today</value></data>
-  <data name="Home.Metric.Modules.Label" xml:space="preserve"><value>Границы модулей</value></data>
-  <data name="Home.Metric.Modules.Value" xml:space="preserve"><value>Аутентификация, Matrix provisioning, подключение Telegram, sync, extraction, digest, поиск</value></data>
-  <data name="Home.Metric.Mode.Label" xml:space="preserve"><value>Текущий режим bootstrap</value></data>
-  <data name="Home.BootstrapMode.Development" xml:space="preserve"><value>Включён development seed bridge</value></data>
-  <data name="Home.BootstrapMode.Live" xml:space="preserve"><value>Ожидание реальной bridge-синхронизации</value></data>
-  <data name="ConnectTelegram.PageTitle" xml:space="preserve"><value>Подключение Telegram</value></data>
-  <data name="ConnectTelegram.Eyebrow" xml:space="preserve"><value>Управление bridge</value></data>
-  <data name="ConnectTelegram.Title" xml:space="preserve"><value>Подключите Telegram без прямого доступа к Element</value></data>
-  <data name="ConnectTelegram.Description" xml:space="preserve"><value>Скрытая Matrix identity создаётся автоматически. Приложение открывает приватную management-room с bridge, ждёт login prompt, а затем начинает синхронизировать реальные сообщения из Telegram.</value></data>
-  <data name="ConnectTelegram.MatrixUser" xml:space="preserve"><value>Пользователь Matrix</value></data>
-  <data name="ConnectTelegram.StartButton" xml:space="preserve"><value>Начать подключение Telegram</value></data>
-  <data name="ConnectTelegram.BridgeWebLogin" xml:space="preserve"><value>Веб-логин bridge:</value></data>
-  <data name="ConnectTelegram.BridgePendingNotice" xml:space="preserve"><value>Bridge готовит login prompt. Обновите страницу через несколько секунд, чтобы подхватить ссылку на веб-логин.</value></data>
-  <data name="ConnectTelegram.OpenToday" xml:space="preserve"><value>Открыть Today</value></data>
-  <data name="ConnectTelegram.InspectDetails" xml:space="preserve"><value>Открыть детали подключения</value></data>
-  <data name="ConnectTelegram.DevModeHint" xml:space="preserve"><value>В development-режиме приложение по-прежнему подмешивает sample messages, чтобы поверхность продукта можно было проверить даже без живого Telegram-аккаунта.</value></data>
-  <data name="Today.PageTitle" xml:space="preserve"><value>Сегодня</value></data>
-  <data name="Today.Eyebrow" xml:space="preserve"><value>Дайджест</value></data>
-  <data name="Today.Title" xml:space="preserve"><value>Важно сегодня</value></data>
-  <data name="Today.Empty" xml:space="preserve"><value>Карточек пока нет. Подключите Telegram и дайте sync/extraction циклу собрать первый дайджест.</value></data>
-  <data name="Today.OpenTelegramConnection" xml:space="preserve"><value>Открыть подключение Telegram</value></data>
-  <data name="Waiting.PageTitle" xml:space="preserve"><value>В ожидании</value></data>
-  <data name="Waiting.Eyebrow" xml:space="preserve"><value>Последующие действия</value></data>
-  <data name="Waiting.Title" xml:space="preserve"><value>Ждём ответа</value></data>
-  <data name="Waiting.Empty" xml:space="preserve"><value>Активных waiting-on карточек пока нет.</value></data>
-  <data name="Search.PageTitle" xml:space="preserve"><value>Поиск</value></data>
-  <data name="Search.Eyebrow" xml:space="preserve"><value>Структурированный поиск</value></data>
-  <data name="Search.Title" xml:space="preserve"><value>Ищите извлечённую работу, а не сырые chat dumps</value></data>
-  <data name="Search.Placeholder" xml:space="preserve"><value>proposal, Friday, Marina...</value></data>
-  <data name="Search.Button" xml:space="preserve"><value>Искать</value></data>
-  <data name="Search.NoMatches" xml:space="preserve"><value>Совпадений для "{0}" пока нет.</value></data>
-  <data name="Feedback.PageTitle" xml:space="preserve"><value>Обратная связь</value></data>
-  <data name="Feedback.Eyebrow" xml:space="preserve"><value>Сигнал от пилота</value></data>
-  <data name="Feedback.Title" xml:space="preserve"><value>Отправить обратную связь по продукту</value></data>
-  <data name="Feedback.Description" xml:space="preserve"><value>Используйте это в пилоте, чтобы отметить, насколько реально полезны digest и search.</value></data>
-  <data name="Feedback.Area" xml:space="preserve"><value>Раздел</value></data>
-  <data name="Feedback.Area.Today" xml:space="preserve"><value>Today</value></data>
-  <data name="Feedback.Area.Waiting" xml:space="preserve"><value>Waiting</value></data>
-  <data name="Feedback.Area.Search" xml:space="preserve"><value>Search</value></data>
-  <data name="Feedback.Useful" xml:space="preserve"><value>Полезно</value></data>
-  <data name="Feedback.Useful.Yes" xml:space="preserve"><value>Полезно</value></data>
-  <data name="Feedback.Useful.No" xml:space="preserve"><value>Не полезно</value></data>
-  <data name="Feedback.Note" xml:space="preserve"><value>Заметка</value></data>
-  <data name="Feedback.NotePlaceholder" xml:space="preserve"><value>Что оказалось удачным, а что шумным?</value></data>
-  <data name="Feedback.Submit" xml:space="preserve"><value>Отправить feedback</value></data>
-  <data name="Feedback.Recorded" xml:space="preserve"><value>Feedback сохранён. Спасибо, что помогаете затянуть pilot loop.</value></data>
-  <data name="Connections.PageTitle" xml:space="preserve"><value>Подключения</value></data>
-  <data name="Settings.Eyebrow" xml:space="preserve"><value>Настройки</value></data>
-  <data name="Connections.Title" xml:space="preserve"><value>Обзор подключений</value></data>
-  <data name="Connections.ProductEmail" xml:space="preserve"><value>Продуктовый email</value></data>
-  <data name="Connections.MatrixUser" xml:space="preserve"><value>Пользователь Matrix</value></data>
-  <data name="Connections.TelegramState" xml:space="preserve"><value>Состояние Telegram</value></data>
-  <data name="Connections.DisconnectTelegram" xml:space="preserve"><value>Отключить Telegram</value></data>
-  <data name="Connections.BackToConnectFlow" xml:space="preserve"><value>Вернуться к подключению</value></data>
-  <data name="Auth.RequestLink.PageTitle" xml:space="preserve"><value>Запрос magic link</value></data>
-  <data name="Auth.RequestLink.Title" xml:space="preserve"><value>Запросить magic link</value></data>
-  <data name="Auth.RequestLink.Description" xml:space="preserve"><value>В bootstrap могут войти только приглашённые pilot email-адреса.</value></data>
-  <data name="Auth.RequestLink.Send" xml:space="preserve"><value>Отправить ссылку</value></data>
-  <data name="Auth.RequestLink.DevelopmentShortcut" xml:space="preserve"><value>Development shortcut</value></data>
-  <data name="Auth.Verify.PageTitle" xml:space="preserve"><value>Проверка ссылки</value></data>
-  <data name="Auth.Verify.Title" xml:space="preserve"><value>Проверяем доступ</value></data>
-  <data name="Auth.Verify.Checking" xml:space="preserve"><value>Проверяем вашу ссылку...</value></data>
-  <data name="Auth.Verify.RequestAnotherLink" xml:space="preserve"><value>Запросить новую ссылку</value></data>
-  <data name="Auth.MagicLink.Created" xml:space="preserve"><value>Magic link создан.</value></data>
-  <data name="Auth.MagicLink.NotInvited" xml:space="preserve"><value>Этот email пока не приглашён в пилот.</value></data>
-  <data name="Auth.MagicLink.Unknown" xml:space="preserve"><value>Не удалось обработать запрос на magic link.</value></data>
-  <data name="Auth.Verify.Success" xml:space="preserve"><value>Вход выполнен успешно.</value></data>
-  <data name="Auth.Verify.InvalidOrExpired" xml:space="preserve"><value>Эта magic link недействительна или уже истекла.</value></data>
-  <data name="Auth.Verify.Unknown" xml:space="preserve"><value>Не удалось проверить ссылку.</value></data>
-  <data name="Privacy.PageTitle" xml:space="preserve"><value>Приватность</value></data>
-  <data name="Privacy.Eyebrow" xml:space="preserve"><value>Приватность</value></data>
-  <data name="Privacy.Title" xml:space="preserve"><value>Заметки о приватности для bootstrap</value></data>
-  <data name="Privacy.Point1" xml:space="preserve"><value>Доступ ограничен только приглашёнными pilot users.</value></data>
-  <data name="Privacy.Point2" xml:space="preserve"><value>Bootstrap держит интеграции Matrix и Telegram за продуктовым UI.</value></data>
-  <data name="Privacy.Point3" xml:space="preserve"><value>Extracted items предназначены только для Today, Waiting, Search и pilot feedback loops.</value></data>
-  <data name="Privacy.Point4" xml:space="preserve"><value>Публичный запуск должен оставаться заблокированным, пока условия Telegram не будут отдельно проверены.</value></data>
-  <data name="Error.PageTitle" xml:space="preserve"><value>Ошибка</value></data>
-  <data name="Error.Title" xml:space="preserve"><value>Ошибка.</value></data>
-  <data name="Error.Subtitle" xml:space="preserve"><value>Во время обработки запроса что-то пошло не так.</value></data>
-  <data name="Error.RequestId" xml:space="preserve"><value>ID запроса:</value></data>
-  <data name="Error.DevelopmentModeTitle" xml:space="preserve"><value>Режим разработки</value></data>
-  <data name="Error.DevelopmentModeDescription" xml:space="preserve"><value>В окружении Development приложение показывает подробности произошедшей ошибки.</value></data>
-  <data name="Error.DevelopmentModeWarning" xml:space="preserve"><value>Не включайте Development на проде: это может раскрыть пользователям чувствительные детали исключений.</value></data>
-  <data name="Kind.Task" xml:space="preserve"><value>Задача</value></data>
-  <data name="Kind.Meeting" xml:space="preserve"><value>Встреча</value></data>
-  <data name="Kind.Commitment" xml:space="preserve"><value>Обещание</value></data>
-  <data name="Kind.WaitingOn" xml:space="preserve"><value>Ждём ответ</value></data>
-  <data name="Kind.Message" xml:space="preserve"><value>Сообщение</value></data>
-  <data name="CardTitle.ActionNeeded" xml:space="preserve"><value>Нужно действие</value></data>
-  <data name="CardTitle.UpcomingMeeting" xml:space="preserve"><value>Предстоящая встреча</value></data>
-  <data name="CardTitle.CommitmentMade" xml:space="preserve"><value>Дано обещание</value></data>
-  <data name="CardTitle.AwaitingResponse" xml:space="preserve"><value>Ожидаем ответ</value></data>
-  <data name="CardTitle.FollowUpCandidate" xml:space="preserve"><value>Кандидат на follow-up</value></data>
-  <data name="TelegramState.NotStarted" xml:space="preserve"><value>Не начато</value></data>
-  <data name="TelegramState.BridgePending" xml:space="preserve"><value>Bridge готовится</value></data>
-  <data name="TelegramState.Connected" xml:space="preserve"><value>Подключено</value></data>
-  <data name="TelegramState.RequiresSetup" xml:space="preserve"><value>Нужна настройка</value></data>
-  <data name="TelegramState.Disconnected" xml:space="preserve"><value>Отключено</value></data>
-  <data name="TelegramState.Error" xml:space="preserve"><value>Ошибка</value></data>
-  <data name="SourceRoom.TelegramChat" xml:space="preserve"><value>Чат Telegram</value></data>
-  <data name="SourceRoom.UnknownChat" xml:space="preserve"><value>Неизвестный чат</value></data>
+  <data name="Nav.Connect" xml:space="preserve">
+    <value>Подключить</value>
+  </data>
+  <data name="Nav.Today" xml:space="preserve">
+    <value>Сегодня</value>
+  </data>
+  <data name="Nav.Waiting" xml:space="preserve">
+    <value>В ожидании</value>
+  </data>
+  <data name="Nav.Search" xml:space="preserve">
+    <value>Поиск</value>
+  </data>
+  <data name="Nav.Feedback" xml:space="preserve">
+    <value>Обратная связь</value>
+  </data>
+  <data name="Nav.Settings" xml:space="preserve">
+    <value>Настройки</value>
+  </data>
+  <data name="Nav.SignOut" xml:space="preserve">
+    <value>Выйти</value>
+  </data>
+  <data name="Nav.Language" xml:space="preserve">
+    <value>Язык</value>
+  </data>
+  <data name="Nav.Theme" xml:space="preserve">
+    <value>Тема</value>
+  </data>
+  <data name="Theme.Light" xml:space="preserve">
+    <value>Светлая</value>
+  </data>
+  <data name="Theme.Dark" xml:space="preserve">
+    <value>Тёмная</value>
+  </data>
+  <data name="Layout.Tagline" xml:space="preserve">
+    <value>ежедневная выжимка из Telegram</value>
+  </data>
+  <data name="Common.Email" xml:space="preserve">
+    <value>Email</value>
+  </data>
+  <data name="Common.Status" xml:space="preserve">
+    <value>Статус</value>
+  </data>
+  <data name="Common.LastSync" xml:space="preserve">
+    <value>Последняя синхронизация</value>
+  </data>
+  <data name="Common.Waiting" xml:space="preserve">
+    <value>ожидание</value>
+  </data>
+  <data name="Common.Pending" xml:space="preserve">
+    <value>ещё не готово</value>
+  </data>
+  <data name="Home.Eyebrow" xml:space="preserve">
+    <value>Порядок в Telegram через Matrix</value>
+  </data>
+  <data name="Home.Title" xml:space="preserve">
+    <value>Превращайте разрозненные чаты в ежедневную выжимку, которой можно пользоваться уже в первый день.</value>
+  </data>
+  <data name="Home.Lede" xml:space="preserve">
+    <value>Этот bootstrap сохраняет реальную архитектуру: инвайтный доступ, скрытые Matrix identity, Telegram bridge, extraction, digest и сфокусированную pilot-поверхность.</value>
+  </data>
+  <data name="Home.OpenToday" xml:space="preserve">
+    <value>Открыть Today</value>
+  </data>
+  <data name="Home.ManageTelegramConnection" xml:space="preserve">
+    <value>Управлять подключением Telegram</value>
+  </data>
+  <data name="Home.PilotEmailLabel" xml:space="preserve">
+    <value>Пилотный email</value>
+  </data>
+  <data name="Home.PilotEmailPlaceholder" xml:space="preserve">
+    <value>pilot@example.com</value>
+  </data>
+  <data name="Home.RequestMagicLink" xml:space="preserve">
+    <value>Запросить magic link</value>
+  </data>
+  <data name="Home.InviteOnlyHint" xml:space="preserve">
+    <value>Доступ только по приглашению. В development-режиме приложение сразу показывает сгенерированную ссылку после отправки формы.</value>
+  </data>
+  <data name="Home.Metric.Milestone.Label" xml:space="preserve">
+    <value>Веха</value>
+  </data>
+  <data name="Home.Metric.Milestone.Value" xml:space="preserve">
+    <value>Вход -&gt; подключение Telegram -&gt; первая карточка Today</value>
+  </data>
+  <data name="Home.Metric.Modules.Label" xml:space="preserve">
+    <value>Границы модулей</value>
+  </data>
+  <data name="Home.Metric.Modules.Value" xml:space="preserve">
+    <value>Аутентификация, Matrix provisioning, подключение Telegram, sync, extraction, digest, поиск</value>
+  </data>
+  <data name="Home.Metric.Mode.Label" xml:space="preserve">
+    <value>Текущий режим bootstrap</value>
+  </data>
+  <data name="Home.BootstrapMode.Development" xml:space="preserve">
+    <value>Включён development seed bridge</value>
+  </data>
+  <data name="Home.BootstrapMode.Live" xml:space="preserve">
+    <value>Ожидание реальной bridge-синхронизации</value>
+  </data>
+  <data name="ConnectTelegram.PageTitle" xml:space="preserve">
+    <value>Подключение Telegram</value>
+  </data>
+  <data name="ConnectTelegram.Eyebrow" xml:space="preserve">
+    <value>Управление bridge</value>
+  </data>
+  <data name="ConnectTelegram.Title" xml:space="preserve">
+    <value>Подключите Telegram без прямого доступа к Element</value>
+  </data>
+  <data name="ConnectTelegram.Description" xml:space="preserve">
+    <value>Скрытая Matrix identity создаётся автоматически. Приложение открывает приватную management-room с bridge, ждёт login prompt, а затем начинает синхронизировать реальные сообщения из Telegram.</value>
+  </data>
+  <data name="ConnectTelegram.MatrixUser" xml:space="preserve">
+    <value>Пользователь Matrix</value>
+  </data>
+  <data name="ConnectTelegram.StartButton" xml:space="preserve">
+    <value>Начать подключение Telegram</value>
+  </data>
+  <data name="ConnectTelegram.BridgeWebLogin" xml:space="preserve">
+    <value>Веб-логин bridge:</value>
+  </data>
+  <data name="ConnectTelegram.BridgePendingNotice" xml:space="preserve">
+    <value>Bridge готовит login prompt. Обновите страницу через несколько секунд, чтобы подхватить ссылку на веб-логин.</value>
+  </data>
+  <data name="ConnectTelegram.OpenToday" xml:space="preserve">
+    <value>Открыть Today</value>
+  </data>
+  <data name="ConnectTelegram.InspectDetails" xml:space="preserve">
+    <value>Открыть детали подключения</value>
+  </data>
+  <data name="ConnectTelegram.DevModeHint" xml:space="preserve">
+    <value>В development-режиме приложение по-прежнему подмешивает sample messages, чтобы поверхность продукта можно было проверить даже без живого Telegram-аккаунта.</value>
+  </data>
+  <data name="Today.PageTitle" xml:space="preserve">
+    <value>Сегодня</value>
+  </data>
+  <data name="Today.Eyebrow" xml:space="preserve">
+    <value>Дайджест</value>
+  </data>
+  <data name="Today.Title" xml:space="preserve">
+    <value>Важно сегодня</value>
+  </data>
+  <data name="Today.Empty" xml:space="preserve">
+    <value>Карточек пока нет. Подключите Telegram и дайте sync/extraction циклу собрать первый дайджест.</value>
+  </data>
+  <data name="Today.OpenTelegramConnection" xml:space="preserve">
+    <value>Открыть подключение Telegram</value>
+  </data>
+  <data name="Waiting.PageTitle" xml:space="preserve">
+    <value>В ожидании</value>
+  </data>
+  <data name="Waiting.Eyebrow" xml:space="preserve">
+    <value>Последующие действия</value>
+  </data>
+  <data name="Waiting.Title" xml:space="preserve">
+    <value>Ждём ответа</value>
+  </data>
+  <data name="Waiting.Empty" xml:space="preserve">
+    <value>Активных waiting-on карточек пока нет.</value>
+  </data>
+  <data name="Search.PageTitle" xml:space="preserve">
+    <value>Поиск</value>
+  </data>
+  <data name="Search.Eyebrow" xml:space="preserve">
+    <value>Структурированный поиск</value>
+  </data>
+  <data name="Search.Title" xml:space="preserve">
+    <value>Ищите извлечённую работу, а не сырые chat dumps</value>
+  </data>
+  <data name="Search.Placeholder" xml:space="preserve">
+    <value>proposal, Friday, Marina...</value>
+  </data>
+  <data name="Search.Button" xml:space="preserve">
+    <value>Искать</value>
+  </data>
+  <data name="Search.NoMatches" xml:space="preserve">
+    <value>Совпадений для "{0}" пока нет.</value>
+  </data>
+  <data name="Feedback.PageTitle" xml:space="preserve">
+    <value>Обратная связь</value>
+  </data>
+  <data name="Feedback.Eyebrow" xml:space="preserve">
+    <value>Сигнал от пилота</value>
+  </data>
+  <data name="Feedback.Title" xml:space="preserve">
+    <value>Отправить обратную связь по продукту</value>
+  </data>
+  <data name="Feedback.Description" xml:space="preserve">
+    <value>Используйте это в пилоте, чтобы отметить, насколько реально полезны digest и search.</value>
+  </data>
+  <data name="Feedback.Area" xml:space="preserve">
+    <value>Раздел</value>
+  </data>
+  <data name="Feedback.Area.Today" xml:space="preserve">
+    <value>Today</value>
+  </data>
+  <data name="Feedback.Area.Waiting" xml:space="preserve">
+    <value>Waiting</value>
+  </data>
+  <data name="Feedback.Area.Search" xml:space="preserve">
+    <value>Search</value>
+  </data>
+  <data name="Feedback.Useful" xml:space="preserve">
+    <value>Полезно</value>
+  </data>
+  <data name="Feedback.Useful.Yes" xml:space="preserve">
+    <value>Полезно</value>
+  </data>
+  <data name="Feedback.Useful.No" xml:space="preserve">
+    <value>Не полезно</value>
+  </data>
+  <data name="Feedback.Note" xml:space="preserve">
+    <value>Заметка</value>
+  </data>
+  <data name="Feedback.NotePlaceholder" xml:space="preserve">
+    <value>Что оказалось удачным, а что шумным?</value>
+  </data>
+  <data name="Feedback.Submit" xml:space="preserve">
+    <value>Отправить feedback</value>
+  </data>
+  <data name="Feedback.Recorded" xml:space="preserve">
+    <value>Feedback сохранён. Спасибо, что помогаете затянуть pilot loop.</value>
+  </data>
+  <data name="Connections.PageTitle" xml:space="preserve">
+    <value>Подключения</value>
+  </data>
+  <data name="Settings.Eyebrow" xml:space="preserve">
+    <value>Настройки</value>
+  </data>
+  <data name="Connections.Title" xml:space="preserve">
+    <value>Обзор подключений</value>
+  </data>
+  <data name="Connections.ProductEmail" xml:space="preserve">
+    <value>Продуктовый email</value>
+  </data>
+  <data name="Connections.MatrixUser" xml:space="preserve">
+    <value>Пользователь Matrix</value>
+  </data>
+  <data name="Connections.TelegramState" xml:space="preserve">
+    <value>Состояние Telegram</value>
+  </data>
+  <data name="Connections.DisconnectTelegram" xml:space="preserve">
+    <value>Отключить Telegram</value>
+  </data>
+  <data name="Connections.BackToConnectFlow" xml:space="preserve">
+    <value>Вернуться к подключению</value>
+  </data>
+  <data name="Auth.RequestLink.PageTitle" xml:space="preserve">
+    <value>Запрос magic link</value>
+  </data>
+  <data name="Auth.RequestLink.Title" xml:space="preserve">
+    <value>Запросить magic link</value>
+  </data>
+  <data name="Auth.RequestLink.Description" xml:space="preserve">
+    <value>В bootstrap могут войти только приглашённые pilot email-адреса.</value>
+  </data>
+  <data name="Auth.RequestLink.Send" xml:space="preserve">
+    <value>Отправить ссылку</value>
+  </data>
+  <data name="Auth.RequestLink.DevelopmentShortcut" xml:space="preserve">
+    <value>Development shortcut</value>
+  </data>
+  <data name="Auth.Verify.PageTitle" xml:space="preserve">
+    <value>Проверка ссылки</value>
+  </data>
+  <data name="Auth.Verify.Title" xml:space="preserve">
+    <value>Проверяем доступ</value>
+  </data>
+  <data name="Auth.Verify.Checking" xml:space="preserve">
+    <value>Проверяем вашу ссылку...</value>
+  </data>
+  <data name="Auth.Verify.RequestAnotherLink" xml:space="preserve">
+    <value>Запросить новую ссылку</value>
+  </data>
+  <data name="Auth.MagicLink.Created" xml:space="preserve">
+    <value>Magic link создан.</value>
+  </data>
+  <data name="Auth.MagicLink.NotInvited" xml:space="preserve">
+    <value>Этот email пока не приглашён в пилот.</value>
+  </data>
+  <data name="Auth.MagicLink.Unknown" xml:space="preserve">
+    <value>Не удалось обработать запрос на magic link.</value>
+  </data>
+  <data name="Auth.Verify.Success" xml:space="preserve">
+    <value>Вход выполнен успешно.</value>
+  </data>
+  <data name="Auth.Verify.InvalidOrExpired" xml:space="preserve">
+    <value>Эта magic link недействительна или уже истекла.</value>
+  </data>
+  <data name="Auth.Verify.Unknown" xml:space="preserve">
+    <value>Не удалось проверить ссылку.</value>
+  </data>
+  <data name="Privacy.PageTitle" xml:space="preserve">
+    <value>Приватность</value>
+  </data>
+  <data name="Privacy.Eyebrow" xml:space="preserve">
+    <value>Приватность</value>
+  </data>
+  <data name="Privacy.Title" xml:space="preserve">
+    <value>Заметки о приватности для bootstrap</value>
+  </data>
+  <data name="Privacy.Point1" xml:space="preserve">
+    <value>Доступ ограничен только приглашёнными pilot users.</value>
+  </data>
+  <data name="Privacy.Point2" xml:space="preserve">
+    <value>Bootstrap держит интеграции Matrix и Telegram за продуктовым UI.</value>
+  </data>
+  <data name="Privacy.Point3" xml:space="preserve">
+    <value>Extracted items предназначены только для Today, Waiting, Search и pilot feedback loops.</value>
+  </data>
+  <data name="Privacy.Point4" xml:space="preserve">
+    <value>Публичный запуск должен оставаться заблокированным, пока условия Telegram не будут отдельно проверены.</value>
+  </data>
+  <data name="Error.PageTitle" xml:space="preserve">
+    <value>Ошибка</value>
+  </data>
+  <data name="Error.Title" xml:space="preserve">
+    <value>Ошибка.</value>
+  </data>
+  <data name="Error.Subtitle" xml:space="preserve">
+    <value>Во время обработки запроса что-то пошло не так.</value>
+  </data>
+  <data name="Error.RequestId" xml:space="preserve">
+    <value>ID запроса:</value>
+  </data>
+  <data name="Error.DevelopmentModeTitle" xml:space="preserve">
+    <value>Режим разработки</value>
+  </data>
+  <data name="Error.DevelopmentModeDescription" xml:space="preserve">
+    <value>В окружении Development приложение показывает подробности произошедшей ошибки.</value>
+  </data>
+  <data name="Error.DevelopmentModeWarning" xml:space="preserve">
+    <value>Не включайте Development на проде: это может раскрыть пользователям чувствительные детали исключений.</value>
+  </data>
+  <data name="Kind.Task" xml:space="preserve">
+    <value>Задача</value>
+  </data>
+  <data name="Kind.Meeting" xml:space="preserve">
+    <value>Встреча</value>
+  </data>
+  <data name="Kind.Commitment" xml:space="preserve">
+    <value>Обещание</value>
+  </data>
+  <data name="Kind.WaitingOn" xml:space="preserve">
+    <value>Ждём ответ</value>
+  </data>
+  <data name="Kind.Message" xml:space="preserve">
+    <value>Сообщение</value>
+  </data>
+  <data name="CardTitle.ActionNeeded" xml:space="preserve">
+    <value>Нужно действие</value>
+  </data>
+  <data name="CardTitle.UpcomingMeeting" xml:space="preserve">
+    <value>Предстоящая встреча</value>
+  </data>
+  <data name="CardTitle.CommitmentMade" xml:space="preserve">
+    <value>Дано обещание</value>
+  </data>
+  <data name="CardTitle.AwaitingResponse" xml:space="preserve">
+    <value>Ожидаем ответ</value>
+  </data>
+  <data name="CardTitle.FollowUpCandidate" xml:space="preserve">
+    <value>Кандидат на follow-up</value>
+  </data>
+  <data name="TelegramState.NotStarted" xml:space="preserve">
+    <value>Не начато</value>
+  </data>
+  <data name="TelegramState.BridgePending" xml:space="preserve">
+    <value>Bridge готовится</value>
+  </data>
+  <data name="TelegramState.Connected" xml:space="preserve">
+    <value>Подключено</value>
+  </data>
+  <data name="TelegramState.RequiresSetup" xml:space="preserve">
+    <value>Нужна настройка</value>
+  </data>
+  <data name="TelegramState.Disconnected" xml:space="preserve">
+    <value>Отключено</value>
+  </data>
+  <data name="TelegramState.Error" xml:space="preserve">
+    <value>Ошибка</value>
+  </data>
+  <data name="SourceRoom.TelegramChat" xml:space="preserve">
+    <value>Чат Telegram</value>
+  </data>
+  <data name="SourceRoom.UnknownChat" xml:space="preserve">
+    <value>Неизвестный чат</value>
+  </data>
+  <data name="Theme.Label" xml:space="preserve">
+    <value>Тема</value>
+  </data>
 </root>

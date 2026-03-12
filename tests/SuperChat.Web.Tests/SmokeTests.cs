@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -27,6 +27,8 @@ public sealed class SmokeTests : IClassFixture<WebTestApplicationFactory>
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("Превращайте разрозненные чаты", content, StringComparison.Ordinal);
         Assert.Contains("lang=\"ru\"", content, StringComparison.Ordinal);
+        Assert.Contains("data-theme-choice=\"light\"", content, StringComparison.Ordinal);
+        Assert.Contains("data-theme-choice=\"dark\"", content, StringComparison.Ordinal);
     }
 
     [Fact]

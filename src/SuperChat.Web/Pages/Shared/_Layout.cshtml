@@ -1,13 +1,92 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 @{
   var currentPath = $"{Context.Request.PathBase}{Context.Request.Path}";
   var currentCulture = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
 }
-<html lang="@CultureInfo.CurrentUICulture.TwoLetterISOLanguageName">
+<html lang="@CultureInfo.CurrentUICulture.TwoLetterISOLanguageName" data-theme="light">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>@ViewData["Title"] - super-chat</title>
+  <script>
+    (function () {
+      var storageKey = "superchat-theme";
+      var root = document.documentElement;
+      var mediaQuery = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+
+      function getStoredTheme() {
+        try {
+          var value = window.localStorage.getItem(storageKey);
+          return value === "light" || value === "dark" ? value : null;
+        } catch (error) {
+          return null;
+        }
+      }
+
+      function getPreferredTheme() {
+        var storedTheme = getStoredTheme();
+        if (storedTheme) {
+          return storedTheme;
+        }
+
+        return mediaQuery && mediaQuery.matches ? "dark" : "light";
+      }
+
+      function applyTheme(theme) {
+        root.dataset.theme = theme;
+        root.style.colorScheme = theme;
+      }
+
+      function syncThemeButtons() {
+        var activeTheme = root.dataset.theme;
+        var buttons = document.querySelectorAll("[data-theme-choice]");
+
+        for (var i = 0; i < buttons.length; i++) {
+          var button = buttons[i];
+          var isActive = button.getAttribute("data-theme-choice") === activeTheme;
+          button.classList.toggle("active", isActive);
+          button.setAttribute("aria-pressed", isActive ? "true" : "false");
+        }
+      }
+
+      function setTheme(theme) {
+        try {
+          window.localStorage.setItem(storageKey, theme);
+        } catch (error) {
+        }
+
+        applyTheme(theme);
+        syncThemeButtons();
+      }
+
+      applyTheme(getPreferredTheme());
+
+      if (mediaQuery && typeof mediaQuery.addEventListener === "function") {
+        mediaQuery.addEventListener("change", function () {
+          if (!getStoredTheme()) {
+            applyTheme(getPreferredTheme());
+            syncThemeButtons();
+          }
+        });
+      }
+
+      window.superChatTheme = {
+        set: setTheme
+      };
+
+      window.addEventListener("DOMContentLoaded", function () {
+        var buttons = document.querySelectorAll("[data-theme-choice]");
+
+        for (var i = 0; i < buttons.length; i++) {
+          buttons[i].addEventListener("click", function () {
+            setTheme(this.getAttribute("data-theme-choice"));
+          });
+        }
+
+        syncThemeButtons();
+      });
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -19,30 +98,42 @@
   <div class="shell">
     <header class="topbar">
       <a class="brand" asp-page="/Index">super-chat</a>
-      <nav class="topnav">
-        <a asp-page="/Connect/Telegram">@T["Nav.Connect"]</a>
-        <a asp-page="/Dashboard/Today">@T["Nav.Today"]</a>
-        <a asp-page="/Dashboard/Waiting">@T["Nav.Waiting"]</a>
-        <a asp-page="/Search/Index">@T["Nav.Search"]</a>
-        <a asp-page="/Feedback/Index">@T["Nav.Feedback"]</a>
-        <a asp-page="/Settings/Connections">@T["Nav.Settings"]</a>
-        <div class="language-switcher" aria-label="@T["Nav.Language"]">
-          @foreach (var culture in AppCultures.Supported)
+
+      <div class="topbar-main">
+        <nav class="topnav">
+          <a asp-page="/Connect/Telegram">@T["Nav.Connect"]</a>
+          <a asp-page="/Dashboard/Today">@T["Nav.Today"]</a>
+          <a asp-page="/Dashboard/Waiting">@T["Nav.Waiting"]</a>
+          <a asp-page="/Search/Index">@T["Nav.Search"]</a>
+          <a asp-page="/Feedback/Index">@T["Nav.Feedback"]</a>
+          <a asp-page="/Settings/Connections">@T["Nav.Settings"]</a>
+        </nav>
+
+        <div class="topbar-actions">
+          <div class="language-switcher" aria-label="@T["Nav.Language"]">
+            @foreach (var culture in AppCultures.Supported)
+            {
+              var isActive = string.Equals(currentCulture, culture.Name, StringComparison.OrdinalIgnoreCase);
+              <a class="culture-link @(isActive ? "active" : null)"
+                 href="/localization/set-language?culture=@culture.Name&returnUrl=@Uri.EscapeDataString(currentPath)">
+                @culture.ShortName
+              </a>
+            }
+          </div>
+
+          <div class="theme-switcher" role="group" aria-label="@T["Theme.Label"]">
+            <button type="button" class="theme-button" data-theme-choice="light" aria-pressed="false">@T["Theme.Light"]</button>
+            <button type="button" class="theme-button" data-theme-choice="dark" aria-pressed="false">@T["Theme.Dark"]</button>
+          </div>
+
+          @if (User.Identity?.IsAuthenticated ?? false)
           {
-            var isActive = string.Equals(currentCulture, culture.Name, StringComparison.OrdinalIgnoreCase);
-            <a class="culture-link @(isActive ? "active" : null)"
-               href="/localization/set-language?culture=@culture.Name&returnUrl=@Uri.EscapeDataString(currentPath)">
-              @culture.ShortName
-            </a>
+            <form method="post" asp-page="/Auth/SignOut" class="inline-form">
+              <button type="submit" class="nav-button">@T["Nav.SignOut"]</button>
+            </form>
           }
         </div>
-        @if (User.Identity?.IsAuthenticated ?? false)
-        {
-          <form method="post" asp-page="/Auth/SignOut" class="inline-form">
-            <button type="submit" class="nav-button">@T["Nav.SignOut"]</button>
-          </form>
-        }
-      </nav>
+      </div>
     </header>
 
     <main class="page-body">
