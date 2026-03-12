@@ -11,7 +11,7 @@
 - PostgreSQL-backed auth, connection state, message normalization, extraction, digest, search, and feedback paths
 - Docker Compose skeleton for Postgres, Synapse, mautrix-telegram, Caddy, and Mailpit
 - Production bootstrap under `infra/prod/` for VPS pilot deployment
-- CI workflow for build and tests
+- GitHub Actions CI/CD for build, tests, and production app deploy on `main`
 
 ## Quick start
 

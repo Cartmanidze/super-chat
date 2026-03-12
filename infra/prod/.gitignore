@@ -2,6 +2,7 @@
 backups/
 caddy/Caddyfile
 mautrix/config.yaml
+mautrix/registration.yaml
 synapse/homeserver.yaml
 synapse/telegram-registration.yaml
 synapse/*.signing.key

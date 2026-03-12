@@ -5,6 +5,10 @@ on:
     branches:
       - main
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build-test:
@@ -26,3 +30,75 @@ jobs:
 
       - name: Test
         run: dotnet test SuperChat.sln --configuration Release --no-build
+
+  deploy-production:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.PROD_DEPLOY_ENABLED == 'true'
+    needs: build-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
+    environment:
+      name: production
+      url: ${{ vars.PROD_WEB_URL || vars.PROD_WEB_HEALTHCHECK_URL }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate deploy configuration
+        shell: bash
+        env:
+          PROD_SSH_HOST: ${{ vars.PROD_SSH_HOST }}
+          PROD_SSH_PRIVATE_KEY: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+          PROD_SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
+        run: |
+          test -n "$PROD_SSH_HOST"
+          test -n "$PROD_SSH_PRIVATE_KEY"
+          test -n "$PROD_SSH_KNOWN_HOSTS"
+
+      - name: Configure SSH
+        shell: bash
+        env:
+          PROD_SSH_PRIVATE_KEY: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+          PROD_SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$PROD_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$PROD_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Push commit to server bare repository
+        shell: bash
+        env:
+          PROD_SSH_HOST: ${{ vars.PROD_SSH_HOST }}
+          PROD_SSH_PORT: ${{ vars.PROD_SSH_PORT || '22' }}
+          PROD_SSH_USER: ${{ vars.PROD_SSH_USER || 'root' }}
+          PROD_BARE_REPO_PATH: ${{ vars.PROD_BARE_REPO_PATH || '/opt/super-chat-origin.git' }}
+        run: |
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/id_ed25519 -p ${PROD_SSH_PORT} -o StrictHostKeyChecking=yes"
+          git push "ssh://${PROD_SSH_USER}@${PROD_SSH_HOST}:${PROD_SSH_PORT}${PROD_BARE_REPO_PATH}" "HEAD:main"
+
+      - name: Pull and deploy on production host
+        shell: bash
+        env:
+          PROD_SSH_HOST: ${{ vars.PROD_SSH_HOST }}
+          PROD_SSH_PORT: ${{ vars.PROD_SSH_PORT || '22' }}
+          PROD_SSH_USER: ${{ vars.PROD_SSH_USER || 'root' }}
+          PROD_WORKTREE_PATH: ${{ vars.PROD_WORKTREE_PATH || '/opt/super-chat' }}
+          PROD_ENV_FILE: ${{ vars.PROD_ENV_FILE || '/opt/super-chat/infra/prod/.env' }}
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -p "${PROD_SSH_PORT}" -o StrictHostKeyChecking=yes "${PROD_SSH_USER}@${PROD_SSH_HOST}" \
+            "cd '${PROD_WORKTREE_PATH}' && git pull --ff-only && bash infra/prod/scripts/deploy-app.sh '${PROD_ENV_FILE}'"
+
+      - name: Smoke check production endpoints
+        shell: bash
+        env:
+          PROD_WEB_HEALTHCHECK_URL: ${{ vars.PROD_WEB_HEALTHCHECK_URL || 'https://app.tranify.ru/health' }}
+          PROD_API_HEALTHCHECK_URL: ${{ vars.PROD_API_HEALTHCHECK_URL || 'https://api.tranify.ru/api/v1/health' }}
+        run: |
+          curl --fail --silent --show-error --retry 12 --retry-delay 5 --retry-connrefused "${PROD_WEB_HEALTHCHECK_URL}"
+          curl --fail --silent --show-error --retry 12 --retry-delay 5 --retry-connrefused "${PROD_API_HEALTHCHECK_URL}"
