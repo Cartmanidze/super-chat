@@ -87,6 +87,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IApiSessionService, ApiSessionService>();
         services.AddSingleton<IMatrixProvisioningService, MatrixProvisioningService>();
         services.AddSingleton<ITelegramConnectionService, TelegramConnectionService>();
+        services.AddSingleton<IIntegrationConnectionService, IntegrationConnectionService>();
         services.AddSingleton<IRoomDisplayNameService, MatrixRoomDisplayNameService>();
         services.AddSingleton<IMessageNormalizationService, MessageNormalizationService>();
         services.AddSingleton<IExtractedItemService, ExtractedItemService>();

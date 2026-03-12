@@ -29,11 +29,11 @@
       <button type="submit" class="button primary">@T["ConnectTelegram.StartButton"]</button>
     </form>
 
-    @if (Model.Connection.WebLoginUrl is not null)
+    @if (Model.Connection.ActionUrl is not null)
     {
-      <p class="notice">@T["ConnectTelegram.BridgeWebLogin"] <a href="@Model.Connection.WebLoginUrl">@Model.Connection.WebLoginUrl</a></p>
+      <p class="notice">@T["ConnectTelegram.BridgeWebLogin"] <a href="@Model.Connection.ActionUrl">@Model.Connection.ActionUrl</a></p>
     }
-    else if (Model.Connection.State == SuperChat.Domain.Model.TelegramConnectionState.BridgePending)
+    else if (Model.Connection.State == SuperChat.Domain.Model.IntegrationConnectionState.Pending)
     {
       <p class="notice">@T["ConnectTelegram.BridgePendingNotice"]</p>
     }

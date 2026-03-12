@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using SuperChat.Api.Features.Auth;
 using SuperChat.Api.Security;
 using SuperChat.Domain.Model;
@@ -15,12 +15,12 @@ public static class TelegramEndpoints
 
         group.MapGet(string.Empty, async (
             HttpContext httpContext,
-            ITelegramConnectionService telegramConnectionService,
+            IIntegrationConnectionService integrationConnectionService,
             IMatrixProvisioningService matrixProvisioningService,
             CancellationToken cancellationToken) =>
         {
             var userId = httpContext.User.GetRequiredUserId();
-            var connection = await telegramConnectionService.GetStatusAsync(userId, cancellationToken);
+            var connection = await integrationConnectionService.GetStatusAsync(userId, IntegrationProvider.Telegram, cancellationToken);
             var matrixIdentity = await matrixProvisioningService.GetIdentityAsync(userId, cancellationToken);
             return Results.Ok(ToResponse(connection, matrixIdentity?.MatrixUserId));
         });
@@ -28,7 +28,7 @@ public static class TelegramEndpoints
         group.MapPost("/connect", async (
             HttpContext httpContext,
             IAuthFlowService authFlowService,
-            ITelegramConnectionService telegramConnectionService,
+            IIntegrationConnectionService integrationConnectionService,
             IMatrixProvisioningService matrixProvisioningService,
             CancellationToken cancellationToken) =>
         {
@@ -38,20 +38,20 @@ public static class TelegramEndpoints
                 return Results.Unauthorized();
             }
 
-            var connection = await telegramConnectionService.StartAsync(user, cancellationToken);
+            var connection = await integrationConnectionService.StartAsync(user, IntegrationProvider.Telegram, cancellationToken);
             var matrixIdentity = await matrixProvisioningService.GetIdentityAsync(user.Id, cancellationToken);
             return Results.Ok(ToResponse(connection, matrixIdentity?.MatrixUserId));
         });
 
         group.MapDelete(string.Empty, async (
             HttpContext httpContext,
-            ITelegramConnectionService telegramConnectionService,
+            IIntegrationConnectionService integrationConnectionService,
             IMatrixProvisioningService matrixProvisioningService,
             CancellationToken cancellationToken) =>
         {
             var userId = httpContext.User.GetRequiredUserId();
-            await telegramConnectionService.DisconnectAsync(userId, cancellationToken);
-            var connection = await telegramConnectionService.GetStatusAsync(userId, cancellationToken);
+            await integrationConnectionService.DisconnectAsync(userId, IntegrationProvider.Telegram, cancellationToken);
+            var connection = await integrationConnectionService.GetStatusAsync(userId, IntegrationProvider.Telegram, cancellationToken);
             var matrixIdentity = await matrixProvisioningService.GetIdentityAsync(userId, cancellationToken);
             return Results.Ok(ToResponse(connection, matrixIdentity?.MatrixUserId));
         });
@@ -59,14 +59,14 @@ public static class TelegramEndpoints
         return group;
     }
 
-    private static TelegramConnectionResponse ToResponse(TelegramConnection connection, string? matrixUserId)
+    private static TelegramConnectionResponse ToResponse(IntegrationConnection connection, string? matrixUserId)
     {
         return new TelegramConnectionResponse(
             State: connection.State.ToString(),
             MatrixUserId: matrixUserId,
-            WebLoginUrl: connection.WebLoginUrl,
+            WebLoginUrl: connection.ActionUrl,
             LastSyncedAt: connection.LastSyncedAt,
-            RequiresAction: connection.State is not TelegramConnectionState.Connected);
+            RequiresAction: connection.State is not IntegrationConnectionState.Connected);
     }
 }
 

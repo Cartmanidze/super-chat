@@ -36,6 +36,7 @@ public sealed class UiTextService(IStringLocalizer<SharedResource> localizer) : 
         return state switch
         {
             "NotStarted" => localizer["TelegramState.NotStarted"],
+            "Pending" => localizer["TelegramState.BridgePending"],
             "BridgePending" => localizer["TelegramState.BridgePending"],
             "Connected" => localizer["TelegramState.Connected"],
             "RequiresSetup" => localizer["TelegramState.RequiresSetup"],

@@ -1,6 +1,7 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using SuperChat.Api.Features.Auth;
 using SuperChat.Api.Security;
+using SuperChat.Domain.Model;
 using SuperChat.Infrastructure.Abstractions;
 
 namespace SuperChat.Api.Features.Me;
@@ -11,14 +12,14 @@ public static class MeEndpoints
     {
         api.MapGet("/me", [Authorize(AuthenticationSchemes = ApiSessionAuthenticationHandler.SchemeName)] async (
             HttpContext httpContext,
-            ITelegramConnectionService telegramConnectionService,
+            IIntegrationConnectionService integrationConnectionService,
             IMatrixProvisioningService matrixProvisioningService,
             CancellationToken cancellationToken) =>
         {
             var userId = httpContext.User.GetRequiredUserId();
             var email = httpContext.User.GetRequiredEmail();
             var matrixIdentity = await matrixProvisioningService.GetIdentityAsync(userId, cancellationToken);
-            var connection = await telegramConnectionService.GetStatusAsync(userId, cancellationToken);
+            var connection = await integrationConnectionService.GetStatusAsync(userId, IntegrationProvider.Telegram, cancellationToken);
 
             return Results.Ok(new MeResponse(
                 Id: userId,
@@ -26,7 +27,7 @@ public static class MeEndpoints
                 MatrixUserId: matrixIdentity?.MatrixUserId,
                 TelegramState: connection.State.ToString(),
                 LastSyncedAt: connection.LastSyncedAt,
-                RequiresTelegramAction: connection.State is not Domain.Model.TelegramConnectionState.Connected));
+                RequiresTelegramAction: connection.State is not IntegrationConnectionState.Connected));
         });
 
         return api;

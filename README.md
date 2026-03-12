@@ -13,6 +13,12 @@
 - Production bootstrap under `infra/prod/` for VPS pilot deployment
 - GitHub Actions CI/CD for build, tests, and production app deploy on `main`
 
+## Documentation
+
+- English short architecture note: `docs/architecture.md`
+- Russian detailed guide: `docs/project-guide-ru.md`
+- Russian target architecture for multi-channel expansion: `docs/multichannel-architecture-ru.md`
+
 ## Quick start
 
 1. Copy `.env.example` to `.env` and fill the secrets you already have.

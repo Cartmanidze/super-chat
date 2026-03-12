@@ -10,14 +10,14 @@ namespace SuperChat.Web.Pages.Settings;
 [Authorize]
 public sealed class ConnectionsModel(
     IAuthFlowService authFlowService,
-    ITelegramConnectionService telegramConnectionService,
+    IIntegrationConnectionService integrationConnectionService,
     IMatrixProvisioningService matrixProvisioningService) : PageModel
 {
     public string Email { get; private set; } = string.Empty;
 
     public string? MatrixUserId { get; private set; }
 
-    public TelegramConnectionState ConnectionState { get; private set; } = TelegramConnectionState.NotStarted;
+    public IntegrationConnectionState ConnectionState { get; private set; } = IntegrationConnectionState.NotStarted;
 
     public DateTimeOffset? LastSyncedAt { get; private set; }
 
@@ -34,7 +34,7 @@ public sealed class ConnectionsModel(
             return RedirectToPage("/Index");
         }
 
-        await telegramConnectionService.DisconnectAsync(user.Id, cancellationToken);
+        await integrationConnectionService.DisconnectAsync(user.Id, IntegrationProvider.Telegram, cancellationToken);
         return RedirectToPage();
     }
 
@@ -48,7 +48,7 @@ public sealed class ConnectionsModel(
         }
 
         MatrixUserId = (await matrixProvisioningService.GetIdentityAsync(user.Id, cancellationToken))?.MatrixUserId;
-        var connection = await telegramConnectionService.GetStatusAsync(user.Id, cancellationToken);
+        var connection = await integrationConnectionService.GetStatusAsync(user.Id, IntegrationProvider.Telegram, cancellationToken);
         ConnectionState = connection.State;
         LastSyncedAt = connection.LastSyncedAt;
     }

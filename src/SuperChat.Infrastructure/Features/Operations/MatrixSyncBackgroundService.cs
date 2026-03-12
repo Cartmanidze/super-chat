@@ -11,7 +11,7 @@ using SuperChat.Infrastructure.Services;
 namespace SuperChat.Infrastructure.HostedServices;
 
 public sealed class MatrixSyncBackgroundService(
-    ITelegramConnectionService telegramConnectionService,
+    IIntegrationConnectionService integrationConnectionService,
     ITelegramRoomInfoService telegramRoomInfoService,
     IMessageNormalizationService normalizationService,
     IDbContextFactory<SuperChatDbContext> dbContextFactory,
@@ -50,11 +50,17 @@ public sealed class MatrixSyncBackgroundService(
 
     private async Task RunDevelopmentSeedAsync(CancellationToken cancellationToken)
     {
-        var connections = await telegramConnectionService.GetReadyForDevelopmentSyncAsync(cancellationToken);
+        var connections = await integrationConnectionService.GetReadyForDevelopmentSyncAsync(
+            IntegrationProvider.Telegram,
+            cancellationToken);
         foreach (var connection in connections)
         {
             var seeded = await SeedSampleMessagesAsync(connection.UserId, cancellationToken);
-            await telegramConnectionService.MarkSynchronizedAsync(connection.UserId, timeProvider.GetUtcNow(), cancellationToken);
+            await integrationConnectionService.MarkSynchronizedAsync(
+                connection.UserId,
+                IntegrationProvider.Telegram,
+                timeProvider.GetUtcNow(),
+                cancellationToken);
 
             if (seeded > 0)
             {

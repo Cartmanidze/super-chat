@@ -95,6 +95,28 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
         Assert.Equal("Disconnected", disconnect!.State);
     }
 
+    [Fact]
+    public async Task IntegrationEndpoints_ListConnections_AndRejectUnimplementedProvider()
+    {
+        using var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", await GetAccessTokenAsync(client));
+
+        var listBeforeResponse = await client.GetAsync("/api/v1/integrations");
+        var listBefore = await listBeforeResponse.Content.ReadFromJsonAsync<List<IntegrationConnectionEnvelope>>(JsonOptions);
+
+        Assert.Equal(HttpStatusCode.OK, listBeforeResponse.StatusCode);
+        Assert.NotNull(listBefore);
+        Assert.Single(listBefore!);
+        Assert.Equal("telegram", listBefore[0].Provider);
+        Assert.Equal("NotStarted", listBefore[0].State);
+
+        var emailStatusResponse = await client.GetAsync("/api/v1/integrations/email");
+        var emailConnectResponse = await client.PostAsync("/api/v1/integrations/email/connect", content: null);
+
+        Assert.Equal(HttpStatusCode.NotImplemented, emailStatusResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NotImplemented, emailConnectResponse.StatusCode);
+    }
+
     private static string ExtractToken(string developmentLink)
     {
         var uri = new Uri(developmentLink);
@@ -131,6 +153,15 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
     private sealed record MeEnvelope(Guid Id, string Email, string? MatrixUserId, string TelegramState);
 
     private sealed record TelegramConnectionEnvelope(string State, string? MatrixUserId, Uri? WebLoginUrl, DateTimeOffset? LastSyncedAt, bool RequiresAction);
+
+    private sealed record IntegrationConnectionEnvelope(
+        string Provider,
+        string Transport,
+        string State,
+        string? MatrixUserId,
+        Uri? ActionUrl,
+        DateTimeOffset? LastSyncedAt,
+        bool RequiresAction);
 }
 
 public sealed class ApiTestApplicationFactory : WebApplicationFactory<Program>

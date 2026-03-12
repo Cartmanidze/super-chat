@@ -10,10 +10,17 @@ namespace SuperChat.Web.Pages.Connect;
 [Authorize]
 public sealed class TelegramModel(
     IAuthFlowService authFlowService,
-    ITelegramConnectionService telegramConnectionService,
+    IIntegrationConnectionService integrationConnectionService,
     IMatrixProvisioningService matrixProvisioningService) : PageModel
 {
-    public TelegramConnection Connection { get; private set; } = new(Guid.Empty, TelegramConnectionState.NotStarted, null, DateTimeOffset.UtcNow, null);
+    public IntegrationConnection Connection { get; private set; } = new(
+        Guid.Empty,
+        IntegrationProvider.Telegram,
+        IntegrationProvider.Telegram.GetDefaultTransport(),
+        IntegrationConnectionState.NotStarted,
+        null,
+        DateTimeOffset.UtcNow,
+        null);
 
     public string? MatrixUserId { get; private set; }
 
@@ -30,7 +37,7 @@ public sealed class TelegramModel(
             return RedirectToPage("/Index");
         }
 
-        await telegramConnectionService.StartAsync(user, cancellationToken);
+        await integrationConnectionService.StartAsync(user, IntegrationProvider.Telegram, cancellationToken);
         await LoadStateAsync(cancellationToken);
         return Page();
     }
@@ -43,7 +50,7 @@ public sealed class TelegramModel(
             return;
         }
 
-        Connection = await telegramConnectionService.GetStatusAsync(user.Id, cancellationToken);
+        Connection = await integrationConnectionService.GetStatusAsync(user.Id, IntegrationProvider.Telegram, cancellationToken);
         MatrixUserId = (await matrixProvisioningService.GetIdentityAsync(user.Id, cancellationToken))?.MatrixUserId;
     }
 }
