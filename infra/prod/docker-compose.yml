@@ -28,7 +28,9 @@ services:
       - ./synapse:/data
 
   mautrix-telegram:
-    image: dock.mau.dev/mautrix/telegram:latest
+    build:
+      context: ./mautrix-image
+    image: prod-mautrix-telegram:hotfix
     restart: unless-stopped
     depends_on:
       postgres:
