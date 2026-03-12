@@ -182,6 +182,7 @@ public sealed class MatrixSyncBackgroundService(
         if (connected)
         {
             connection.State = TelegramConnectionState.Connected;
+            connection.WebLoginUrl = null;
         }
         else if (connection.State == TelegramConnectionState.NotStarted)
         {

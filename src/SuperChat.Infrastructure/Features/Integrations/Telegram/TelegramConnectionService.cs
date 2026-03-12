@@ -38,7 +38,9 @@ public sealed class TelegramConnectionService(
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         var entity = await FindOrCreateConnectionAsync(dbContext, user.Id, cancellationToken);
 
-        if (entity.State == TelegramConnectionState.Connected && !string.IsNullOrWhiteSpace(entity.ManagementRoomId))
+        if (entity.State == TelegramConnectionState.Connected &&
+            !string.IsNullOrWhiteSpace(entity.ManagementRoomId) &&
+            string.IsNullOrWhiteSpace(entity.WebLoginUrl))
         {
             return entity.ToDomain();
         }
