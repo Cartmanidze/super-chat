@@ -40,6 +40,6 @@ public sealed class VerifyModel(
         var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme));
         await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
 
-        return RedirectToPage("/Connect/Telegram");
+        return RedirectToPage("/Index");
     }
 }

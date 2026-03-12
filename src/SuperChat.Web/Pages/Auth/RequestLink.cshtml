@@ -4,30 +4,29 @@
   ViewData["Title"] = T["Auth.RequestLink.PageTitle"];
 }
 
-<section class="stack">
-  <div class="section-card">
+<section class="auth-screen">
+  <div class="auth-card">
+    <p class="auth-kicker">@T["Chat.Auth.Kicker"]</p>
     <h1>@T["Auth.RequestLink.Title"]</h1>
-    <p>@T["Auth.RequestLink.Description"]</p>
+    <p class="auth-copy">@T["Auth.RequestLink.Description"]</p>
 
-    <form method="post" class="stack">
-      <div>
-        <label asp-for="Email">@T["Common.Email"]</label>
-        <input asp-for="Email" type="email" placeholder="@T["Home.PilotEmailPlaceholder"]" />
-      </div>
-      <button type="submit" class="button primary">@T["Auth.RequestLink.Send"]</button>
+    <form method="post" class="auth-form">
+      <label asp-for="Email" class="visually-hidden">@T["Common.Email"]</label>
+      <input asp-for="Email" type="email" placeholder="@T["Home.PilotEmailPlaceholder"]" autocomplete="email" />
+      <button type="submit" class="send-button wide">@T["Auth.RequestLink.Send"]</button>
     </form>
 
     @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
     {
-      <p class="notice">@Model.StatusMessage</p>
+      <p class="status-note">@Model.StatusMessage</p>
     }
 
     @if (Model.DevelopmentLink is not null)
     {
-      <div class="dev-link">
-        <p>@T["Auth.RequestLink.DevelopmentShortcut"]</p>
-        <a href="@Model.DevelopmentLink">@Model.DevelopmentLink</a>
-      </div>
+      <p class="status-note">
+        @T["Auth.RequestLink.DevelopmentShortcut"]
+        <a class="inline-link" href="@Model.DevelopmentLink">@Model.DevelopmentLink</a>
+      </p>
     }
   </div>
 </section>

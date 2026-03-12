@@ -96,6 +96,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAiStructuredExtractionService, BootstrapStructuredExtractionService>();
         services.AddSingleton<IDigestService, DigestService>();
         services.AddSingleton<ISearchService, SearchService>();
+        services.AddSingleton<IChatExperienceService, ChatExperienceService>();
         services.AddSingleton<IFeedbackService, FeedbackService>();
         services.AddSingleton<IHealthSnapshotService, HealthSnapshotService>();
         services.AddHostedService<PersistenceInitializationHostedService>();

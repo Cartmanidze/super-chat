@@ -402,4 +402,103 @@
   <data name="Theme.Label" xml:space="preserve">
     <value>Тема</value>
   </data>
+  <data name="Chat.PageTitle" xml:space="preserve">
+    <value>Чат</value>
+  </data>
+  <data name="Chat.Auth.Kicker" xml:space="preserve">
+    <value>Личный помощник по сообщениям</value>
+  </data>
+  <data name="Chat.Auth.Title" xml:space="preserve">
+    <value>Задавайте короткие вопросы по своим перепискам</value>
+  </data>
+  <data name="Chat.Auth.Description" xml:space="preserve">
+    <value>Войдите по magic link и дальше работайте только в одном компактном окне чата.</value>
+  </data>
+  <data name="Chat.Greeting" xml:space="preserve">
+    <value>Выберите шаблон вопроса или переключитесь на кастомный вариант и задайте свой вопрос.</value>
+  </data>
+  <data name="Chat.Greeting.NoConnection" xml:space="preserve">
+    <value>Чат станет доступен после подключения Telegram.</value>
+  </data>
+  <data name="Chat.ConnectTelegram" xml:space="preserve">
+    <value>Подключить Telegram</value>
+  </data>
+  <data name="Chat.Templates.Label" xml:space="preserve">
+    <value>Шаблоны вопросов</value>
+  </data>
+  <data name="Chat.Template.Today.Title" xml:space="preserve">
+    <value>Важно сегодня</value>
+  </data>
+  <data name="Chat.Template.Today.Description" xml:space="preserve">
+    <value>Покажем только то, что реально требует внимания сегодня.</value>
+  </data>
+  <data name="Chat.Template.Today.Question" xml:space="preserve">
+    <value>Что для меня важно сегодня?</value>
+  </data>
+  <data name="Chat.Template.Waiting.Title" xml:space="preserve">
+    <value>Жду ответа</value>
+  </data>
+  <data name="Chat.Template.Waiting.Description" xml:space="preserve">
+    <value>Соберём обещания и точки, где сейчас завис ответ.</value>
+  </data>
+  <data name="Chat.Template.Waiting.Question" xml:space="preserve">
+    <value>Где я сейчас жду ответа?</value>
+  </data>
+  <data name="Chat.Template.Recent.Title" xml:space="preserve">
+    <value>Что было сегодня</value>
+  </data>
+  <data name="Chat.Template.Recent.Description" xml:space="preserve">
+    <value>Покажем свежие сообщения только за текущий день.</value>
+  </data>
+  <data name="Chat.Template.Recent.Question" xml:space="preserve">
+    <value>Что было в сообщениях сегодня?</value>
+  </data>
+  <data name="Chat.Template.Custom.Title" xml:space="preserve">
+    <value>Свой вопрос</value>
+  </data>
+  <data name="Chat.Template.Custom.Description" xml:space="preserve">
+    <value>Спросите своими словами. До 100 символов.</value>
+  </data>
+  <data name="Chat.Input.Label" xml:space="preserve">
+    <value>Вопрос</value>
+  </data>
+  <data name="Chat.Input.CustomPlaceholder" xml:space="preserve">
+    <value>Например: что с Валерией по договору?</value>
+  </data>
+  <data name="Chat.Send" xml:space="preserve">
+    <value>Спросить</value>
+  </data>
+  <data name="Chat.Thinking" xml:space="preserve">
+    <value>Собираю ответ...</value>
+  </data>
+  <data name="Chat.Answer.Today.Intro" xml:space="preserve">
+    <value>Вот что сейчас выглядит важным на сегодня.</value>
+  </data>
+  <data name="Chat.Answer.Today.Empty" xml:space="preserve">
+    <value>На сегодня пока ничего не выделилось.</value>
+  </data>
+  <data name="Chat.Answer.Waiting.Intro" xml:space="preserve">
+    <value>Вот где сейчас видится ожидание ответа.</value>
+  </data>
+  <data name="Chat.Answer.Waiting.Empty" xml:space="preserve">
+    <value>Сейчас нет явных точек ожидания ответа.</value>
+  </data>
+  <data name="Chat.Answer.Recent.Intro" xml:space="preserve">
+    <value>Вот сообщения только за текущий день.</value>
+  </data>
+  <data name="Chat.Answer.Recent.Empty" xml:space="preserve">
+    <value>За текущий день сообщений пока нет.</value>
+  </data>
+  <data name="Chat.Answer.Custom.Intro" xml:space="preserve">
+    <value>Вот что удалось найти по вашему вопросу.</value>
+  </data>
+  <data name="Chat.Answer.Custom.Empty" xml:space="preserve">
+    <value>По этому вопросу пока ничего не нашлось.</value>
+  </data>
+  <data name="Chat.Answer.Source" xml:space="preserve">
+    <value>Источник</value>
+  </data>
+  <data name="Chat.Error.Generic" xml:space="preserve">
+    <value>Не удалось получить ответ. Попробуйте ещё раз.</value>
+  </data>
 </root>

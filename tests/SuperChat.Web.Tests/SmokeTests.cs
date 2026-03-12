@@ -25,7 +25,8 @@ public sealed class SmokeTests : IClassFixture<WebTestApplicationFactory>
         var content = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("Превращайте разрозненные чаты", content, StringComparison.Ordinal);
+        Assert.Contains("Задавайте короткие вопросы", content, StringComparison.Ordinal);
+        Assert.Contains("class=\"auth-card\"", content, StringComparison.Ordinal);
         Assert.Contains("lang=\"ru\"", content, StringComparison.Ordinal);
     }
 
@@ -36,20 +37,19 @@ public sealed class SmokeTests : IClassFixture<WebTestApplicationFactory>
         var content = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("Turn scattered chats into a daily brief", content, StringComparison.Ordinal);
+        Assert.Contains("Ask short questions about your conversations", content, StringComparison.Ordinal);
         Assert.Contains("lang=\"en\"", content, StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task HomePage_RendersThemeSwitcher()
+    public async Task HomePage_RemovesOldNavigationChrome()
     {
         var response = await _client.GetAsync("/");
         var content = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("class=\"theme-switcher\"", content, StringComparison.Ordinal);
-        Assert.Contains("Светлая", content, StringComparison.Ordinal);
-        Assert.Contains("Тёмная", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("class=\"topbar\"", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("theme-switcher", content, StringComparison.Ordinal);
     }
 
     [Fact]

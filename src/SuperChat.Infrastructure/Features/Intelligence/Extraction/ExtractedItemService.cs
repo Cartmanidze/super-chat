@@ -42,9 +42,11 @@ public sealed class ExtractedItemService(IDbContextFactory<SuperChatDbContext> d
         var entities = await dbContext.ExtractedItems
             .AsNoTracking()
             .Where(item => item.UserId == userId)
-            .OrderByDescending(item => item.ObservedAt)
             .ToListAsync(cancellationToken);
 
-        return entities.Select(item => item.ToDomain()).ToList();
+        return entities
+            .OrderByDescending(item => item.ObservedAt)
+            .Select(item => item.ToDomain())
+            .ToList();
     }
 }

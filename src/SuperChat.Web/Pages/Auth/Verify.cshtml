@@ -4,14 +4,14 @@
   ViewData["Title"] = T["Auth.Verify.PageTitle"];
 }
 
-<section class="stack">
-  <div class="section-card">
+<section class="auth-screen">
+  <div class="auth-card">
     <h1>@T["Auth.Verify.Title"]</h1>
-    <p>@Model.StatusMessage</p>
+    <p class="auth-copy">@Model.StatusMessage</p>
 
     @if (!Model.Success)
     {
-      <a class="button secondary" asp-page="/Auth/RequestLink">@T["Auth.Verify.RequestAnotherLink"]</a>
+      <a class="inline-link" asp-page="/Auth/RequestLink">@T["Auth.Verify.RequestAnotherLink"]</a>
     }
   </div>
 </section>

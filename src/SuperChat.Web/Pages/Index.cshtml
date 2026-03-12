@@ -1,45 +1,316 @@
 @page
+@using System.Text.Json
 @model IndexModel
 @{
-  ViewData["Title"] = "super-chat";
+  ViewData["Title"] = T["Chat.PageTitle"];
+  var todayQuestion = T["Chat.Template.Today.Question"].Value;
+  var waitingQuestion = T["Chat.Template.Waiting.Question"].Value;
+  var recentQuestion = T["Chat.Template.Recent.Question"].Value;
+  var clientStrings = JsonSerializer.Serialize(new
+  {
+    genericError = T["Chat.Error.Generic"].Value,
+    thinking = T["Chat.Thinking"].Value,
+    intros = new
+    {
+      today = T["Chat.Answer.Today.Intro"].Value,
+      waiting = T["Chat.Answer.Waiting.Intro"].Value,
+      recent = T["Chat.Answer.Recent.Intro"].Value,
+      custom = T["Chat.Answer.Custom.Intro"].Value
+    },
+    empties = new
+    {
+      today = T["Chat.Answer.Today.Empty"].Value,
+      waiting = T["Chat.Answer.Waiting.Empty"].Value,
+      recent = T["Chat.Answer.Recent.Empty"].Value,
+      custom = T["Chat.Answer.Custom.Empty"].Value
+    },
+    sourceLabel = T["Chat.Answer.Source"].Value
+  });
 }
 
-<section class="hero">
-  <div class="hero-copy">
-    <p class="eyebrow">@T["Home.Eyebrow"]</p>
-    <h1>@T["Home.Title"]</h1>
-    <p class="lede">@T["Home.Lede"]</p>
+@if (!Model.IsSignedIn)
+{
+  <section class="auth-screen">
+    <div class="auth-card">
+      <p class="auth-kicker">@T["Chat.Auth.Kicker"]</p>
+      <h1>@T["Chat.Auth.Title"]</h1>
+      <p class="auth-copy">@T["Chat.Auth.Description"]</p>
 
-    @if (Model.IsSignedIn)
-    {
-      <div class="hero-actions">
-        <a class="button primary" asp-page="/Dashboard/Today">@T["Home.OpenToday"]</a>
-        <a class="button secondary" asp-page="/Connect/Telegram">@T["Home.ManageTelegramConnection"]</a>
-      </div>
-    }
-    else
-    {
-      <form method="post" asp-page="/Auth/RequestLink" class="auth-panel">
-        <label asp-for="Email">@T["Home.PilotEmailLabel"]</label>
-        <input asp-for="Email" type="email" placeholder="@T["Home.PilotEmailPlaceholder"]" />
-        <button type="submit" class="button primary">@T["Home.RequestMagicLink"]</button>
+      <form method="post" asp-page-handler="RequestLink" class="auth-form">
+        <label asp-for="Email" class="visually-hidden">@T["Common.Email"]</label>
+        <input asp-for="Email" type="email" placeholder="@T["Home.PilotEmailPlaceholder"]" autocomplete="email" />
+        <button type="submit" class="send-button wide">@T["Auth.RequestLink.Send"]</button>
       </form>
-      <p class="hint">@T["Home.InviteOnlyHint"]</p>
-    }
-  </div>
 
-  <div class="hero-rail">
-    <div class="metric-card">
-      <span>@T["Home.Metric.Milestone.Label"]</span>
-      <strong>@T["Home.Metric.Milestone.Value"]</strong>
+      @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+      {
+        <p class="status-note">@Model.StatusMessage</p>
+      }
+
+      @if (Model.DevelopmentLink is not null)
+      {
+        <p class="status-note">
+          @T["Auth.RequestLink.DevelopmentShortcut"]
+          <a class="inline-link" href="@Model.DevelopmentLink">@Model.DevelopmentLink</a>
+        </p>
+      }
     </div>
-    <div class="metric-card">
-      <span>@T["Home.Metric.Modules.Label"]</span>
-      <strong>@T["Home.Metric.Modules.Value"]</strong>
+  </section>
+}
+else
+{
+  <section class="chat-page">
+    <div class="chat-frame">
+      <div id="chat-feed" class="chat-feed">
+        <article class="chat-bubble assistant">
+          <p class="bubble-copy">@T["Chat.Greeting"]</p>
+
+          @if (!Model.CanAskQuestions)
+          {
+            <p class="bubble-copy">@T["Chat.Greeting.NoConnection"]</p>
+            <a class="inline-link" asp-page="/Connect/Telegram">@T["Chat.ConnectTelegram"]</a>
+          }
+        </article>
+      </div>
+
+      @if (Model.CanAskQuestions)
+      {
+        <div class="template-picker" role="radiogroup" aria-label="@T["Chat.Templates.Label"]">
+          <button type="button"
+                  class="template-card is-selected"
+                  data-template-id="today"
+                  data-template-question="@todayQuestion"
+                  data-template-description="@T["Chat.Template.Today.Description"]"
+                  data-custom="false"
+                  aria-pressed="true">
+            <strong>@T["Chat.Template.Today.Title"]</strong>
+            <span>@T["Chat.Template.Today.Description"]</span>
+          </button>
+          <button type="button"
+                  class="template-card"
+                  data-template-id="waiting"
+                  data-template-question="@waitingQuestion"
+                  data-template-description="@T["Chat.Template.Waiting.Description"]"
+                  data-custom="false"
+                  aria-pressed="false">
+            <strong>@T["Chat.Template.Waiting.Title"]</strong>
+            <span>@T["Chat.Template.Waiting.Description"]</span>
+          </button>
+          <button type="button"
+                  class="template-card"
+                  data-template-id="recent"
+                  data-template-question="@recentQuestion"
+                  data-template-description="@T["Chat.Template.Recent.Description"]"
+                  data-custom="false"
+                  aria-pressed="false">
+            <strong>@T["Chat.Template.Recent.Title"]</strong>
+            <span>@T["Chat.Template.Recent.Description"]</span>
+          </button>
+          <button type="button"
+                  class="template-card template-card-custom"
+                  data-template-id="custom"
+                  data-template-question=""
+                  data-template-description="@T["Chat.Template.Custom.Description"]"
+                  data-custom="true"
+                  data-custom-placeholder="@T["Chat.Input.CustomPlaceholder"]"
+                  aria-pressed="false">
+            <strong>@T["Chat.Template.Custom.Title"]</strong>
+            <span>@T["Chat.Template.Custom.Description"]</span>
+          </button>
+        </div>
+
+        <form id="chat-form" method="post" asp-page-handler="Ask" class="chat-composer">
+          @Html.AntiForgeryToken()
+          <input asp-for="TemplateId" type="hidden" value="today" />
+
+          <label asp-for="Question" class="visually-hidden">@T["Chat.Input.Label"]</label>
+          <textarea asp-for="Question"
+                    id="chat-question"
+                    rows="2"
+                    maxlength="@Model.MaxQuestionLength"
+                    readonly>@todayQuestion</textarea>
+
+          <div class="composer-footer">
+            <p id="composer-hint" class="composer-hint">@T["Chat.Template.Today.Description"]</p>
+            <div class="composer-actions">
+              <span class="composer-counter"><span id="char-count">@todayQuestion.Length</span>/@Model.MaxQuestionLength</span>
+              <button id="chat-send" type="submit" class="send-button">@T["Chat.Send"]</button>
+            </div>
+          </div>
+        </form>
+      }
     </div>
-    <div class="metric-card">
-      <span>@T["Home.Metric.Mode.Label"]</span>
-      <strong>@(Model.IsDevelopmentMode ? T["Home.BootstrapMode.Development"] : T["Home.BootstrapMode.Live"])</strong>
-    </div>
-  </div>
-</section>
+  </section>
+
+  @section Scripts
+  {
+    <script>
+      (function () {
+        var strings = @Html.Raw(clientStrings);
+        var form = document.getElementById("chat-form");
+        if (!form) {
+          return;
+        }
+
+        var buttons = Array.prototype.slice.call(document.querySelectorAll(".template-card"));
+        var templateInput = document.getElementById("TemplateId");
+        var questionInput = document.getElementById("chat-question");
+        var charCount = document.getElementById("char-count");
+        var hint = document.getElementById("composer-hint");
+        var sendButton = document.getElementById("chat-send");
+        var feed = document.getElementById("chat-feed");
+        var maxLength = @Model.MaxQuestionLength;
+
+        function updateCounter() {
+          charCount.textContent = String(questionInput.value.length);
+        }
+
+        function updateSubmitState() {
+          sendButton.disabled = questionInput.value.trim().length === 0 || questionInput.value.length > maxLength;
+        }
+
+        function setActiveTemplate(button) {
+          buttons.forEach(function (item) {
+            var active = item === button;
+            item.classList.toggle("is-selected", active);
+            item.setAttribute("aria-pressed", active ? "true" : "false");
+          });
+
+          templateInput.value = button.dataset.templateId || "custom";
+          hint.textContent = button.dataset.templateDescription || "";
+
+          if (button.dataset.custom === "true") {
+            questionInput.readOnly = false;
+            questionInput.value = "";
+            questionInput.placeholder = button.dataset.customPlaceholder || "";
+            questionInput.focus();
+          } else {
+            questionInput.readOnly = true;
+            questionInput.value = button.dataset.templateQuestion || "";
+            questionInput.placeholder = "";
+          }
+
+          updateCounter();
+          updateSubmitState();
+        }
+
+        function appendBubble(role, content, items) {
+          var bubble = document.createElement("article");
+          bubble.className = "chat-bubble " + role;
+
+          var text = document.createElement("p");
+          text.className = "bubble-copy";
+          text.textContent = content;
+          bubble.appendChild(text);
+
+          if (role === "assistant" && items && items.length > 0) {
+            var list = document.createElement("div");
+            list.className = "chat-results";
+
+            items.forEach(function (item) {
+              var card = document.createElement("div");
+              card.className = "chat-result";
+
+              var title = document.createElement("strong");
+              title.textContent = item.title;
+              card.appendChild(title);
+
+              if (item.summary) {
+                var summary = document.createElement("p");
+                summary.textContent = item.summary;
+                card.appendChild(summary);
+              }
+
+              var meta = [];
+              if (item.sourceRoom) {
+                meta.push(strings.sourceLabel + ": " + item.sourceRoom);
+              }
+              if (item.timestamp) {
+                meta.push(new Date(item.timestamp).toLocaleString(document.documentElement.lang || undefined));
+              }
+
+              if (meta.length > 0) {
+                var metaLine = document.createElement("small");
+                metaLine.textContent = meta.join(" • ");
+                card.appendChild(metaLine);
+              }
+
+              list.appendChild(card);
+            });
+
+            bubble.appendChild(list);
+          }
+
+          feed.appendChild(bubble);
+          feed.scrollTop = feed.scrollHeight;
+          return bubble;
+        }
+
+        function buildAssistantText(payload) {
+          if (!payload.items || payload.items.length === 0) {
+            return strings.empties[payload.mode] || strings.empties.custom;
+          }
+
+          return strings.intros[payload.mode] || strings.intros.custom;
+        }
+
+        buttons.forEach(function (button) {
+          button.addEventListener("click", function () {
+            setActiveTemplate(button);
+          });
+        });
+
+        questionInput.addEventListener("input", function () {
+          updateCounter();
+          updateSubmitState();
+        });
+
+        form.addEventListener("submit", async function (event) {
+          event.preventDefault();
+          updateSubmitState();
+          if (sendButton.disabled) {
+            return;
+          }
+
+          var question = questionInput.value.trim();
+          appendBubble("user", question);
+          var typingBubble = appendBubble("assistant", strings.thinking);
+          sendButton.disabled = true;
+
+          try {
+            var response = await fetch("?handler=Ask", {
+              method: "POST",
+              body: new FormData(form),
+              credentials: "same-origin"
+            });
+
+            typingBubble.remove();
+
+            if (!response.ok) {
+              var errorPayload = await response.json().catch(function () { return null; });
+              var errorMessage = errorPayload && errorPayload.error ? errorPayload.error : strings.genericError;
+              appendBubble("assistant", errorMessage);
+              return;
+            }
+
+            var payload = await response.json();
+            appendBubble("assistant", buildAssistantText(payload), payload.items || []);
+          } catch (error) {
+            typingBubble.remove();
+            appendBubble("assistant", strings.genericError);
+          }
+
+          if (templateInput.value === "custom") {
+            questionInput.value = "";
+          }
+
+          updateCounter();
+          updateSubmitState();
+        });
+
+        updateCounter();
+        updateSubmitState();
+      })();
+    </script>
+  }
+}

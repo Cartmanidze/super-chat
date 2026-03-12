@@ -402,4 +402,103 @@
   <data name="Theme.Label" xml:space="preserve">
     <value>Theme</value>
   </data>
+  <data name="Chat.PageTitle" xml:space="preserve">
+    <value>Chat</value>
+  </data>
+  <data name="Chat.Auth.Kicker" xml:space="preserve">
+    <value>Personal messaging assistant</value>
+  </data>
+  <data name="Chat.Auth.Title" xml:space="preserve">
+    <value>Ask short questions about your conversations</value>
+  </data>
+  <data name="Chat.Auth.Description" xml:space="preserve">
+    <value>Sign in with a magic link, then work from one compact chat window.</value>
+  </data>
+  <data name="Chat.Greeting" xml:space="preserve">
+    <value>Pick a question template or switch to a custom prompt and ask in your own words.</value>
+  </data>
+  <data name="Chat.Greeting.NoConnection" xml:space="preserve">
+    <value>Chat becomes available after Telegram is connected.</value>
+  </data>
+  <data name="Chat.ConnectTelegram" xml:space="preserve">
+    <value>Connect Telegram</value>
+  </data>
+  <data name="Chat.Templates.Label" xml:space="preserve">
+    <value>Question templates</value>
+  </data>
+  <data name="Chat.Template.Today.Title" xml:space="preserve">
+    <value>Important today</value>
+  </data>
+  <data name="Chat.Template.Today.Description" xml:space="preserve">
+    <value>Show only what actually needs attention today.</value>
+  </data>
+  <data name="Chat.Template.Today.Question" xml:space="preserve">
+    <value>What matters for me today?</value>
+  </data>
+  <data name="Chat.Template.Waiting.Title" xml:space="preserve">
+    <value>Waiting on</value>
+  </data>
+  <data name="Chat.Template.Waiting.Description" xml:space="preserve">
+    <value>Collect promises and places where a reply is still pending.</value>
+  </data>
+  <data name="Chat.Template.Waiting.Question" xml:space="preserve">
+    <value>Where am I waiting for a reply?</value>
+  </data>
+  <data name="Chat.Template.Recent.Title" xml:space="preserve">
+    <value>Today’s messages</value>
+  </data>
+  <data name="Chat.Template.Recent.Description" xml:space="preserve">
+    <value>Show fresh messages only for the current day.</value>
+  </data>
+  <data name="Chat.Template.Recent.Question" xml:space="preserve">
+    <value>What happened in today’s messages?</value>
+  </data>
+  <data name="Chat.Template.Custom.Title" xml:space="preserve">
+    <value>Custom question</value>
+  </data>
+  <data name="Chat.Template.Custom.Description" xml:space="preserve">
+    <value>Ask in your own words. Up to 100 characters.</value>
+  </data>
+  <data name="Chat.Input.Label" xml:space="preserve">
+    <value>Question</value>
+  </data>
+  <data name="Chat.Input.CustomPlaceholder" xml:space="preserve">
+    <value>For example: what is happening with Valeria and the contract?</value>
+  </data>
+  <data name="Chat.Send" xml:space="preserve">
+    <value>Ask</value>
+  </data>
+  <data name="Chat.Thinking" xml:space="preserve">
+    <value>Collecting the answer...</value>
+  </data>
+  <data name="Chat.Answer.Today.Intro" xml:space="preserve">
+    <value>Here is what currently looks important for today.</value>
+  </data>
+  <data name="Chat.Answer.Today.Empty" xml:space="preserve">
+    <value>Nothing stands out for today yet.</value>
+  </data>
+  <data name="Chat.Answer.Waiting.Intro" xml:space="preserve">
+    <value>Here is where a reply still seems to be pending.</value>
+  </data>
+  <data name="Chat.Answer.Waiting.Empty" xml:space="preserve">
+    <value>There are no obvious waiting-on items right now.</value>
+  </data>
+  <data name="Chat.Answer.Recent.Intro" xml:space="preserve">
+    <value>Here are messages only from the current day.</value>
+  </data>
+  <data name="Chat.Answer.Recent.Empty" xml:space="preserve">
+    <value>There are no messages for the current day yet.</value>
+  </data>
+  <data name="Chat.Answer.Custom.Intro" xml:space="preserve">
+    <value>Here is what I could find for your question.</value>
+  </data>
+  <data name="Chat.Answer.Custom.Empty" xml:space="preserve">
+    <value>I could not find anything for that question yet.</value>
+  </data>
+  <data name="Chat.Answer.Source" xml:space="preserve">
+    <value>Source</value>
+  </data>
+  <data name="Chat.Error.Generic" xml:space="preserve">
+    <value>I could not get an answer. Please try again.</value>
+  </data>
 </root>

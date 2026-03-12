@@ -108,13 +108,43 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
         Assert.NotNull(listBefore);
         Assert.Single(listBefore!);
         Assert.Equal("telegram", listBefore[0].Provider);
-        Assert.Equal("NotStarted", listBefore[0].State);
+        Assert.True(
+            string.Equals(listBefore[0].State, "NotStarted", StringComparison.Ordinal) ||
+            string.Equals(listBefore[0].State, "Connected", StringComparison.Ordinal));
 
         var emailStatusResponse = await client.GetAsync("/api/v1/integrations/email");
         var emailConnectResponse = await client.PostAsync("/api/v1/integrations/email/connect", content: null);
 
         Assert.Equal(HttpStatusCode.NotImplemented, emailStatusResponse.StatusCode);
         Assert.Equal(HttpStatusCode.NotImplemented, emailConnectResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task ChatEndpoint_ReturnsStructuredAnswer_AndValidatesLength()
+    {
+        using var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", await GetAccessTokenAsync(client));
+
+        var connectResponse = await client.PostAsync("/api/v1/integrations/telegram/connect", content: null);
+        Assert.Equal(HttpStatusCode.OK, connectResponse.StatusCode);
+
+        var okResponse = await client.PostAsJsonAsync("/api/v1/chat/ask", new
+        {
+            templateId = "today",
+            question = "Что для меня важно сегодня?"
+        });
+
+        var okPayload = await okResponse.Content.ReadAsStringAsync();
+        Assert.Equal(HttpStatusCode.OK, okResponse.StatusCode);
+        Assert.Contains("\"mode\":\"today\"", okPayload, StringComparison.OrdinalIgnoreCase);
+
+        var badResponse = await client.PostAsJsonAsync("/api/v1/chat/ask", new
+        {
+            templateId = "custom",
+            question = new string('x', 101)
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, badResponse.StatusCode);
     }
 
     private static string ExtractToken(string developmentLink)

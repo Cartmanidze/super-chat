@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication;
 using SuperChat.Api.Features.Auth;
+using SuperChat.Api.Features.Chat;
 using SuperChat.Api.Features.Dashboard;
 using SuperChat.Api.Features.Feedback;
 using SuperChat.Api.Features.Health;
@@ -39,6 +40,7 @@ api.MapAuthEndpoints();
 api.MapMeEndpoints();
 api.MapIntegrationEndpoints();
 api.MapTelegramEndpoints();
+api.MapChatEndpoints();
 api.MapDashboardEndpoints();
 api.MapSearchEndpoints();
 api.MapFeedbackEndpoints();
