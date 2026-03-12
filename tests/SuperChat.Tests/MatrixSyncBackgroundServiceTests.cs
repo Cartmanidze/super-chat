@@ -33,4 +33,24 @@ public sealed class MatrixSyncBackgroundServiceTests
 
         Assert.False(result);
     }
+
+    [Fact]
+    public void GetInvitedRoomsToJoin_ExcludesManagementRoomAndDuplicates()
+    {
+        var result = MatrixSyncBackgroundService.GetInvitedRoomsToJoin(
+            ["!portal-a:matrix.example", "!bridge:matrix.example", "!portal-a:matrix.example", "!portal-b:matrix.example"],
+            "!bridge:matrix.example");
+
+        Assert.Equal(["!portal-a:matrix.example", "!portal-b:matrix.example"], result);
+    }
+
+    [Fact]
+    public void GetInvitedRoomsToJoin_IgnoresEmptyIds()
+    {
+        var result = MatrixSyncBackgroundService.GetInvitedRoomsToJoin(
+            ["", "   ", "!portal:matrix.example"],
+            null);
+
+        Assert.Equal(["!portal:matrix.example"], result);
+    }
 }

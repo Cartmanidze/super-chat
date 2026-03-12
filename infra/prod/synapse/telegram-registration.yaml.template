@@ -10,5 +10,7 @@ namespaces:
       regex: '@telegram_.+:${MATRIX_SERVER_NAME}'
     - exclusive: true
       regex: '@telegrambot:${MATRIX_SERVER_NAME}'
-  aliases: []
+  aliases:
+    - exclusive: true
+      regex: '#telegram_.+:${MATRIX_SERVER_NAME}'
   rooms: []

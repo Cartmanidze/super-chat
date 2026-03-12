@@ -79,6 +79,21 @@ public sealed partial class MatrixApiClient(
         return payload.RoomId;
     }
 
+    public async Task JoinRoomAsync(
+        string accessToken,
+        string roomId,
+        CancellationToken cancellationToken)
+    {
+        using var request = CreateUserRequest(
+            HttpMethod.Post,
+            $"/_matrix/client/v3/rooms/{Uri.EscapeDataString(roomId)}/join",
+            accessToken);
+        request.Content = JsonContent.Create(new { });
+
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
     public async Task SendTextMessageAsync(
         string accessToken,
         string roomId,
@@ -120,6 +135,16 @@ public sealed partial class MatrixApiClient(
             ?? new SyncResponse();
 
         var rooms = new List<MatrixTimelineRoom>();
+        var invitedRoomIds = new List<string>();
+
+        foreach (var room in payload.Rooms?.Invite ?? new Dictionary<string, InvitedRoom>())
+        {
+            if (!string.IsNullOrWhiteSpace(room.Key))
+            {
+                invitedRoomIds.Add(room.Key);
+            }
+        }
+
         foreach (var room in payload.Rooms?.Join ?? new Dictionary<string, JoinedRoom>())
         {
             var events = new List<MatrixTimelineEvent>();
@@ -151,7 +176,7 @@ public sealed partial class MatrixApiClient(
             }
         }
 
-        return new MatrixSyncResult(payload.NextBatch, rooms);
+        return new MatrixSyncResult(payload.NextBatch, rooms, invitedRoomIds);
     }
 
     public Uri? TryExtractFirstUrl(string text)
@@ -233,12 +258,16 @@ public sealed partial class MatrixApiClient(
     private sealed class SyncRooms
     {
         public Dictionary<string, JoinedRoom>? Join { get; init; }
+
+        public Dictionary<string, InvitedRoom>? Invite { get; init; }
     }
 
     private sealed class JoinedRoom
     {
         public TimelinePayload? Timeline { get; init; }
     }
+
+    private sealed class InvitedRoom;
 
     private sealed class TimelinePayload
     {
@@ -263,7 +292,8 @@ public sealed partial class MatrixApiClient(
 
 public sealed record MatrixSyncResult(
     string? NextBatchToken,
-    IReadOnlyList<MatrixTimelineRoom> Rooms);
+    IReadOnlyList<MatrixTimelineRoom> Rooms,
+    IReadOnlyList<string> InvitedRoomIds);
 
 public sealed record MatrixTimelineRoom(
     string RoomId,

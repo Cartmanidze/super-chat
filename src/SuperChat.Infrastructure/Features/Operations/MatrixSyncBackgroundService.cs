@@ -108,6 +108,19 @@ public sealed class MatrixSyncBackgroundService(
         var connected = target.State == TelegramConnectionState.Connected;
         string? discoveredLoginUrl = null;
         var ingestedMessages = 0;
+        var invitedRoomsToJoin = GetInvitedRoomsToJoin(result.InvitedRoomIds, target.ManagementRoomId);
+
+        foreach (var roomId in invitedRoomsToJoin)
+        {
+            try
+            {
+                await matrixApiClient.JoinRoomAsync(target.AccessToken, roomId, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to auto-join invited Matrix room {RoomId} for user {UserId}.", roomId, target.UserId);
+            }
+        }
 
         foreach (var room in result.Rooms)
         {
@@ -282,6 +295,17 @@ public sealed class MatrixSyncBackgroundService(
     internal static bool IsManagementRoom(string roomId, string? managementRoomId)
     {
         return string.Equals(roomId, managementRoomId, StringComparison.Ordinal);
+    }
+
+    internal static IReadOnlyList<string> GetInvitedRoomsToJoin(
+        IReadOnlyList<string> invitedRoomIds,
+        string? managementRoomId)
+    {
+        return invitedRoomIds
+            .Where(roomId => !string.IsNullOrWhiteSpace(roomId))
+            .Where(roomId => !IsManagementRoom(roomId, managementRoomId))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
     }
 
     private static string DeriveSenderName(string senderId, string ownMatrixUserId)
