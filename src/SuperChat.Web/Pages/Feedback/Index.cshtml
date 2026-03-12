@@ -1,39 +1,39 @@
 @page "/feedback"
 @model SuperChat.Web.Pages.Feedback.IndexModel
 @{
-  ViewData["Title"] = "Feedback";
+  ViewData["Title"] = T["Feedback.PageTitle"];
 }
 
 <section class="stack">
   <div class="section-card">
-    <p class="eyebrow">Pilot signal</p>
-    <h1>Send product feedback</h1>
-    <p>Use this during the pilot to mark whether the digest and search are actually useful.</p>
+    <p class="eyebrow">@T["Feedback.Eyebrow"]</p>
+    <h1>@T["Feedback.Title"]</h1>
+    <p>@T["Feedback.Description"]</p>
 
     <form method="post" class="stack">
       <div>
-        <label asp-for="Area">Area</label>
+        <label asp-for="Area">@T["Feedback.Area"]</label>
         <select asp-for="Area">
-          <option value="today">Today</option>
-          <option value="waiting">Waiting</option>
-          <option value="search">Search</option>
+          <option value="today">@T["Feedback.Area.Today"]</option>
+          <option value="waiting">@T["Feedback.Area.Waiting"]</option>
+          <option value="search">@T["Feedback.Area.Search"]</option>
         </select>
       </div>
 
       <div>
-        <label asp-for="Useful">Useful</label>
+        <label asp-for="Useful">@T["Feedback.Useful"]</label>
         <select asp-for="Useful">
-          <option value="true">Useful</option>
-          <option value="false">Not useful</option>
+          <option value="true">@T["Feedback.Useful.Yes"]</option>
+          <option value="false">@T["Feedback.Useful.No"]</option>
         </select>
       </div>
 
       <div>
-        <label asp-for="Note">Note</label>
-        <textarea asp-for="Note" rows="4" placeholder="What felt right or noisy?"></textarea>
+        <label asp-for="Note">@T["Feedback.Note"]</label>
+        <textarea asp-for="Note" rows="4" placeholder="@T["Feedback.NotePlaceholder"]"></textarea>
       </div>
 
-      <button type="submit" class="button primary">Submit feedback</button>
+      <button type="submit" class="button primary">@T["Feedback.Submit"]</button>
     </form>
 
     @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))

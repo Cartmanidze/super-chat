@@ -35,7 +35,7 @@ public sealed class AuthFlowService(
 
         if (!isAllowed)
         {
-            return new MagicLinkRequestResult(false, "This email is not invited to the pilot yet.", null);
+            return new MagicLinkRequestResult(false, MagicLinkRequestStatus.NotInvited, "This email is not invited to the pilot yet.", null);
         }
 
         var now = timeProvider.GetUtcNow();
@@ -52,7 +52,7 @@ public sealed class AuthFlowService(
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var link = new Uri($"{pilotOptions.BaseUrl.TrimEnd('/')}/auth/verify?token={Uri.EscapeDataString(token.Value)}");
-        return new MagicLinkRequestResult(true, "Magic link created.", link);
+        return new MagicLinkRequestResult(true, MagicLinkRequestStatus.Created, "Magic link created.", link);
     }
 
     public async Task<AuthVerificationResult> VerifyAsync(string token, CancellationToken cancellationToken)
@@ -65,7 +65,7 @@ public sealed class AuthFlowService(
 
         if (link is null || link.ExpiresAt <= now)
         {
-            return new AuthVerificationResult(false, "This magic link is invalid or expired.", null);
+            return new AuthVerificationResult(false, AuthVerificationStatus.InvalidOrExpired, "This magic link is invalid or expired.", null);
         }
 
         var user = await CreateOrRefreshUserAsync(dbContext, link.Email, now, cancellationToken);
@@ -75,7 +75,7 @@ public sealed class AuthFlowService(
         await dbContext.SaveChangesAsync(cancellationToken);
         await matrixProvisioningService.EnsureIdentityAsync(user, cancellationToken);
 
-        return new AuthVerificationResult(true, "Signed in successfully.", user);
+        return new AuthVerificationResult(true, AuthVerificationStatus.Success, "Signed in successfully.", user);
     }
 
     private static async Task<AppUser> CreateOrRefreshUserAsync(

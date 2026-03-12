@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using SuperChat.Domain.Model;
@@ -15,7 +15,7 @@ public sealed class TelegramModel(
 {
     public TelegramConnection Connection { get; private set; } = new(Guid.Empty, TelegramConnectionState.NotStarted, null, DateTimeOffset.UtcNow, null);
 
-    public string MatrixUserId { get; private set; } = "not provisioned";
+    public string? MatrixUserId { get; private set; }
 
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
@@ -44,6 +44,6 @@ public sealed class TelegramModel(
         }
 
         Connection = await telegramConnectionService.GetStatusAsync(user.Id, cancellationToken);
-        MatrixUserId = (await matrixProvisioningService.GetIdentityAsync(user.Id, cancellationToken))?.MatrixUserId ?? "pending";
+        MatrixUserId = (await matrixProvisioningService.GetIdentityAsync(user.Id, cancellationToken))?.MatrixUserId;
     }
 }

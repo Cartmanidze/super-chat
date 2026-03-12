@@ -1,48 +1,48 @@
 @page "/connect/telegram"
 @model SuperChat.Web.Pages.Connect.TelegramModel
 @{
-  ViewData["Title"] = "Connect Telegram";
+  ViewData["Title"] = T["ConnectTelegram.PageTitle"];
 }
 
 <section class="stack">
   <div class="section-card">
-    <p class="eyebrow">Bridge orchestration</p>
-    <h1>Connect Telegram without exposing Element</h1>
-    <p>Your hidden Matrix identity is provisioned automatically. The app opens a private management room with the bridge, waits for the login prompt, and then starts syncing real Telegram messages.</p>
+    <p class="eyebrow">@T["ConnectTelegram.Eyebrow"]</p>
+    <h1>@T["ConnectTelegram.Title"]</h1>
+    <p>@T["ConnectTelegram.Description"]</p>
 
     <dl class="definition-grid">
       <div>
-        <dt>Matrix user</dt>
-        <dd>@Model.MatrixUserId</dd>
+        <dt>@T["ConnectTelegram.MatrixUser"]</dt>
+        <dd>@(Model.MatrixUserId ?? T["Common.Pending"])</dd>
       </div>
       <div>
-        <dt>Status</dt>
-        <dd>@Model.Connection.State</dd>
+        <dt>@T["Common.Status"]</dt>
+        <dd>@UiText.ConnectionState(Model.Connection.State.ToString())</dd>
       </div>
       <div>
-        <dt>Last sync</dt>
-        <dd>@(Model.Connection.LastSyncedAt?.ToString("u") ?? "waiting")</dd>
+        <dt>@T["Common.LastSync"]</dt>
+        <dd>@(Model.Connection.LastSyncedAt?.ToString("u") ?? T["Common.Waiting"])</dd>
       </div>
     </dl>
 
     <form method="post">
-      <button type="submit" class="button primary">Start Telegram connection</button>
+      <button type="submit" class="button primary">@T["ConnectTelegram.StartButton"]</button>
     </form>
 
     @if (Model.Connection.WebLoginUrl is not null)
     {
-      <p class="notice">Bridge web login: <a href="@Model.Connection.WebLoginUrl">@Model.Connection.WebLoginUrl</a></p>
+      <p class="notice">@T["ConnectTelegram.BridgeWebLogin"] <a href="@Model.Connection.WebLoginUrl">@Model.Connection.WebLoginUrl</a></p>
     }
     else if (Model.Connection.State == SuperChat.Domain.Model.TelegramConnectionState.BridgePending)
     {
-      <p class="notice">The bridge is preparing the login prompt. Refresh this page in a few seconds to pick up the web login link.</p>
+      <p class="notice">@T["ConnectTelegram.BridgePendingNotice"]</p>
     }
 
     <div class="hero-actions">
-      <a class="button secondary" asp-page="/Dashboard/Today">Open Today</a>
-      <a class="button secondary" asp-page="/Settings/Connections">Inspect connection details</a>
+      <a class="button secondary" asp-page="/Dashboard/Today">@T["ConnectTelegram.OpenToday"]</a>
+      <a class="button secondary" asp-page="/Settings/Connections">@T["ConnectTelegram.InspectDetails"]</a>
     </div>
 
-    <p class="hint">In development mode the app still seeds sample messages so the product surface remains inspectable without a live Telegram account.</p>
+    <p class="hint">@T["ConnectTelegram.DevModeHint"]</p>
   </div>
 </section>

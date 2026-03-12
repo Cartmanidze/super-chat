@@ -1,36 +1,36 @@
 @page "/settings/connections"
 @model SuperChat.Web.Pages.Settings.ConnectionsModel
 @{
-  ViewData["Title"] = "Connections";
+  ViewData["Title"] = T["Connections.PageTitle"];
 }
 
 <section class="stack">
   <div class="section-card">
-    <p class="eyebrow">Settings</p>
-    <h1>Connections overview</h1>
+    <p class="eyebrow">@T["Settings.Eyebrow"]</p>
+    <h1>@T["Connections.Title"]</h1>
 
     <dl class="definition-grid">
       <div>
-        <dt>Product email</dt>
+        <dt>@T["Connections.ProductEmail"]</dt>
         <dd>@Model.Email</dd>
       </div>
       <div>
-        <dt>Matrix user</dt>
-        <dd>@Model.MatrixUserId</dd>
+        <dt>@T["Connections.MatrixUser"]</dt>
+        <dd>@(Model.MatrixUserId ?? T["Common.Pending"])</dd>
       </div>
       <div>
-        <dt>Telegram state</dt>
-        <dd>@Model.ConnectionState</dd>
+        <dt>@T["Connections.TelegramState"]</dt>
+        <dd>@UiText.ConnectionState(Model.ConnectionState.ToString())</dd>
       </div>
       <div>
-        <dt>Last sync</dt>
-        <dd>@(Model.LastSyncedAt?.ToString("u") ?? "waiting")</dd>
+        <dt>@T["Common.LastSync"]</dt>
+        <dd>@(Model.LastSyncedAt?.ToString("u") ?? T["Common.Waiting"])</dd>
       </div>
     </dl>
 
     <form method="post" asp-page-handler="Disconnect" class="hero-actions">
-      <button type="submit" class="button primary">Disconnect Telegram</button>
-      <a class="button secondary" asp-page="/Connect/Telegram">Back to connect flow</a>
+      <button type="submit" class="button primary">@T["Connections.DisconnectTelegram"]</button>
+      <a class="button secondary" asp-page="/Connect/Telegram">@T["Connections.BackToConnectFlow"]</a>
     </form>
   </div>
 </section>

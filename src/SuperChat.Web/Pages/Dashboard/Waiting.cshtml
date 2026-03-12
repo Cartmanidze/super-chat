@@ -1,19 +1,19 @@
 @page "/waiting"
 @model SuperChat.Web.Pages.Dashboard.WaitingModel
 @{
-  ViewData["Title"] = "Waiting";
+  ViewData["Title"] = T["Waiting.PageTitle"];
 }
 
 <section class="stack">
   <div class="section-head">
-    <p class="eyebrow">Follow-up</p>
-    <h1>Waiting for reply</h1>
+    <p class="eyebrow">@T["Waiting.Eyebrow"]</p>
+    <h1>@T["Waiting.Title"]</h1>
   </div>
 
   @if (Model.Cards.Count == 0)
   {
     <div class="empty-state">
-      <p>No active waiting-on items yet.</p>
+      <p>@T["Waiting.Empty"]</p>
     </div>
   }
   else
@@ -22,10 +22,10 @@
       @foreach (var card in Model.Cards)
       {
         <article class="section-card">
-          <span class="pill">@card.Kind</span>
-          <h2>@card.Title</h2>
+          <span class="pill">@UiText.Kind(card.Kind)</span>
+          <h2>@UiText.CardTitle(card.Title)</h2>
           <p>@card.Summary</p>
-          <small>@card.SourceRoom</small>
+          <small>@UiText.SourceRoom(card.SourceRoom)</small>
         </article>
       }
     </div>

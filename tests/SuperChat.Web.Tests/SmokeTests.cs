@@ -19,13 +19,25 @@ public sealed class SmokeTests : IClassFixture<WebTestApplicationFactory>
     }
 
     [Fact]
-    public async Task HomePage_Loads()
+    public async Task HomePage_DefaultsToRussian()
     {
         var response = await _client.GetAsync("/");
-        var content = await response.Content.ReadAsStringAsync();
+        var content = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Превращайте разрозненные чаты", content, StringComparison.Ordinal);
+        Assert.Contains("lang=\"ru\"", content, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task HomePage_SupportsEnglishViaQueryString()
+    {
+        var response = await _client.GetAsync("/?lang=en");
+        var content = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("Turn scattered chats into a daily brief", content, StringComparison.Ordinal);
+        Assert.Contains("lang=\"en\"", content, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -3,21 +3,27 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Localization;
 using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Web.Localization;
 
 namespace SuperChat.Web.Pages.Auth;
 
-public sealed class VerifyModel(IAuthFlowService authFlowService) : PageModel
+public sealed class VerifyModel(
+    IAuthFlowService authFlowService,
+    IStringLocalizer<SharedResource> localizer,
+    IUiTextService uiTextService) : PageModel
 {
     public bool Success { get; private set; }
 
-    public string StatusMessage { get; private set; } = "Checking your link...";
+    public string StatusMessage { get; private set; } = string.Empty;
 
     public async Task<IActionResult> OnGetAsync(string token, CancellationToken cancellationToken)
     {
+        StatusMessage = localizer["Auth.Verify.Checking"];
         var result = await authFlowService.VerifyAsync(token, cancellationToken);
         Success = result.Accepted;
-        StatusMessage = result.Message;
+        StatusMessage = uiTextService.AuthVerificationStatusText(result.Status);
 
         if (!result.Accepted || result.User is null)
         {

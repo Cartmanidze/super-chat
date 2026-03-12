@@ -1,20 +1,20 @@
 @page "/today"
 @model SuperChat.Web.Pages.Dashboard.TodayModel
 @{
-  ViewData["Title"] = "Today";
+  ViewData["Title"] = T["Today.PageTitle"];
 }
 
 <section class="stack">
   <div class="section-head">
-    <p class="eyebrow">Digest</p>
-    <h1>Today matters</h1>
+    <p class="eyebrow">@T["Today.Eyebrow"]</p>
+    <h1>@T["Today.Title"]</h1>
   </div>
 
   @if (Model.Cards.Count == 0)
   {
     <div class="empty-state">
-      <p>No cards yet. Connect Telegram and let the bootstrap sync/extraction cycle seed the first digest.</p>
-      <a class="button primary" asp-page="/Connect/Telegram">Open Telegram connection</a>
+      <p>@T["Today.Empty"]</p>
+      <a class="button primary" asp-page="/Connect/Telegram">@T["Today.OpenTelegramConnection"]</a>
     </div>
   }
   else
@@ -23,10 +23,10 @@
       @foreach (var card in Model.Cards)
       {
         <article class="section-card">
-          <span class="pill">@card.Kind</span>
-          <h2>@card.Title</h2>
+          <span class="pill">@UiText.Kind(card.Kind)</span>
+          <h2>@UiText.CardTitle(card.Title)</h2>
           <p>@card.Summary</p>
-          <small>@card.SourceRoom</small>
+          <small>@UiText.SourceRoom(card.SourceRoom)</small>
         </article>
       }
     </div>

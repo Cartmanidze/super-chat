@@ -1,4 +1,4 @@
-html {
+﻿html {
   scroll-behavior: smooth;
 }
 
@@ -15,6 +15,25 @@ body {
   padding: 0;
   background: transparent;
   color: inherit;
+}
+
+.language-switcher {
+  display: inline-flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.culture-link {
+  padding: 0.25rem 0.55rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  text-decoration: none;
+  opacity: 0.7;
+}
+
+.culture-link.active {
+  opacity: 1;
+  font-weight: 700;
 }
 
 .flush {

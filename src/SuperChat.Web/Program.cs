@@ -1,11 +1,34 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.Extensions.Options;
 using SuperChat.Contracts.Configuration;
 using SuperChat.Infrastructure.Services;
 using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Web.Localization;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
+builder.Services.Configure<RequestLocalizationOptions>(options =>
+{
+    var supportedCultures = AppCultures.SupportedCultureInfos.ToList();
+
+    options.DefaultRequestCulture = new RequestCulture(AppCultures.DefaultCultureName);
+    options.SupportedCultures = supportedCultures;
+    options.SupportedUICultures = supportedCultures;
+    options.RequestCultureProviders =
+    [
+        new QueryStringRequestCultureProvider
+        {
+            QueryStringKey = "lang",
+            UIQueryStringKey = "lang"
+        },
+        new CookieRequestCultureProvider(),
+        new AcceptLanguageHeaderRequestCultureProvider()
+    ];
+});
 
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -31,10 +54,13 @@ builder.Services
         options.Conventions.AuthorizeFolder("/Search");
         options.Conventions.AuthorizeFolder("/Feedback");
         options.Conventions.AuthorizeFolder("/Settings");
-    });
+    })
+    .AddViewLocalization();
+builder.Services.AddSingleton<IUiTextService, UiTextService>();
 builder.Services.AddSuperChatBootstrap(builder.Configuration);
 
 var app = builder.Build();
+var localizationOptions = app.Services.GetRequiredService<IOptions<RequestLocalizationOptions>>().Value;
 
 if (!app.Environment.IsDevelopment())
 {
@@ -42,11 +68,34 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+app.UseRequestLocalization(localizationOptions);
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.MapGet("/localization/set-language", (
+    string culture,
+    string? returnUrl,
+    HttpContext httpContext) =>
+{
+    var resolvedCulture = AppCultures.IsSupported(culture)
+        ? culture
+        : AppCultures.DefaultCultureName;
+
+    httpContext.Response.Cookies.Append(
+        CookieRequestCultureProvider.DefaultCookieName,
+        CookieRequestCultureProvider.MakeCookieValue(new RequestCulture(resolvedCulture)),
+        new CookieOptions
+        {
+            Expires = DateTimeOffset.UtcNow.AddYears(1),
+            IsEssential = true,
+            SameSite = SameSiteMode.Lax
+        });
+
+    return Results.LocalRedirect(IsSafeLocalReturnUrl(returnUrl) ? returnUrl! : "/");
+});
 
 app.MapGet("/health", async (
     IHealthSnapshotService healthSnapshotService,
@@ -71,5 +120,13 @@ app.MapGet("/health", async (
 
 app.MapRazorPages();
 app.Run();
+
+static bool IsSafeLocalReturnUrl(string? returnUrl)
+{
+    return !string.IsNullOrWhiteSpace(returnUrl) &&
+           returnUrl.StartsWith("/", StringComparison.Ordinal) &&
+           !returnUrl.StartsWith("//", StringComparison.Ordinal) &&
+           !returnUrl.StartsWith("/\\", StringComparison.Ordinal);
+}
 
 public partial class Program;

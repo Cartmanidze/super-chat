@@ -1,4 +1,9 @@
-@using SuperChat.Web
+﻿@using System.Globalization
+@using Microsoft.Extensions.Localization
 @using SuperChat.Contracts.ViewModels
+@using SuperChat.Web
+@using SuperChat.Web.Localization
 @namespace SuperChat.Web.Pages
 @addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+@inject IStringLocalizer<SharedResource> T
+@inject IUiTextService UiText

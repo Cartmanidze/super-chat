@@ -1,13 +1,17 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Localization;
 using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Web.Localization;
 using SuperChat.Web.Security;
 
 namespace SuperChat.Web.Pages.Feedback;
 
 [Authorize]
-public sealed class IndexModel(IFeedbackService feedbackService) : PageModel
+public sealed class IndexModel(
+    IFeedbackService feedbackService,
+    IStringLocalizer<SharedResource> localizer) : PageModel
 {
     [BindProperty]
     public string Area { get; set; } = "today";
@@ -23,7 +27,7 @@ public sealed class IndexModel(IFeedbackService feedbackService) : PageModel
     public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
     {
         await feedbackService.RecordAsync(User.GetUserId(), Area, Useful, Note, cancellationToken);
-        StatusMessage = "Feedback recorded. Thanks for tightening the pilot loop.";
+        StatusMessage = localizer["Feedback.Recorded"];
         return Page();
     }
 }

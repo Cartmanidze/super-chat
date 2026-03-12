@@ -6,43 +6,40 @@
 
 <section class="hero">
   <div class="hero-copy">
-    <p class="eyebrow">Telegram clarity, routed through Matrix</p>
-    <h1>Turn scattered chats into a daily brief that feels usable on day one.</h1>
-    <p class="lede">
-      This bootstrap keeps the real architecture intact: invite-only auth, hidden Matrix identities, Telegram bridge integration,
-      extraction, digest, and a focused pilot surface.
-    </p>
+    <p class="eyebrow">@T["Home.Eyebrow"]</p>
+    <h1>@T["Home.Title"]</h1>
+    <p class="lede">@T["Home.Lede"]</p>
 
     @if (Model.IsSignedIn)
     {
       <div class="hero-actions">
-        <a class="button primary" asp-page="/Dashboard/Today">Open Today</a>
-        <a class="button secondary" asp-page="/Connect/Telegram">Manage Telegram connection</a>
+        <a class="button primary" asp-page="/Dashboard/Today">@T["Home.OpenToday"]</a>
+        <a class="button secondary" asp-page="/Connect/Telegram">@T["Home.ManageTelegramConnection"]</a>
       </div>
     }
     else
     {
       <form method="post" asp-page="/Auth/RequestLink" class="auth-panel">
-        <label asp-for="Email">Pilot email</label>
-        <input asp-for="Email" type="email" placeholder="pilot@example.com" />
-        <button type="submit" class="button primary">Request magic link</button>
+        <label asp-for="Email">@T["Home.PilotEmailLabel"]</label>
+        <input asp-for="Email" type="email" placeholder="@T["Home.PilotEmailPlaceholder"]" />
+        <button type="submit" class="button primary">@T["Home.RequestMagicLink"]</button>
       </form>
-      <p class="hint">Invite-only bootstrap. In development the app reveals the generated link directly after submission.</p>
+      <p class="hint">@T["Home.InviteOnlyHint"]</p>
     }
   </div>
 
   <div class="hero-rail">
     <div class="metric-card">
-      <span>Milestone</span>
-      <strong>Login → connect Telegram → first “Today” card</strong>
+      <span>@T["Home.Metric.Milestone.Label"]</span>
+      <strong>@T["Home.Metric.Milestone.Value"]</strong>
     </div>
     <div class="metric-card">
-      <span>Bounded modules</span>
-      <strong>Auth, Matrix provisioning, Telegram connect, sync, extraction, digest, search</strong>
+      <span>@T["Home.Metric.Modules.Label"]</span>
+      <strong>@T["Home.Metric.Modules.Value"]</strong>
     </div>
     <div class="metric-card">
-      <span>Current bootstrap mode</span>
-      <strong>@Model.BootstrapModeSummary</strong>
+      <span>@T["Home.Metric.Mode.Label"]</span>
+      <strong>@(Model.IsDevelopmentMode ? T["Home.BootstrapMode.Development"] : T["Home.BootstrapMode.Live"])</strong>
     </div>
   </div>
 </section>

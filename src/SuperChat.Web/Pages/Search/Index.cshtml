@@ -1,24 +1,24 @@
-@page "/search"
+﻿@page "/search"
 @model SuperChat.Web.Pages.Search.IndexModel
 @{
-  ViewData["Title"] = "Search";
+  ViewData["Title"] = T["Search.PageTitle"];
 }
 
 <section class="stack">
   <div class="section-head">
-    <p class="eyebrow">Structured search</p>
-    <h1>Search extracted work, not raw chat dumps</h1>
+    <p class="eyebrow">@T["Search.Eyebrow"]</p>
+    <h1>@T["Search.Title"]</h1>
   </div>
 
   <form method="get" class="search-form">
-    <input asp-for="Query" placeholder="proposal, Friday, Marina..." />
-    <button type="submit" class="button primary">Search</button>
+    <input asp-for="Query" placeholder="@T["Search.Placeholder"]" />
+    <button type="submit" class="button primary">@T["Search.Button"]</button>
   </form>
 
   @if (Model.Results.Count == 0 && !string.IsNullOrWhiteSpace(Model.Query))
   {
     <div class="empty-state">
-      <p>No matches yet for "@Model.Query".</p>
+      <p>@T["Search.NoMatches", Model.Query]</p>
     </div>
   }
   else if (Model.Results.Count > 0)
@@ -27,10 +27,10 @@
       @foreach (var result in Model.Results)
       {
         <article class="section-card">
-          <span class="pill">@result.Kind</span>
-          <h2>@result.Title</h2>
+          <span class="pill">@UiText.Kind(result.Kind)</span>
+          <h2>@UiText.CardTitle(result.Title)</h2>
           <p>@result.Summary</p>
-          <small>@result.SourceRoom · @result.ObservedAt.ToString("u")</small>
+          <small>@UiText.SourceRoom(result.SourceRoom) | @result.ObservedAt.ToString("u")</small>
         </article>
       }
     </div>

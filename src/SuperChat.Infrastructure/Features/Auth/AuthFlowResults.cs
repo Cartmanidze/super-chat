@@ -2,6 +2,26 @@ using SuperChat.Domain.Model;
 
 namespace SuperChat.Infrastructure.Abstractions;
 
-public sealed record MagicLinkRequestResult(bool Accepted, string Message, Uri? DevelopmentLink);
+public enum MagicLinkRequestStatus
+{
+    Created = 1,
+    NotInvited = 2
+}
 
-public sealed record AuthVerificationResult(bool Accepted, string Message, AppUser? User);
+public enum AuthVerificationStatus
+{
+    Success = 1,
+    InvalidOrExpired = 2
+}
+
+public sealed record MagicLinkRequestResult(
+    bool Accepted,
+    MagicLinkRequestStatus Status,
+    string Message,
+    Uri? DevelopmentLink);
+
+public sealed record AuthVerificationResult(
+    bool Accepted,
+    AuthVerificationStatus Status,
+    string Message,
+    AppUser? User);

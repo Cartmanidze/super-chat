@@ -1,17 +1,17 @@
 @page "/auth/verify"
 @model SuperChat.Web.Pages.Auth.VerifyModel
 @{
-  ViewData["Title"] = "Verify link";
+  ViewData["Title"] = T["Auth.Verify.PageTitle"];
 }
 
 <section class="stack">
   <div class="section-card">
-    <h1>Verifying access</h1>
+    <h1>@T["Auth.Verify.Title"]</h1>
     <p>@Model.StatusMessage</p>
 
     @if (!Model.Success)
     {
-      <a class="button secondary" asp-page="/Auth/RequestLink">Request another link</a>
+      <a class="button secondary" asp-page="/Auth/RequestLink">@T["Auth.Verify.RequestAnotherLink"]</a>
     }
   </div>
 </section>

@@ -12,9 +12,7 @@ public sealed class IndexModel(IOptions<PilotOptions> pilotOptions) : PageModel
 
     public bool IsSignedIn => User.Identity?.IsAuthenticated ?? false;
 
-    public string BootstrapModeSummary => pilotOptions.Value.DevSeedSampleData
-        ? "Development bridge seeding enabled"
-        : "Waiting for real bridge sync";
+    public bool IsDevelopmentMode => pilotOptions.Value.DevSeedSampleData;
 
     public void OnGet()
     {

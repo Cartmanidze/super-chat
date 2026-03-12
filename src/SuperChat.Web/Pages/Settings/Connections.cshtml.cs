@@ -1,6 +1,7 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using SuperChat.Domain.Model;
 using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Web.Security;
 
@@ -14,9 +15,9 @@ public sealed class ConnectionsModel(
 {
     public string Email { get; private set; } = string.Empty;
 
-    public string MatrixUserId { get; private set; } = "pending";
+    public string? MatrixUserId { get; private set; }
 
-    public string ConnectionState { get; private set; } = "NotStarted";
+    public TelegramConnectionState ConnectionState { get; private set; } = TelegramConnectionState.NotStarted;
 
     public DateTimeOffset? LastSyncedAt { get; private set; }
 
@@ -46,9 +47,9 @@ public sealed class ConnectionsModel(
             return;
         }
 
-        MatrixUserId = (await matrixProvisioningService.GetIdentityAsync(user.Id, cancellationToken))?.MatrixUserId ?? "pending";
+        MatrixUserId = (await matrixProvisioningService.GetIdentityAsync(user.Id, cancellationToken))?.MatrixUserId;
         var connection = await telegramConnectionService.GetStatusAsync(user.Id, cancellationToken);
-        ConnectionState = connection.State.ToString();
+        ConnectionState = connection.State;
         LastSyncedAt = connection.LastSyncedAt;
     }
 }
