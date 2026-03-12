@@ -43,7 +43,8 @@ Key API routes in bootstrap mode:
 
 In development, the requested magic link is returned directly in responses and the Telegram connect flow can seed demo messages so the `Today`, `Waiting`, and `Search` surfaces show product value before the real bridge is wired. By default the app can still fall back to EF Core in-memory storage, but the provided `.env.example` now points local bootstrap at PostgreSQL so `SuperChat.Web` and `SuperChat.Api` share the same state.
 
-Two pilot-specific knobs now live under `SuperChat` config as well:
+Three pilot-specific knobs now live under `SuperChat` config as well:
 
+- `EnableGroupIngestion` controls whether group chats are ingested at all. Direct chats still work even when it is disabled. Default: `false`.
 - `MaxIngestedGroupMembers` controls which Telegram group rooms are ingested. Direct chats are still allowed, and group rooms are limited by participant count. Default: `30`.
 - `TodayTimeZoneId` controls the day boundary for the `Today` digest. Default: `Europe/Moscow`.

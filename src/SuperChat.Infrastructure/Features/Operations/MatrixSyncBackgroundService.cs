@@ -157,6 +157,7 @@ public sealed class MatrixSyncBackgroundService(
                         target.ManagementRoomId,
                         room.IsDirect,
                         telegramRoomInfo,
+                        pilotOptions.Value.EnableGroupIngestion,
                         pilotOptions.Value.MaxIngestedGroupMembers))
                 {
                     continue;
@@ -350,6 +351,7 @@ public sealed class MatrixSyncBackgroundService(
         string? managementRoomId,
         bool isDirect,
         TelegramRoomInfo? roomInfo,
+        bool enableGroupIngestion,
         int maxIngestedGroupMembers)
     {
         if (IsManagementRoom(roomId, managementRoomId))
@@ -375,6 +377,11 @@ public sealed class MatrixSyncBackgroundService(
         if (string.Equals(roomInfo.PeerType, "user", StringComparison.OrdinalIgnoreCase))
         {
             return true;
+        }
+
+        if (!enableGroupIngestion)
+        {
+            return false;
         }
 
         return roomInfo.ParticipantCount is int participantCount &&
