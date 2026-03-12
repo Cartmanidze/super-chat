@@ -12,7 +12,10 @@ namespace SuperChat.Infrastructure.Services;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddSuperChatBootstrap(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddSuperChatBootstrap(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        bool enableBackgroundWorkers = true)
     {
         services
             .AddOptions<DeepSeekOptions>()
@@ -84,8 +87,13 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IFeedbackService, FeedbackService>();
         services.AddSingleton<IHealthSnapshotService, HealthSnapshotService>();
         services.AddHostedService<PersistenceInitializationHostedService>();
-        services.AddHostedService<MatrixSyncBackgroundService>();
-        services.AddHostedService<ExtractionBackgroundService>();
+
+        if (enableBackgroundWorkers)
+        {
+            services.AddHostedService<MatrixSyncBackgroundService>();
+            services.AddHostedService<ExtractionBackgroundService>();
+        }
+
         services.AddHealthChecks().AddCheck<BootstrapHealthCheck>("bootstrap");
 
         return services;

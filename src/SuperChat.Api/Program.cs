@@ -17,7 +17,7 @@ builder.Services
         ApiSessionAuthenticationHandler.SchemeName,
         _ => { });
 builder.Services.AddAuthorization();
-builder.Services.AddSuperChatBootstrap(builder.Configuration);
+builder.Services.AddSuperChatBootstrap(builder.Configuration, enableBackgroundWorkers: false);
 
 var app = builder.Build();
 
