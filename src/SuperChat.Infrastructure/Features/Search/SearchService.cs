@@ -5,7 +5,8 @@ namespace SuperChat.Infrastructure.Services;
 
 public sealed class SearchService(
     IExtractedItemService extractedItemService,
-    IMessageNormalizationService messageNormalizationService) : ISearchService
+    IMessageNormalizationService messageNormalizationService,
+    IRoomDisplayNameService roomDisplayNameService) : ISearchService
 {
     public async Task<IReadOnlyList<SearchResultViewModel>> SearchAsync(Guid userId, string query, CancellationToken cancellationToken)
     {
@@ -28,16 +29,32 @@ public sealed class SearchService(
 
         if (results.Count > 0)
         {
-            return results;
+            return await ResolveRoomNamesAsync(userId, results, cancellationToken);
         }
 
         var recentMessages = await messageNormalizationService.GetRecentMessagesAsync(userId, 20, cancellationToken);
-        return recentMessages
+        var messageResults = recentMessages
             .Where(message =>
                 message.Text.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
                 message.SenderName.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
                 message.MatrixRoomId.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase))
             .Select(message => new SearchResultViewModel(message.SenderName, message.Text, "Message", message.MatrixRoomId, message.SentAt))
+            .ToList();
+
+        return await ResolveRoomNamesAsync(userId, messageResults, cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<SearchResultViewModel>> ResolveRoomNamesAsync(
+        Guid userId,
+        IReadOnlyList<SearchResultViewModel> results,
+        CancellationToken cancellationToken)
+    {
+        var roomNames = await roomDisplayNameService.ResolveManyAsync(userId, results.Select(item => item.SourceRoom), cancellationToken);
+
+        return results
+            .Select(result => roomNames.TryGetValue(result.SourceRoom, out var roomName)
+                ? result with { SourceRoom = roomName }
+                : result)
             .ToList();
     }
 }

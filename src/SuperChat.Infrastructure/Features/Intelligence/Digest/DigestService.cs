@@ -8,6 +8,7 @@ namespace SuperChat.Infrastructure.Services;
 
 public sealed class DigestService(
     IExtractedItemService extractedItemService,
+    IRoomDisplayNameService roomDisplayNameService,
     TimeProvider timeProvider,
     PilotOptions pilotOptions,
     ILogger<DigestService> logger) : IDigestService
@@ -20,7 +21,7 @@ public sealed class DigestService(
             .Select(item => new DashboardCardViewModel(item.Title, item.Summary, item.Kind.ToString(), item.DueAt, item.SourceRoom))
             .ToList();
 
-        return cards;
+        return await ResolveRoomNamesAsync(userId, cards, cancellationToken);
     }
 
     public async Task<IReadOnlyList<DashboardCardViewModel>> GetWaitingAsync(Guid userId, CancellationToken cancellationToken)
@@ -30,7 +31,21 @@ public sealed class DigestService(
             .Select(item => new DashboardCardViewModel(item.Title, item.Summary, item.Kind.ToString(), item.DueAt, item.SourceRoom))
             .ToList();
 
-        return cards;
+        return await ResolveRoomNamesAsync(userId, cards, cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<DashboardCardViewModel>> ResolveRoomNamesAsync(
+        Guid userId,
+        IReadOnlyList<DashboardCardViewModel> cards,
+        CancellationToken cancellationToken)
+    {
+        var roomNames = await roomDisplayNameService.ResolveManyAsync(userId, cards.Select(item => item.SourceRoom), cancellationToken);
+
+        return cards
+            .Select(card => roomNames.TryGetValue(card.SourceRoom, out var roomName)
+                ? card with { SourceRoom = roomName }
+                : card)
+            .ToList();
     }
 
     private static TimeZoneInfo ResolveTodayTimeZone(ILogger logger, string configuredTimeZoneId)

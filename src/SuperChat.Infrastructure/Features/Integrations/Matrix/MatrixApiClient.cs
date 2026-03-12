@@ -203,6 +203,38 @@ public sealed partial class MatrixApiClient(
         return payload.Joined?.Count ?? 0;
     }
 
+    public async Task<string?> GetRoomDisplayNameAsync(
+        string accessToken,
+        string roomId,
+        CancellationToken cancellationToken)
+    {
+        using var request = CreateUserRequest(
+            HttpMethod.Get,
+            $"/_matrix/client/v3/rooms/{Uri.EscapeDataString(roomId)}/state",
+            accessToken);
+
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<List<RoomStateEventPayload>>(JsonOptions, cancellationToken)
+            ?? [];
+
+        var roomName = payload
+            .Where(item => string.Equals(item.Type, "m.room.name", StringComparison.Ordinal))
+            .Select(item => TryGetString(item.Content, "name"))
+            .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
+        if (!string.IsNullOrWhiteSpace(roomName))
+        {
+            return roomName;
+        }
+
+        return payload
+            .Where(item => string.Equals(item.Type, "m.room.canonical_alias", StringComparison.Ordinal))
+            .Select(item => TryGetString(item.Content, "alias"))
+            .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+    }
+
     public Uri? TryExtractFirstUrl(string text)
     {
         var match = UrlRegex().Match(text);
@@ -386,6 +418,13 @@ public sealed partial class MatrixApiClient(
     private sealed class JoinedMembersResponse
     {
         public Dictionary<string, object>? Joined { get; init; }
+    }
+
+    private sealed class RoomStateEventPayload
+    {
+        public string? Type { get; init; }
+
+        public JsonElement? Content { get; init; }
     }
 }
 

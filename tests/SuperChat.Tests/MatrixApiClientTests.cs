@@ -130,6 +130,39 @@ public sealed class MatrixApiClientTests
     }
 
     [Fact]
+    public async Task GetRoomDisplayNameAsync_ReturnsRoomNameFromState()
+    {
+        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(
+                """
+                [
+                  {
+                    "type": "m.room.topic",
+                    "content": {
+                      "topic": "Quarterly planning"
+                    }
+                  },
+                  {
+                    "type": "m.room.name",
+                    "content": {
+                      "name": "Sales Team"
+                    }
+                  }
+                ]
+                """)
+        });
+
+        var client = CreateClient(handler);
+
+        var roomName = await client.GetRoomDisplayNameAsync("access-token", "!room:matrix.localhost", CancellationToken.None);
+
+        Assert.Equal("Sales Team", roomName);
+        Assert.Equal(HttpMethod.Get, handler.LastRequest!.Method);
+        Assert.Equal("/_matrix/client/v3/rooms/%21room%3Amatrix.localhost/state", handler.LastRequest.RequestUri!.AbsolutePath);
+    }
+
+    [Fact]
     public async Task JoinRoomAsync_PostsToJoinEndpoint()
     {
         var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));

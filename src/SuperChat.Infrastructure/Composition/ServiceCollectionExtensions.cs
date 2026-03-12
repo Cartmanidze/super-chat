@@ -17,6 +17,8 @@ public static class ServiceCollectionExtensions
         IConfiguration configuration,
         bool enableBackgroundWorkers = true)
     {
+        services.AddMemoryCache();
+
         services
             .AddOptions<DeepSeekOptions>()
             .Bind(configuration.GetSection(DeepSeekOptions.SectionName));
@@ -79,6 +81,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ITelegramConnectionService, TelegramConnectionService>();
         services.AddSingleton<IMessageNormalizationService, MessageNormalizationService>();
         services.AddSingleton<IExtractedItemService, ExtractedItemService>();
+        services.AddSingleton<IRoomDisplayNameService, MatrixRoomDisplayNameService>();
         services.AddSingleton<HeuristicStructuredExtractionService>();
         services.AddSingleton<DeepSeekStructuredExtractionService>();
         services.AddSingleton<IAiStructuredExtractionService, BootstrapStructuredExtractionService>();
