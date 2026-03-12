@@ -140,6 +140,20 @@ public sealed class MatrixSyncBackgroundServiceTests
     }
 
     [Fact]
+    public void ShouldIngestRoom_RejectsBroadcastChannelsEvenWhenMatrixMarksRoomAsDirect()
+    {
+        var result = MatrixSyncBackgroundService.ShouldIngestRoom(
+            "!channel:matrix.example",
+            "!bridge:matrix.example",
+            true,
+            new TelegramRoomInfo("!channel:matrix.example", "channel", 12, "Broadcast", true),
+            true,
+            30);
+
+        Assert.False(result);
+    }
+
+    [Fact]
     public void ShouldIngestRoom_RejectsUnknownGroupWhenTelegramInfoIsMissing()
     {
         var result = MatrixSyncBackgroundService.ShouldIngestRoom(
@@ -165,5 +179,32 @@ public sealed class MatrixSyncBackgroundServiceTests
             30);
 
         Assert.False(result);
+    }
+
+    [Fact]
+    public void ShouldIngestMessageBody_RejectsForwardedChannelPosts()
+    {
+        var result = MatrixSyncBackgroundService.ShouldIngestMessageBody(
+            "Forwarded from channel Example:\n> News update");
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void ShouldIngestMessageBody_RejectsRussianForwardedChannelPosts()
+    {
+        var result = MatrixSyncBackgroundService.ShouldIngestMessageBody(
+            "Переслано из канала Новости:\n> Апдейт");
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void ShouldIngestMessageBody_AllowsRegularDirectMessages()
+    {
+        var result = MatrixSyncBackgroundService.ShouldIngestMessageBody(
+            "Please send the proposal tomorrow.");
+
+        Assert.True(result);
     }
 }

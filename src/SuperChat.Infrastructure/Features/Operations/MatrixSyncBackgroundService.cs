@@ -177,6 +177,11 @@ public sealed class MatrixSyncBackgroundService(
                     continue;
                 }
 
+                if (!ShouldIngestMessageBody(timelineEvent.Body))
+                {
+                    continue;
+                }
+
                 var senderName = DeriveSenderName(timelineEvent.Sender, target.MatrixUserId);
                 var stored = await normalizationService.TryStoreAsync(
                     target.UserId,
@@ -359,6 +364,16 @@ public sealed class MatrixSyncBackgroundService(
             return false;
         }
 
+        if (roomInfo?.IsBroadcastChannel == true)
+        {
+            return false;
+        }
+
+        if (string.Equals(roomInfo?.PeerType, "user", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
         if (isDirect)
         {
             return true;
@@ -369,16 +384,6 @@ public sealed class MatrixSyncBackgroundService(
             return false;
         }
 
-        if (roomInfo.IsBroadcastChannel)
-        {
-            return false;
-        }
-
-        if (string.Equals(roomInfo.PeerType, "user", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
         if (!enableGroupIngestion)
         {
             return false;
@@ -386,6 +391,18 @@ public sealed class MatrixSyncBackgroundService(
 
         return roomInfo.ParticipantCount is int participantCount &&
                participantCount <= maxIngestedGroupMembers;
+    }
+
+    internal static bool ShouldIngestMessageBody(string body)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            return false;
+        }
+
+        var normalized = body.TrimStart();
+        return !normalized.StartsWith("Forwarded from channel ", StringComparison.OrdinalIgnoreCase) &&
+               !normalized.StartsWith("Переслано из канала ", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string DeriveSenderName(string senderId, string ownMatrixUserId)
