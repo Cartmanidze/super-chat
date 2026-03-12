@@ -40,6 +40,17 @@ services:
     volumes:
       - ./mautrix:/data
 
+  mautrix-telegram-helper:
+    build:
+      context: ./mautrix-helper-image
+    image: prod-mautrix-telegram-helper:hotfix
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./mautrix:/data
+
   superchat-web:
     build:
       context: ../..
@@ -68,6 +79,7 @@ services:
       Matrix__UserIdPrefix: ${MATRIX_USER_ID_PREFIX}
       TelegramBridge__BotUserId: ${TELEGRAM_BRIDGE_BOT_USER_ID}
       TelegramBridge__WebLoginBaseUrl: ${TELEGRAM_BRIDGE_WEB_LOGIN_BASE_URL}
+      TelegramBridge__ParticipantCountBaseUrl: ${TELEGRAM_BRIDGE_PARTICIPANT_COUNT_BASE_URL:-http://mautrix-telegram-helper:29318}
       Email__FromSender: ${EMAIL_FROM}
       Email__SmtpHost: ${EMAIL_SMTP_HOST}
       Email__SmtpPort: ${EMAIL_SMTP_PORT}
@@ -102,6 +114,7 @@ services:
       Matrix__UserIdPrefix: ${MATRIX_USER_ID_PREFIX}
       TelegramBridge__BotUserId: ${TELEGRAM_BRIDGE_BOT_USER_ID}
       TelegramBridge__WebLoginBaseUrl: ${TELEGRAM_BRIDGE_WEB_LOGIN_BASE_URL}
+      TelegramBridge__ParticipantCountBaseUrl: ${TELEGRAM_BRIDGE_PARTICIPANT_COUNT_BASE_URL:-http://mautrix-telegram-helper:29318}
       Email__FromSender: ${EMAIL_FROM}
       Email__SmtpHost: ${EMAIL_SMTP_HOST}
       Email__SmtpPort: ${EMAIL_SMTP_PORT}

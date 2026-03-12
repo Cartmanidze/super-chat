@@ -12,6 +12,7 @@ namespace SuperChat.Infrastructure.HostedServices;
 
 public sealed class MatrixSyncBackgroundService(
     ITelegramConnectionService telegramConnectionService,
+    ITelegramRoomInfoService telegramRoomInfoService,
     IMessageNormalizationService normalizationService,
     IDbContextFactory<SuperChatDbContext> dbContextFactory,
     MatrixApiClient matrixApiClient,
@@ -125,33 +126,32 @@ public sealed class MatrixSyncBackgroundService(
         foreach (var room in result.Rooms)
         {
             var isManagementRoom = IsManagementRoom(room.RoomId, target.ManagementRoomId);
-            var memberCount = room.MemberCount;
+            TelegramRoomInfo? telegramRoomInfo = null;
 
             if (!isManagementRoom)
             {
-                if (room.IsDirect)
+                try
                 {
-                    memberCount ??= 2;
+                    telegramRoomInfo = await telegramRoomInfoService.GetRoomInfoAsync(
+                        target.MatrixUserId,
+                        room.RoomId,
+                        cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(
+                        ex,
+                        "Failed to resolve Telegram room info for room {RoomId} and user {UserId}. Skipping room ingestion.",
+                        room.RoomId,
+                        target.UserId);
                 }
 
-                if (!memberCount.HasValue)
-                {
-                    try
-                    {
-                        memberCount = await matrixApiClient.GetJoinedMemberCountAsync(target.AccessToken, room.RoomId, cancellationToken);
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogWarning(
-                            ex,
-                            "Failed to resolve Matrix room size for room {RoomId} and user {UserId}. Skipping room ingestion.",
-                            room.RoomId,
-                            target.UserId);
-                        continue;
-                    }
-                }
-
-                if (!ShouldIngestRoom(room.RoomId, target.ManagementRoomId, room.IsDirect, memberCount.Value, pilotOptions.Value.MaxIngestedGroupMembers))
+                if (!ShouldIngestRoom(
+                        room.RoomId,
+                        target.ManagementRoomId,
+                        room.IsDirect,
+                        telegramRoomInfo,
+                        pilotOptions.Value.MaxIngestedGroupMembers))
                 {
                     continue;
                 }
@@ -343,7 +343,7 @@ public sealed class MatrixSyncBackgroundService(
         string roomId,
         string? managementRoomId,
         bool isDirect,
-        int memberCount,
+        TelegramRoomInfo? roomInfo,
         int maxIngestedGroupMembers)
     {
         if (IsManagementRoom(roomId, managementRoomId))
@@ -356,7 +356,18 @@ public sealed class MatrixSyncBackgroundService(
             return true;
         }
 
-        return memberCount <= maxIngestedGroupMembers;
+        if (roomInfo is null)
+        {
+            return false;
+        }
+
+        if (string.Equals(roomInfo.PeerType, "user", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return roomInfo.ParticipantCount is int participantCount &&
+               participantCount <= maxIngestedGroupMembers;
     }
 
     private static string DeriveSenderName(string senderId, string ownMatrixUserId)

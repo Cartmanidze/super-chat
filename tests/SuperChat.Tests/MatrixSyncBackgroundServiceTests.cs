@@ -1,3 +1,4 @@
+using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Infrastructure.HostedServices;
 
 namespace SuperChat.Tests;
@@ -61,7 +62,20 @@ public sealed class MatrixSyncBackgroundServiceTests
             "!dm:matrix.example",
             "!bridge:matrix.example",
             true,
-            2,
+            null,
+            30);
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void ShouldIngestRoom_AllowsTelegramDirectRooms()
+    {
+        var result = MatrixSyncBackgroundService.ShouldIngestRoom(
+            "!dm:matrix.example",
+            "!bridge:matrix.example",
+            false,
+            new TelegramRoomInfo("!dm:matrix.example", "user", null, "Alex"),
             30);
 
         Assert.True(result);
@@ -74,7 +88,7 @@ public sealed class MatrixSyncBackgroundServiceTests
             "!group:matrix.example",
             "!bridge:matrix.example",
             false,
-            30,
+            new TelegramRoomInfo("!group:matrix.example", "channel", 30, "Team"),
             30);
 
         Assert.True(result);
@@ -87,7 +101,20 @@ public sealed class MatrixSyncBackgroundServiceTests
             "!group:matrix.example",
             "!bridge:matrix.example",
             false,
-            31,
+            new TelegramRoomInfo("!group:matrix.example", "channel", 31, "Big group"),
+            30);
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void ShouldIngestRoom_RejectsUnknownGroupWhenTelegramInfoIsMissing()
+    {
+        var result = MatrixSyncBackgroundService.ShouldIngestRoom(
+            "!group:matrix.example",
+            "!bridge:matrix.example",
+            false,
+            null,
             30);
 
         Assert.False(result);
@@ -100,7 +127,7 @@ public sealed class MatrixSyncBackgroundServiceTests
             "!bridge:matrix.example",
             "!bridge:matrix.example",
             true,
-            2,
+            new TelegramRoomInfo("!bridge:matrix.example", "user", null, "Bridge"),
             30);
 
         Assert.False(result);

@@ -46,6 +46,14 @@ public static class ServiceCollectionExtensions
             var options = serviceProvider.GetRequiredService<IOptions<MatrixOptions>>().Value;
             client.BaseAddress = new Uri(options.HomeserverUrl.TrimEnd('/'));
         });
+        services.AddHttpClient<ITelegramRoomInfoService, TelegramRoomInfoService>((serviceProvider, client) =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<TelegramBridgeOptions>>().Value;
+            if (Uri.TryCreate(options.ParticipantCountBaseUrl, UriKind.Absolute, out var baseUri))
+            {
+                client.BaseAddress = baseUri;
+            }
+        });
         services.AddDbContextFactory<SuperChatDbContext>((serviceProvider, optionsBuilder) =>
         {
             var persistence = serviceProvider.GetRequiredService<IOptions<PersistenceOptions>>().Value;
@@ -79,9 +87,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IApiSessionService, ApiSessionService>();
         services.AddSingleton<IMatrixProvisioningService, MatrixProvisioningService>();
         services.AddSingleton<ITelegramConnectionService, TelegramConnectionService>();
+        services.AddSingleton<IRoomDisplayNameService, MatrixRoomDisplayNameService>();
         services.AddSingleton<IMessageNormalizationService, MessageNormalizationService>();
         services.AddSingleton<IExtractedItemService, ExtractedItemService>();
-        services.AddSingleton<IRoomDisplayNameService, MatrixRoomDisplayNameService>();
         services.AddSingleton<HeuristicStructuredExtractionService>();
         services.AddSingleton<DeepSeekStructuredExtractionService>();
         services.AddSingleton<IAiStructuredExtractionService, BootstrapStructuredExtractionService>();
