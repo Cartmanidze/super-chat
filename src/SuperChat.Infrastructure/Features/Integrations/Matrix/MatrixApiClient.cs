@@ -136,6 +136,7 @@ public sealed partial class MatrixApiClient(
 
         var rooms = new List<MatrixTimelineRoom>();
         var invitedRoomIds = new List<string>();
+        var directRoomIds = GetDirectRoomIds(payload.AccountData);
 
         foreach (var room in payload.Rooms?.Invite ?? new Dictionary<string, InvitedRoom>())
         {
@@ -172,11 +173,34 @@ public sealed partial class MatrixApiClient(
 
             if (events.Count > 0)
             {
-                rooms.Add(new MatrixTimelineRoom(room.Key, events));
+                rooms.Add(new MatrixTimelineRoom(
+                    room.Key,
+                    events,
+                    GetMemberCount(room.Value.Summary),
+                    directRoomIds.Contains(room.Key)));
             }
         }
 
         return new MatrixSyncResult(payload.NextBatch, rooms, invitedRoomIds);
+    }
+
+    public async Task<int> GetJoinedMemberCountAsync(
+        string accessToken,
+        string roomId,
+        CancellationToken cancellationToken)
+    {
+        using var request = CreateUserRequest(
+            HttpMethod.Get,
+            $"/_matrix/client/v3/rooms/{Uri.EscapeDataString(roomId)}/joined_members",
+            accessToken);
+
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<JoinedMembersResponse>(JsonOptions, cancellationToken)
+            ?? new JoinedMembersResponse();
+
+        return payload.Joined?.Count ?? 0;
     }
 
     public Uri? TryExtractFirstUrl(string text)
@@ -240,6 +264,50 @@ public sealed partial class MatrixApiClient(
         return value.GetString();
     }
 
+    private static HashSet<string> GetDirectRoomIds(AccountDataPayload? accountData)
+    {
+        var roomIds = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var accountDataEvent in accountData?.Events ?? [])
+        {
+            if (!string.Equals(accountDataEvent.Type, "m.direct", StringComparison.Ordinal) ||
+                accountDataEvent.Content is not { ValueKind: JsonValueKind.Object } directMappings)
+            {
+                continue;
+            }
+
+            foreach (var mapping in directMappings.EnumerateObject())
+            {
+                if (mapping.Value.ValueKind != JsonValueKind.Array)
+                {
+                    continue;
+                }
+
+                foreach (var roomId in mapping.Value.EnumerateArray())
+                {
+                    var value = roomId.GetString();
+                    if (!string.IsNullOrWhiteSpace(value))
+                    {
+                        roomIds.Add(value);
+                    }
+                }
+            }
+        }
+
+        return roomIds;
+    }
+
+    private static int? GetMemberCount(RoomSummaryPayload? summary)
+    {
+        if (summary?.JoinedMemberCount is null && summary?.InvitedMemberCount is null)
+        {
+            return null;
+        }
+
+        return Math.Max(0, summary?.JoinedMemberCount.GetValueOrDefault() ?? 0) +
+               Math.Max(0, summary?.InvitedMemberCount.GetValueOrDefault() ?? 0);
+    }
+
     [GeneratedRegex(@"https?://\S+", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     private static partial Regex UrlRegex();
 
@@ -251,6 +319,9 @@ public sealed partial class MatrixApiClient(
     {
         [JsonPropertyName("next_batch")]
         public string? NextBatch { get; init; }
+
+        [JsonPropertyName("account_data")]
+        public AccountDataPayload? AccountData { get; init; }
 
         public SyncRooms? Rooms { get; init; }
     }
@@ -264,10 +335,33 @@ public sealed partial class MatrixApiClient(
 
     private sealed class JoinedRoom
     {
+        public RoomSummaryPayload? Summary { get; init; }
+
         public TimelinePayload? Timeline { get; init; }
     }
 
     private sealed class InvitedRoom;
+
+    private sealed class AccountDataPayload
+    {
+        public List<AccountDataEventPayload>? Events { get; init; }
+    }
+
+    private sealed class AccountDataEventPayload
+    {
+        public string? Type { get; init; }
+
+        public JsonElement? Content { get; init; }
+    }
+
+    private sealed class RoomSummaryPayload
+    {
+        [JsonPropertyName("m.joined_member_count")]
+        public int? JoinedMemberCount { get; init; }
+
+        [JsonPropertyName("m.invited_member_count")]
+        public int? InvitedMemberCount { get; init; }
+    }
 
     private sealed class TimelinePayload
     {
@@ -288,6 +382,11 @@ public sealed partial class MatrixApiClient(
 
         public JsonElement? Content { get; init; }
     }
+
+    private sealed class JoinedMembersResponse
+    {
+        public Dictionary<string, object>? Joined { get; init; }
+    }
 }
 
 public sealed record MatrixSyncResult(
@@ -297,7 +396,9 @@ public sealed record MatrixSyncResult(
 
 public sealed record MatrixTimelineRoom(
     string RoomId,
-    IReadOnlyList<MatrixTimelineEvent> Events);
+    IReadOnlyList<MatrixTimelineEvent> Events,
+    int? MemberCount,
+    bool IsDirect);
 
 public sealed record MatrixTimelineEvent(
     string EventId,

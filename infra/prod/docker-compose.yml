@@ -61,6 +61,8 @@ services:
       SuperChat__MagicLinkMinutes: ${SUPERCHAT_MAGIC_LINK_MINUTES}
       SuperChat__ApiSessionDays: ${SUPERCHAT_API_SESSION_DAYS}
       SuperChat__DevSeedSampleData: ${SUPERCHAT_DEV_SEED_SAMPLE_DATA}
+      SuperChat__MaxIngestedGroupMembers: ${SUPERCHAT_MAX_INGESTED_GROUP_MEMBERS:-30}
+      SuperChat__TodayTimeZoneId: ${SUPERCHAT_TODAY_TIME_ZONE_ID:-Europe/Moscow}
       Matrix__HomeserverUrl: ${MATRIX_PUBLIC_BASEURL}
       Matrix__AdminAccessToken: ${MATRIX_ADMIN_ACCESS_TOKEN}
       Matrix__UserIdPrefix: ${MATRIX_USER_ID_PREFIX}
@@ -93,6 +95,8 @@ services:
       SuperChat__MagicLinkMinutes: ${SUPERCHAT_MAGIC_LINK_MINUTES}
       SuperChat__ApiSessionDays: ${SUPERCHAT_API_SESSION_DAYS}
       SuperChat__DevSeedSampleData: ${SUPERCHAT_DEV_SEED_SAMPLE_DATA}
+      SuperChat__MaxIngestedGroupMembers: ${SUPERCHAT_MAX_INGESTED_GROUP_MEMBERS:-30}
+      SuperChat__TodayTimeZoneId: ${SUPERCHAT_TODAY_TIME_ZONE_ID:-Europe/Moscow}
       Matrix__HomeserverUrl: ${MATRIX_PUBLIC_BASEURL}
       Matrix__AdminAccessToken: ${MATRIX_ADMIN_ACCESS_TOKEN}
       Matrix__UserIdPrefix: ${MATRIX_USER_ID_PREFIX}

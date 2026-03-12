@@ -6,7 +6,11 @@ public static class DigestComposer
 {
     public static IReadOnlyList<ExtractedItem> BuildToday(IEnumerable<ExtractedItem> items, DateTimeOffset now)
     {
+        var dayStart = new DateTimeOffset(now.Year, now.Month, now.Day, 0, 0, 0, now.Offset);
+        var nextDayStart = dayStart.AddDays(1);
+
         return items
+            .Where(item => item.ObservedAt >= dayStart && item.ObservedAt < nextDayStart)
             .Where(item =>
                 item.Kind is ExtractedItemKind.Task or ExtractedItemKind.Commitment ||
                 (item.Kind == ExtractedItemKind.Meeting && item.DueAt <= now.AddDays(3)))

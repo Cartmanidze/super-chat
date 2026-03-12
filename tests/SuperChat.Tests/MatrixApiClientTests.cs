@@ -17,9 +17,25 @@ public sealed class MatrixApiClientTests
                 """
                 {
                   "next_batch": "s123",
+                  "account_data": {
+                    "events": [
+                      {
+                        "type": "m.direct",
+                        "content": {
+                          "@telegram_alice:matrix.localhost": [
+                            "!joined:matrix.localhost"
+                          ]
+                        }
+                      }
+                    ]
+                  },
                   "rooms": {
                     "join": {
                       "!joined:matrix.localhost": {
+                        "summary": {
+                          "m.joined_member_count": 2,
+                          "m.invited_member_count": 0
+                        },
                         "timeline": {
                           "events": [
                             {
@@ -77,12 +93,40 @@ public sealed class MatrixApiClientTests
         Assert.Equal(["!portal-a:matrix.localhost", "!portal-b:matrix.localhost"], result.InvitedRoomIds);
         Assert.Single(result.Rooms);
         Assert.Equal("!joined:matrix.localhost", result.Rooms[0].RoomId);
+        Assert.Equal(2, result.Rooms[0].MemberCount);
+        Assert.True(result.Rooms[0].IsDirect);
         Assert.Single(result.Rooms[0].Events);
         Assert.Equal("$event-1", result.Rooms[0].Events[0].EventId);
         Assert.Equal("Please send the proposal tomorrow.", result.Rooms[0].Events[0].Body);
         Assert.Equal(HttpMethod.Get, handler.LastRequest!.Method);
         Assert.Contains("/_matrix/client/v3/sync", handler.LastRequest.RequestUri!.AbsoluteUri, StringComparison.Ordinal);
         Assert.Contains("since=since-token", handler.LastRequest.RequestUri!.Query, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GetJoinedMemberCountAsync_ReturnsJoinedMemberCount()
+    {
+        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(
+                """
+                {
+                  "joined": {
+                    "@alice:matrix.localhost": {},
+                    "@bob:matrix.localhost": {},
+                    "@carol:matrix.localhost": {}
+                  }
+                }
+                """)
+        });
+
+        var client = CreateClient(handler);
+
+        var count = await client.GetJoinedMemberCountAsync("access-token", "!room:matrix.localhost", CancellationToken.None);
+
+        Assert.Equal(3, count);
+        Assert.Equal(HttpMethod.Get, handler.LastRequest!.Method);
+        Assert.Equal("/_matrix/client/v3/rooms/%21room%3Amatrix.localhost/joined_members", handler.LastRequest.RequestUri!.AbsolutePath);
     }
 
     [Fact]

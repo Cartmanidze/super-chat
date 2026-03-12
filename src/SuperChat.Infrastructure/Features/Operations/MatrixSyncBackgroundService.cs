@@ -125,6 +125,37 @@ public sealed class MatrixSyncBackgroundService(
         foreach (var room in result.Rooms)
         {
             var isManagementRoom = IsManagementRoom(room.RoomId, target.ManagementRoomId);
+            var memberCount = room.MemberCount;
+
+            if (!isManagementRoom)
+            {
+                if (room.IsDirect)
+                {
+                    memberCount ??= 2;
+                }
+
+                if (!memberCount.HasValue)
+                {
+                    try
+                    {
+                        memberCount = await matrixApiClient.GetJoinedMemberCountAsync(target.AccessToken, room.RoomId, cancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(
+                            ex,
+                            "Failed to resolve Matrix room size for room {RoomId} and user {UserId}. Skipping room ingestion.",
+                            room.RoomId,
+                            target.UserId);
+                        continue;
+                    }
+                }
+
+                if (!ShouldIngestRoom(room.RoomId, target.ManagementRoomId, room.IsDirect, memberCount.Value, pilotOptions.Value.MaxIngestedGroupMembers))
+                {
+                    continue;
+                }
+            }
 
             foreach (var timelineEvent in room.Events)
             {
@@ -306,6 +337,26 @@ public sealed class MatrixSyncBackgroundService(
             .Where(roomId => !IsManagementRoom(roomId, managementRoomId))
             .Distinct(StringComparer.Ordinal)
             .ToList();
+    }
+
+    internal static bool ShouldIngestRoom(
+        string roomId,
+        string? managementRoomId,
+        bool isDirect,
+        int memberCount,
+        int maxIngestedGroupMembers)
+    {
+        if (IsManagementRoom(roomId, managementRoomId))
+        {
+            return false;
+        }
+
+        if (isDirect)
+        {
+            return true;
+        }
+
+        return memberCount <= maxIngestedGroupMembers;
     }
 
     private static string DeriveSenderName(string senderId, string ownMatrixUserId)

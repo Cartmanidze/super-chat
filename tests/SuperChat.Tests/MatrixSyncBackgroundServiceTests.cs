@@ -53,4 +53,56 @@ public sealed class MatrixSyncBackgroundServiceTests
 
         Assert.Equal(["!portal:matrix.example"], result);
     }
+
+    [Fact]
+    public void ShouldIngestRoom_AllowsDirectRooms()
+    {
+        var result = MatrixSyncBackgroundService.ShouldIngestRoom(
+            "!dm:matrix.example",
+            "!bridge:matrix.example",
+            true,
+            2,
+            30);
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void ShouldIngestRoom_AllowsGroupAtConfiguredLimit()
+    {
+        var result = MatrixSyncBackgroundService.ShouldIngestRoom(
+            "!group:matrix.example",
+            "!bridge:matrix.example",
+            false,
+            30,
+            30);
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void ShouldIngestRoom_RejectsGroupAboveConfiguredLimit()
+    {
+        var result = MatrixSyncBackgroundService.ShouldIngestRoom(
+            "!group:matrix.example",
+            "!bridge:matrix.example",
+            false,
+            31,
+            30);
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void ShouldIngestRoom_AlwaysRejectsManagementRoom()
+    {
+        var result = MatrixSyncBackgroundService.ShouldIngestRoom(
+            "!bridge:matrix.example",
+            "!bridge:matrix.example",
+            true,
+            2,
+            30);
+
+        Assert.False(result);
+    }
 }
