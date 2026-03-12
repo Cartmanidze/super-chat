@@ -111,13 +111,18 @@ public sealed class MatrixSyncBackgroundService(
 
         foreach (var room in result.Rooms)
         {
+            var isManagementRoom = IsManagementRoom(room.RoomId, target.ManagementRoomId);
+
             foreach (var timelineEvent in room.Events)
             {
-                if (room.RoomId == target.ManagementRoomId &&
-                    string.Equals(timelineEvent.Sender, bridgeOptions.Value.BotUserId, StringComparison.Ordinal))
+                if (isManagementRoom)
                 {
-                    discoveredLoginUrl ??= matrixApiClient.TryExtractFirstUrl(timelineEvent.Body)?.ToString();
-                    connected = connected || LooksLikeSuccessfulLogin(timelineEvent.Body);
+                    if (string.Equals(timelineEvent.Sender, bridgeOptions.Value.BotUserId, StringComparison.Ordinal))
+                    {
+                        discoveredLoginUrl ??= matrixApiClient.TryExtractFirstUrl(timelineEvent.Body)?.ToString();
+                        connected = connected || LooksLikeSuccessfulLogin(timelineEvent.Body);
+                    }
+
                     continue;
                 }
 
@@ -272,6 +277,11 @@ public sealed class MatrixSyncBackgroundService(
         return normalized.Contains("logged in", StringComparison.Ordinal) ||
                normalized.Contains("login successful", StringComparison.Ordinal) ||
                normalized.Contains("successfully logged in", StringComparison.Ordinal);
+    }
+
+    internal static bool IsManagementRoom(string roomId, string? managementRoomId)
+    {
+        return string.Equals(roomId, managementRoomId, StringComparison.Ordinal);
     }
 
     private static string DeriveSenderName(string senderId, string ownMatrixUserId)
