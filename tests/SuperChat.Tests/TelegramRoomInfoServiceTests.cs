@@ -17,7 +17,8 @@ public sealed class TelegramRoomInfoServiceTests
                   "room_id": "!group:matrix.localhost",
                   "peer_type": "channel",
                   "participant_count": 356,
-                  "title": "Психотронная форум🧪"
+                  "title": "Psychotron Forum",
+                  "is_broadcast_channel": false
                 }
                 """)
         });
@@ -29,9 +30,35 @@ public sealed class TelegramRoomInfoServiceTests
         Assert.NotNull(result);
         Assert.Equal("channel", result!.PeerType);
         Assert.Equal(356, result.ParticipantCount);
-        Assert.Equal("Психотронная форум🧪", result.Title);
+        Assert.Equal("Psychotron Forum", result.Title);
+        Assert.False(result.IsBroadcastChannel);
         Assert.Equal("/rooms/%21group%3Amatrix.localhost/info", handler.LastRequest!.RequestUri!.AbsolutePath);
         Assert.Contains("matrixUserId=%40pilot%3Amatrix.localhost", handler.LastRequest.RequestUri!.Query, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GetRoomInfoAsync_ParsesBroadcastChannelFlag()
+    {
+        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(
+                """
+                {
+                  "room_id": "!channel:matrix.localhost",
+                  "peer_type": "channel",
+                  "participant_count": 127000,
+                  "title": "Announcements",
+                  "is_broadcast_channel": true
+                }
+                """)
+        });
+
+        var service = CreateService(handler);
+
+        var result = await service.GetRoomInfoAsync("@pilot:matrix.localhost", "!channel:matrix.localhost", CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.True(result!.IsBroadcastChannel);
     }
 
     [Fact]

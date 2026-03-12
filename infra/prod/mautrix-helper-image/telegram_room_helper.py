@@ -41,7 +41,7 @@ async def fetch_room_info(
 ) -> dict[str, Any] | None:
     with psycopg.connect(db_dsn) as conn:
         with conn.cursor() as cur:
-            cur.execute("select tgid, peer_type, title from portal where mxid = %s", (room_id,))
+            cur.execute("select tgid, peer_type, title, megagroup from portal where mxid = %s", (room_id,))
             portal = cur.fetchone()
             if portal is None:
                 return None
@@ -54,13 +54,14 @@ async def fetch_room_info(
             if session_row is None:
                 return None
 
-    tgid, peer_type, title = portal
+    tgid, peer_type, title, megagroup = portal
     session = build_session(session_row)
     client = TelegramClient(session, api_id, api_hash)
     await client.connect()
 
     try:
         participant_count: int | None = None
+        is_broadcast_channel = False
 
         if peer_type == "user":
             participant_count = 2
@@ -68,7 +69,16 @@ async def fetch_room_info(
             input_entity = await client.get_input_entity(types.PeerChannel(int(tgid)))
             full = await client(GetFullChannelRequest(input_entity))
             participant_count = getattr(full.full_chat, "participants_count", None)
-            title = title or getattr(full.chats[0], "title", None) if full.chats else title
+            channel = full.chats[0] if full.chats else None
+            title = title or getattr(channel, "title", None)
+
+            if channel is not None:
+                if getattr(channel, "broadcast", None) is not None:
+                    is_broadcast_channel = bool(channel.broadcast)
+                else:
+                    is_broadcast_channel = not bool(getattr(channel, "megagroup", megagroup))
+            else:
+                is_broadcast_channel = not bool(megagroup)
         elif peer_type == "chat":
             full = await client(GetFullChatRequest(int(tgid)))
             participants = getattr(getattr(full.full_chat, "participants", None), "participants", None) or []
@@ -80,6 +90,7 @@ async def fetch_room_info(
             "peer_type": peer_type,
             "participant_count": participant_count,
             "title": title,
+            "is_broadcast_channel": is_broadcast_channel,
         }
     finally:
         await client.disconnect()

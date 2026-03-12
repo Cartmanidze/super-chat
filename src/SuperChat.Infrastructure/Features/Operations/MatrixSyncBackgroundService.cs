@@ -361,6 +361,11 @@ public sealed class MatrixSyncBackgroundService(
             return false;
         }
 
+        if (roomInfo.IsBroadcastChannel)
+        {
+            return false;
+        }
+
         if (string.Equals(roomInfo.PeerType, "user", StringComparison.OrdinalIgnoreCase))
         {
             return true;

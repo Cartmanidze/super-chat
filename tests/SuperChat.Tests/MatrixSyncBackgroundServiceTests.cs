@@ -75,7 +75,7 @@ public sealed class MatrixSyncBackgroundServiceTests
             "!dm:matrix.example",
             "!bridge:matrix.example",
             false,
-            new TelegramRoomInfo("!dm:matrix.example", "user", null, "Alex"),
+            new TelegramRoomInfo("!dm:matrix.example", "user", null, "Alex", false),
             30);
 
         Assert.True(result);
@@ -88,7 +88,7 @@ public sealed class MatrixSyncBackgroundServiceTests
             "!group:matrix.example",
             "!bridge:matrix.example",
             false,
-            new TelegramRoomInfo("!group:matrix.example", "channel", 30, "Team"),
+            new TelegramRoomInfo("!group:matrix.example", "channel", 30, "Team", false),
             30);
 
         Assert.True(result);
@@ -101,7 +101,20 @@ public sealed class MatrixSyncBackgroundServiceTests
             "!group:matrix.example",
             "!bridge:matrix.example",
             false,
-            new TelegramRoomInfo("!group:matrix.example", "channel", 31, "Big group"),
+            new TelegramRoomInfo("!group:matrix.example", "channel", 31, "Big group", false),
+            30);
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void ShouldIngestRoom_RejectsBroadcastChannels()
+    {
+        var result = MatrixSyncBackgroundService.ShouldIngestRoom(
+            "!channel:matrix.example",
+            "!bridge:matrix.example",
+            false,
+            new TelegramRoomInfo("!channel:matrix.example", "channel", 12, "Broadcast", true),
             30);
 
         Assert.False(result);
@@ -127,7 +140,7 @@ public sealed class MatrixSyncBackgroundServiceTests
             "!bridge:matrix.example",
             "!bridge:matrix.example",
             true,
-            new TelegramRoomInfo("!bridge:matrix.example", "user", null, "Bridge"),
+            new TelegramRoomInfo("!bridge:matrix.example", "user", null, "Bridge", false),
             30);
 
         Assert.False(result);

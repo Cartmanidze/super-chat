@@ -12,4 +12,5 @@ public sealed record TelegramRoomInfo(
     string RoomId,
     string PeerType,
     int? ParticipantCount,
-    string? Title);
+    string? Title,
+    bool IsBroadcastChannel);

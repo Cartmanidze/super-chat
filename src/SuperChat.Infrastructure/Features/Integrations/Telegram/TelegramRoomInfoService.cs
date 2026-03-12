@@ -39,11 +39,17 @@ public sealed class TelegramRoomInfoService(
             return null;
         }
 
-        return new TelegramRoomInfo(roomId, payload.PeerType, payload.ParticipantCount, payload.Title);
+        return new TelegramRoomInfo(
+            roomId,
+            payload.PeerType,
+            payload.ParticipantCount,
+            payload.Title,
+            payload.IsBroadcastChannel);
     }
 
     private sealed record TelegramRoomInfoResponse(
         [property: JsonPropertyName("peer_type")] string? PeerType,
         [property: JsonPropertyName("participant_count")] int? ParticipantCount,
-        [property: JsonPropertyName("title")] string? Title);
+        [property: JsonPropertyName("title")] string? Title,
+        [property: JsonPropertyName("is_broadcast_channel")] bool IsBroadcastChannel);
 }
