@@ -64,7 +64,7 @@ public sealed class ChatExperienceService : IChatExperienceService
 
         return ChatPromptTemplate.IsCustom(templateId)
             ? BuildCustomAnswerAsync(userId, question, cancellationToken)
-            : DispatchToTemplateAsync(userId, templateId, question, cancellationToken);
+            : BuildTemplateAnswerAsync(userId, templateId, question, cancellationToken);
     }
 
     private Task<ChatAnswerViewModel> DispatchToTemplateAsync(Guid userId, string templateId, string question, CancellationToken cancellationToken)
@@ -75,6 +75,13 @@ public sealed class ChatExperienceService : IChatExperienceService
         }
 
         throw new InvalidOperationException($"No chat template handler is registered for '{templateId}'.");
+    }
+
+    private async Task<ChatAnswerViewModel> BuildTemplateAnswerAsync(Guid userId, string templateId, string question, CancellationToken cancellationToken)
+    {
+        var baseAnswer = await DispatchToTemplateAsync(userId, templateId, question, cancellationToken);
+        var generatedAnswer = await TryEnhanceTemplateAnswerAsync(baseAnswer, cancellationToken);
+        return generatedAnswer ?? baseAnswer;
     }
 
     private async Task<ChatAnswerViewModel> BuildCustomAnswerAsync(Guid userId, string question, CancellationToken cancellationToken)
@@ -148,6 +155,78 @@ public sealed class ChatExperienceService : IChatExperienceService
                 result.SourceRoom,
                 result.ObservedAt))
             .ToList());
+    }
+
+    private async Task<ChatAnswerViewModel?> TryEnhanceTemplateAnswerAsync(
+        ChatAnswerViewModel baseAnswer,
+        CancellationToken cancellationToken)
+    {
+        var contextItems = baseAnswer.Items
+            .Select((item, index) => new
+            {
+                ReferenceKey = $"ctx_{index + 1}",
+                ViewItem = item,
+                ContextText = BuildContextText(item)
+            })
+            .Where(item => !string.IsNullOrWhiteSpace(item.ContextText))
+            .Select(item => new
+            {
+                item.ReferenceKey,
+                item.ViewItem,
+                ContextItem = new ChatAnswerContextItem(
+                    item.ReferenceKey,
+                    item.ViewItem.SourceRoom,
+                    item.ViewItem.Timestamp,
+                    item.ContextText)
+            })
+            .ToList();
+
+        if (contextItems.Count == 0)
+        {
+            return null;
+        }
+
+        var generatedAnswer = await _chatAnswerGenerationService.TryGenerateAsync(
+            baseAnswer.Question,
+            contextItems.Select(item => item.ContextItem).ToList(),
+            cancellationToken);
+
+        if (generatedAnswer is null)
+        {
+            return null;
+        }
+
+        var itemsByReference = contextItems.ToDictionary(
+            item => item.ReferenceKey,
+            item => item.ViewItem,
+            StringComparer.Ordinal);
+
+        var generatedItems = generatedAnswer.Items
+            .Where(item => itemsByReference.ContainsKey(item.ReferenceKey))
+            .Select(item =>
+            {
+                var sourceItem = itemsByReference[item.ReferenceKey];
+                return new ChatResultItemViewModel(
+                    item.Title,
+                    item.Summary,
+                    sourceItem.SourceRoom,
+                    sourceItem.Timestamp);
+            })
+            .DistinctBy(item => $"{item.Title}|{item.Summary}|{item.SourceRoom}|{item.Timestamp:O}", StringComparer.Ordinal)
+            .ToList();
+
+        if (string.IsNullOrWhiteSpace(generatedAnswer.AssistantText) && generatedItems.Count == 0)
+        {
+            return null;
+        }
+
+        return new ChatAnswerViewModel(
+            baseAnswer.Mode,
+            baseAnswer.Question,
+            generatedItems.Count > 0 ? generatedItems : baseAnswer.Items,
+            string.IsNullOrWhiteSpace(generatedAnswer.AssistantText)
+                ? baseAnswer.AssistantText
+                : generatedAnswer.AssistantText);
     }
 
     private async Task<IReadOnlyList<RetrievedChatContext>> RetrieveSmartAsync(
@@ -275,6 +354,22 @@ public sealed class ChatExperienceService : IChatExperienceService
         }
 
         return $"{normalized[..317]}...";
+    }
+
+    private static string BuildContextText(ChatResultItemViewModel item)
+    {
+        var segments = new List<string>(2);
+        if (!string.IsNullOrWhiteSpace(item.Title))
+        {
+            segments.Add(item.Title.Trim());
+        }
+
+        if (!string.IsNullOrWhiteSpace(item.Summary))
+        {
+            segments.Add(item.Summary.Trim());
+        }
+
+        return string.Join(Environment.NewLine, segments);
     }
 
     private static string? DetectTemplateFromQuestion(string question)

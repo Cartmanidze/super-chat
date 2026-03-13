@@ -30,6 +30,60 @@ public sealed class ChatExperienceServiceTests
     }
 
     [Fact]
+    public async Task AskAsync_TodayTemplateUsesGeneratedAiAnswerWhenAvailable()
+    {
+        var service = CreateService(
+            digestService: new StubDigestService(
+                today:
+                [
+                    new DashboardCardViewModel("Нужно отправить договор", "Свериться с Валерией", "Task", null, "Личные")
+                ]),
+            answerGenerationService: new StubChatAnswerGenerationService(
+                new GeneratedChatAnswer(
+                    "Сегодня главное закрыть вопрос с договором и свериться с Валерией.",
+                    [
+                        new GeneratedChatAnswerItem("ctx_1", "Главный приоритет", "Нужно отправить договор и подтвердить детали с Валерией.")
+                    ])));
+
+        var answer = await service.AskAsync(
+            Guid.NewGuid(),
+            new ChatPromptRequest(ChatPromptTemplate.Today, "Что для меня важно сегодня?"),
+            CancellationToken.None);
+
+        Assert.Equal(ChatPromptTemplate.Today, answer.Mode);
+        Assert.Equal("Сегодня главное закрыть вопрос с договором и свериться с Валерией.", answer.AssistantText);
+        var item = Assert.Single(answer.Items);
+        Assert.Equal("Главный приоритет", item.Title);
+        Assert.Equal("Нужно отправить договор и подтвердить детали с Валерией.", item.Summary);
+        Assert.Equal("Личные", item.SourceRoom);
+    }
+
+    [Fact]
+    public async Task AskAsync_TemplateKeepsBaseItems_WhenAiReturnsTextWithoutEvidence()
+    {
+        var service = CreateService(
+            digestService: new StubDigestService(
+                meetings:
+                [
+                    new DashboardCardViewModel("Upcoming meeting", "Мб заехать за тобой в 11?", "Meeting", null, "Stanislav Klyukhin (Telegram)")
+                ]),
+            answerGenerationService: new StubChatAnswerGenerationService(
+                new GeneratedChatAnswer(
+                    "Похоже, ближайшая встреча сегодня в 11.",
+                    [])));
+
+        var answer = await service.AskAsync(
+            Guid.NewGuid(),
+            new ChatPromptRequest(ChatPromptTemplate.Meetings, "Какие у меня ближайшие встречи?"),
+            CancellationToken.None);
+
+        Assert.Equal("Похоже, ближайшая встреча сегодня в 11.", answer.AssistantText);
+        var item = Assert.Single(answer.Items);
+        Assert.Equal("Мб заехать за тобой в 11?", item.Title);
+        Assert.Equal("Stanislav Klyukhin (Telegram)", item.SourceRoom);
+    }
+
+    [Fact]
     public async Task AskAsync_RejectsQuestionsOverOneHundredCharacters()
     {
         var service = CreateService();
