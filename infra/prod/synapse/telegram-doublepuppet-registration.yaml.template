@@ -5,6 +5,8 @@ url: null
 sender_localpart: unused
 rate_limited: false
 namespaces:
-  users: []
+  users:
+    - exclusive: false
+      regex: '@${MATRIX_USER_ID_PREFIX}-.+:${MATRIX_SERVER_NAME}'
   aliases: []
   rooms: []
