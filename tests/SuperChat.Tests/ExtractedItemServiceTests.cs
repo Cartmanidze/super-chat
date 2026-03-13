@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SuperChat.Contracts.Configuration;
 using SuperChat.Domain.Model;
 using SuperChat.Infrastructure.Persistence;
 using SuperChat.Infrastructure.Services;
@@ -117,9 +118,55 @@ public sealed class ExtractedItemServiceTests
         Assert.Equal(TimeSpan.Zero, projectedMeeting.ScheduledFor.Offset);
         Assert.Equal("Мб заехать за тобой в 11?", projectedMeeting.Summary);
 
-        var meetings = await new MeetingService(factory).GetUpcomingAsync(userId, dueAt.AddHours(-2), 10, CancellationToken.None);
+        var meetings = await new MeetingService(factory, CreatePilotOptions()).GetUpcomingAsync(userId, dueAt.AddHours(-2), 10, CancellationToken.None);
         Assert.Single(meetings);
         Assert.Equal(dueAt.ToUniversalTime(), meetings[0].ScheduledFor);
+    }
+
+    [Fact]
+    public async Task GetUpcomingAsync_IncludesChunkDerivedMeetingCandidates()
+    {
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        var userId = Guid.NewGuid();
+
+        await using (var dbContext = await factory.CreateDbContextAsync(CancellationToken.None))
+        {
+            dbContext.MessageChunks.Add(new MessageChunkEntity
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                Source = "telegram",
+                Provider = "telegram",
+                Transport = "matrix_bridge",
+                ChatId = "!friends:matrix.localhost",
+                Kind = "dialog_chunk",
+                Text = """
+                    Alex: давай зафиксируем
+                    You: итого, у нас будет встреча в 20:00 по мск времени сегодня, подтверждаю это
+                    Alex: ок
+                    """,
+                MessageCount = 3,
+                TsFrom = new DateTimeOffset(2026, 03, 13, 09, 00, 00, TimeSpan.Zero),
+                TsTo = new DateTimeOffset(2026, 03, 13, 09, 15, 00, TimeSpan.Zero),
+                ContentHash = "chunk-hash-meeting",
+                ChunkVersion = 1,
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow
+            });
+
+            await dbContext.SaveChangesAsync(CancellationToken.None);
+        }
+
+        var meetings = await new MeetingService(factory, CreatePilotOptions()).GetUpcomingAsync(
+            userId,
+            new DateTimeOffset(2026, 03, 13, 08, 00, 00, TimeSpan.Zero),
+            10,
+            CancellationToken.None);
+
+        var meeting = Assert.Single(meetings);
+        Assert.Equal("итого, у нас будет встреча в 20:00 по мск времени сегодня, подтверждаю это", meeting.Summary);
+        Assert.Equal(new DateTimeOffset(2026, 03, 13, 17, 00, 00, TimeSpan.Zero), meeting.ScheduledFor);
+        Assert.StartsWith("chunk:", meeting.SourceEventId, StringComparison.Ordinal);
     }
 
     private static async Task<IDbContextFactory<SuperChatDbContext>> CreateFactoryAsync(CancellationToken cancellationToken)
@@ -136,7 +183,15 @@ public sealed class ExtractedItemServiceTests
 
     private static ExtractedItemService CreateService(IDbContextFactory<SuperChatDbContext> factory)
     {
-        return new ExtractedItemService(factory, new MeetingService(factory));
+        return new ExtractedItemService(factory, new MeetingService(factory, CreatePilotOptions()));
+    }
+
+    private static PilotOptions CreatePilotOptions()
+    {
+        return new PilotOptions
+        {
+            TodayTimeZoneId = "Europe/Moscow"
+        };
     }
 
     private sealed class TestDbContextFactory(DbContextOptions<SuperChatDbContext> options) : IDbContextFactory<SuperChatDbContext>

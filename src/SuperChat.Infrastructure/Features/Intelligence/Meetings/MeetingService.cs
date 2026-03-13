@@ -1,11 +1,15 @@
 using Microsoft.EntityFrameworkCore;
+using SuperChat.Contracts.Configuration;
 using SuperChat.Domain.Model;
+using SuperChat.Domain.Services;
 using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Infrastructure.Persistence;
 
 namespace SuperChat.Infrastructure.Services;
 
-public sealed class MeetingService(IDbContextFactory<SuperChatDbContext> dbContextFactory) : IMeetingService
+public sealed class MeetingService(
+    IDbContextFactory<SuperChatDbContext> dbContextFactory,
+    PilotOptions pilotOptions) : IMeetingService
 {
     public async Task UpsertRangeAsync(IEnumerable<ExtractedItem> items, CancellationToken cancellationToken)
     {
@@ -81,6 +85,7 @@ public sealed class MeetingService(IDbContextFactory<SuperChatDbContext> dbConte
     {
         var boundedTake = Math.Clamp(take, 1, 50);
         var utcFromInclusive = NormalizeToUtc(fromInclusive);
+        var referenceTimeZone = ResolveReferenceTimeZone(pilotOptions.TodayTimeZoneId);
 
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         var entities = await dbContext.Meetings
@@ -91,8 +96,29 @@ public sealed class MeetingService(IDbContextFactory<SuperChatDbContext> dbConte
             .Take(boundedTake)
             .ToListAsync(cancellationToken);
 
+        var chunkCandidates = await dbContext.MessageChunks
+            .AsNoTracking()
+            .Where(item => item.UserId == userId)
+            .Where(item => item.TsTo >= utcFromInclusive.AddDays(-2) && item.TsFrom <= utcFromInclusive.AddDays(14))
+            .OrderByDescending(item => item.TsTo)
+            .Take(500)
+            .ToListAsync(cancellationToken);
+
         return entities
             .Select(item => item.ToDomain())
+            .Concat(chunkCandidates
+                .Select(item => ToMeetingCandidate(item, referenceTimeZone))
+                .OfType<MeetingRecord>())
+            .Where(item => item.ScheduledFor >= utcFromInclusive)
+            .GroupBy(BuildMeetingDeduplicationKey, StringComparer.Ordinal)
+            .Select(group => group
+                .OrderBy(item => item.ScheduledFor)
+                .ThenByDescending(item => item.Confidence)
+                .ThenByDescending(item => item.ObservedAt)
+                .First())
+            .OrderBy(item => item.ScheduledFor)
+            .ThenByDescending(item => item.Confidence)
+            .Take(boundedTake)
             .ToList();
     }
 
@@ -106,5 +132,68 @@ public sealed class MeetingService(IDbContextFactory<SuperChatDbContext> dbConte
         return value.Offset == TimeSpan.Zero
             ? value
             : value.ToUniversalTime();
+    }
+
+    private static MeetingRecord? ToMeetingCandidate(MessageChunkEntity chunk, TimeZoneInfo referenceTimeZone)
+    {
+        var signal = MeetingSignalDetector.TryFromChunk(
+            chunk.Text,
+            chunk.TsTo,
+            chunk.TsTo,
+            referenceTimeZone);
+
+        if (signal is null)
+        {
+            return null;
+        }
+
+        return new MeetingRecord(
+            BuildDeterministicGuid(chunk.ContentHash),
+            chunk.UserId,
+            signal.Title,
+            signal.Summary,
+            chunk.ChatId,
+            $"chunk:{chunk.ContentHash}",
+            signal.Person,
+            signal.ObservedAt,
+            signal.ScheduledFor,
+            signal.Confidence);
+    }
+
+    private static string BuildMeetingDeduplicationKey(MeetingRecord meeting)
+    {
+        return string.Join(
+            '|',
+            meeting.SourceRoom,
+            meeting.ScheduledFor.UtcDateTime.ToString("yyyy-MM-ddTHH:mm", System.Globalization.CultureInfo.InvariantCulture),
+            meeting.Summary.Trim().ToLowerInvariant());
+    }
+
+    private static Guid BuildDeterministicGuid(string seed)
+    {
+        Span<byte> bytes = stackalloc byte[16];
+        var sourceBytes = System.Text.Encoding.UTF8.GetBytes(seed);
+        var hash = System.Security.Cryptography.SHA256.HashData(sourceBytes);
+        hash[..16].CopyTo(bytes);
+        return new Guid(bytes);
+    }
+
+    private static TimeZoneInfo ResolveReferenceTimeZone(string configuredTimeZoneId)
+    {
+        if (!string.IsNullOrWhiteSpace(configuredTimeZoneId))
+        {
+            try
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById(configuredTimeZoneId);
+            }
+            catch (TimeZoneNotFoundException)
+            {
+            }
+            catch (InvalidTimeZoneException)
+            {
+            }
+        }
+
+        return TimeZoneInfo.Utc;
     }
 }

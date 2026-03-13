@@ -1,3 +1,4 @@
+using SuperChat.Contracts.Configuration;
 using SuperChat.Domain.Model;
 using SuperChat.Domain.Services;
 using SuperChat.Infrastructure.Services;
@@ -21,7 +22,7 @@ public sealed class ExtractionAndDigestTests
             DateTimeOffset.UtcNow,
             false);
 
-        var service = new HeuristicStructuredExtractionService();
+        var service = CreateHeuristicService();
         var items = await service.ExtractAsync(message, CancellationToken.None);
 
         Assert.Contains(items, item => item.Kind == ExtractedItemKind.Task);
@@ -43,7 +44,7 @@ public sealed class ExtractionAndDigestTests
             DateTimeOffset.UtcNow,
             false);
 
-        var service = new HeuristicStructuredExtractionService();
+        var service = CreateHeuristicService();
         var items = await service.ExtractAsync(message, CancellationToken.None);
 
         Assert.Empty(items);
@@ -65,11 +66,55 @@ public sealed class ExtractionAndDigestTests
             sentAt,
             false);
 
-        var service = new HeuristicStructuredExtractionService();
+        var service = CreateHeuristicService();
         var items = await service.ExtractAsync(message, CancellationToken.None);
         var meeting = Assert.Single(items, item => item.Kind == ExtractedItemKind.Meeting);
 
-        Assert.Equal(sentAt.Date.AddHours(11), meeting.DueAt);
+        Assert.Equal(new DateTimeOffset(2026, 03, 13, 08, 00, 00, TimeSpan.Zero), meeting.DueAt);
+    }
+
+    [Fact]
+    public async Task HeuristicExtraction_RecognizesConfirmedMeetingForTodayInMoscowTime()
+    {
+        var sentAt = new DateTimeOffset(2026, 03, 13, 09, 15, 00, TimeSpan.Zero);
+        var message = new NormalizedMessage(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "telegram",
+            "!friends:matrix.localhost",
+            "$event-3",
+            "Alex",
+            "итого, у нас будет встреча в 20:00 по мск времени сегодня, подтверждаю это",
+            sentAt,
+            sentAt,
+            false);
+
+        var service = CreateHeuristicService();
+        var items = await service.ExtractAsync(message, CancellationToken.None);
+        var meeting = Assert.Single(items, item => item.Kind == ExtractedItemKind.Meeting);
+
+        Assert.Equal(new DateTimeOffset(2026, 03, 13, 17, 00, 00, TimeSpan.Zero), meeting.DueAt);
+    }
+
+    [Fact]
+    public void MeetingSignalDetector_RecognizesMeetingFromChunkContext()
+    {
+        var observedAt = new DateTimeOffset(2026, 03, 13, 09, 15, 00, TimeSpan.Zero);
+        var chunkText = """
+            Alex: давай зафиксируем
+            You: итого, у нас будет встреча в 20:00 по мск времени сегодня, подтверждаю это
+            Alex: ок
+            """;
+
+        var signal = MeetingSignalDetector.TryFromChunk(
+            chunkText,
+            observedAt,
+            observedAt,
+            TimeZoneInfo.FindSystemTimeZoneById("Europe/Moscow"));
+
+        Assert.NotNull(signal);
+        Assert.Equal("итого, у нас будет встреча в 20:00 по мск времени сегодня, подтверждаю это", signal!.Summary);
+        Assert.Equal(new DateTimeOffset(2026, 03, 13, 17, 00, 00, TimeSpan.Zero), signal.ScheduledFor);
     }
 
     [Fact]
@@ -139,5 +184,13 @@ public sealed class ExtractionAndDigestTests
         Assert.Equal(2, upcoming.Count);
         Assert.Equal("Созвон в 11", upcoming[0].Summary);
         Assert.Equal("Встреча завтра в 9", upcoming[1].Summary);
+    }
+
+    private static HeuristicStructuredExtractionService CreateHeuristicService()
+    {
+        return new HeuristicStructuredExtractionService(new PilotOptions
+        {
+            TodayTimeZoneId = "Europe/Moscow"
+        });
     }
 }
