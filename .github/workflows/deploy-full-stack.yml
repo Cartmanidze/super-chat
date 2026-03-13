@@ -83,8 +83,9 @@ jobs:
           PROD_SSH_USER: ${{ vars.PROD_SSH_USER || 'root' }}
           PROD_BARE_REPO_PATH: ${{ vars.PROD_BARE_REPO_PATH || '/opt/super-chat-origin.git' }}
         run: |
-          export GIT_SSH_COMMAND="ssh -i ~/.ssh/id_ed25519 -p ${PROD_SSH_PORT} -o StrictHostKeyChecking=yes"
-          git push "ssh://${PROD_SSH_USER}@${PROD_SSH_HOST}:${PROD_SSH_PORT}${PROD_BARE_REPO_PATH}" "HEAD:main"
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/id_ed25519 -p ${PROD_SSH_PORT} -o BatchMode=yes -o PreferredAuthentications=publickey -o PubkeyAuthentication=yes -o PasswordAuthentication=no -o KbdInteractiveAuthentication=no -o ConnectionAttempts=1 -o ConnectTimeout=20 -o StrictHostKeyChecking=yes"
+          chmod +x .github/scripts/retry.sh
+          ./.github/scripts/retry.sh git push "ssh://${PROD_SSH_USER}@${PROD_SSH_HOST}:${PROD_SSH_PORT}${PROD_BARE_REPO_PATH}" "HEAD:main"
 
       - name: Pull and full-stack deploy on production host
         shell: bash
@@ -95,7 +96,9 @@ jobs:
           PROD_WORKTREE_PATH: ${{ vars.PROD_WORKTREE_PATH || '/opt/super-chat' }}
           PROD_ENV_FILE: ${{ vars.PROD_ENV_FILE || '/opt/super-chat/infra/prod/.env' }}
         run: |
-          ssh -i ~/.ssh/id_ed25519 -p "${PROD_SSH_PORT}" -o StrictHostKeyChecking=yes "${PROD_SSH_USER}@${PROD_SSH_HOST}" \
+          chmod +x .github/scripts/retry.sh
+          ./.github/scripts/retry.sh \
+            ssh -i ~/.ssh/id_ed25519 -p "${PROD_SSH_PORT}" -o BatchMode=yes -o PreferredAuthentications=publickey -o PubkeyAuthentication=yes -o PasswordAuthentication=no -o KbdInteractiveAuthentication=no -o ConnectionAttempts=1 -o ConnectTimeout=20 -o StrictHostKeyChecking=yes "${PROD_SSH_USER}@${PROD_SSH_HOST}" \
             "cd '${PROD_WORKTREE_PATH}' && git pull --ff-only && bash infra/prod/scripts/deploy.sh '${PROD_ENV_FILE}' && docker compose --env-file '${PROD_ENV_FILE}' -f infra/prod/docker-compose.yml ps"
 
       - name: Smoke check production endpoints

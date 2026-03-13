@@ -11,6 +11,43 @@ permissions:
   contents: read
 
 jobs:
+  detect-full-stack-changes:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      requires_full_stack: ${{ steps.paths.outputs.requires_full_stack }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: paths
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_BEFORE: ${{ github.event.before }}
+          CURRENT_SHA: ${{ github.sha }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "requires_full_stack=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ -z "$EVENT_BEFORE" ] || [ "$EVENT_BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            echo "requires_full_stack=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if git diff --quiet "$EVENT_BEFORE" "$CURRENT_SHA" -- \
+            .github/workflows/deploy-full-stack.yml \
+            infra/prod \
+            infra/embedding-service; then
+            echo "requires_full_stack=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "requires_full_stack=true" >> "$GITHUB_OUTPUT"
+          fi
+
   build-test:
     runs-on: ubuntu-latest
 
@@ -32,8 +69,10 @@ jobs:
         run: dotnet test SuperChat.sln --configuration Release --no-build
 
   deploy-production:
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.PROD_DEPLOY_ENABLED == 'true'
-    needs: build-test
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.PROD_DEPLOY_ENABLED == 'true' && needs.detect-full-stack-changes.outputs.requires_full_stack != 'true'
+    needs:
+      - detect-full-stack-changes
+      - build-test
     runs-on: ubuntu-latest
     timeout-minutes: 45
     concurrency:
@@ -79,8 +118,9 @@ jobs:
           PROD_SSH_USER: ${{ vars.PROD_SSH_USER || 'root' }}
           PROD_BARE_REPO_PATH: ${{ vars.PROD_BARE_REPO_PATH || '/opt/super-chat-origin.git' }}
         run: |
-          export GIT_SSH_COMMAND="ssh -i ~/.ssh/id_ed25519 -p ${PROD_SSH_PORT} -o StrictHostKeyChecking=yes"
-          git push "ssh://${PROD_SSH_USER}@${PROD_SSH_HOST}:${PROD_SSH_PORT}${PROD_BARE_REPO_PATH}" "HEAD:main"
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/id_ed25519 -p ${PROD_SSH_PORT} -o BatchMode=yes -o PreferredAuthentications=publickey -o PubkeyAuthentication=yes -o PasswordAuthentication=no -o KbdInteractiveAuthentication=no -o ConnectionAttempts=1 -o ConnectTimeout=20 -o StrictHostKeyChecking=yes"
+          chmod +x .github/scripts/retry.sh
+          ./.github/scripts/retry.sh git push "ssh://${PROD_SSH_USER}@${PROD_SSH_HOST}:${PROD_SSH_PORT}${PROD_BARE_REPO_PATH}" "HEAD:main"
 
       - name: Pull and deploy on production host
         shell: bash
@@ -91,7 +131,9 @@ jobs:
           PROD_WORKTREE_PATH: ${{ vars.PROD_WORKTREE_PATH || '/opt/super-chat' }}
           PROD_ENV_FILE: ${{ vars.PROD_ENV_FILE || '/opt/super-chat/infra/prod/.env' }}
         run: |
-          ssh -i ~/.ssh/id_ed25519 -p "${PROD_SSH_PORT}" -o StrictHostKeyChecking=yes "${PROD_SSH_USER}@${PROD_SSH_HOST}" \
+          chmod +x .github/scripts/retry.sh
+          ./.github/scripts/retry.sh \
+            ssh -i ~/.ssh/id_ed25519 -p "${PROD_SSH_PORT}" -o BatchMode=yes -o PreferredAuthentications=publickey -o PubkeyAuthentication=yes -o PasswordAuthentication=no -o KbdInteractiveAuthentication=no -o ConnectionAttempts=1 -o ConnectTimeout=20 -o StrictHostKeyChecking=yes "${PROD_SSH_USER}@${PROD_SSH_HOST}" \
             "cd '${PROD_WORKTREE_PATH}' && git pull --ff-only && bash infra/prod/scripts/deploy-app.sh '${PROD_ENV_FILE}'"
 
       - name: Smoke check production endpoints

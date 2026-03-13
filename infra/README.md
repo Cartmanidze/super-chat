@@ -39,6 +39,10 @@ PostgreSQL stays the source of truth for chunks and logs.
 
 The CI workflow can deploy the app layer automatically after a successful `main` build. The deploy job pushes the checked-out commit into the server bare repository and then runs `bash infra/prod/scripts/deploy-app.sh` on the VPS, so only `superchat-web` and `superchat-api` are rebuilt automatically.
 
+The app workflow now skips its production deploy step when the pushed change requires a full-stack rollout. This avoids double-deploying the same commit when `deploy-full-stack.yml` is already responsible for the change.
+
+Both production workflows also retry their SSH-backed `git push` and remote deploy steps. This is important on hosts that see background SSH scanner noise, because `sshd` can temporarily throttle new pre-auth connections via `MaxStartups`.
+
 There is now also a separate GitHub workflow for full-stack deploys:
 
 - `.github/workflows/deploy-full-stack.yml`
@@ -70,6 +74,7 @@ Important:
 
 - `PROD_DEPLOY_ENABLED` and `PROD_FULL_STACK_DEPLOY_ENABLED` should be repository-level GitHub variables, not only environment-level variables
 - secrets such as `PROD_SSH_PRIVATE_KEY` and `PROD_SSH_KNOWN_HOSTS` still belong in the `production` environment
+- if GitHub Actions ever starts failing with `kex_exchange_identification` or `Connection reset by peer`, check the VPS `sshd` logs for `MaxStartups throttling`
 
 ## Notes
 
