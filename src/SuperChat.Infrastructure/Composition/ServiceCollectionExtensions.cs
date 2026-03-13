@@ -23,6 +23,9 @@ public static class ServiceCollectionExtensions
             .AddOptions<ChunkingOptions>()
             .Bind(configuration.GetSection(ChunkingOptions.SectionName));
         services
+            .AddOptions<ChunkIndexingOptions>()
+            .Bind(configuration.GetSection(ChunkIndexingOptions.SectionName));
+        services
             .AddOptions<DeepSeekOptions>()
             .Bind(configuration.GetSection(DeepSeekOptions.SectionName));
         services
@@ -40,6 +43,9 @@ public static class ServiceCollectionExtensions
         services
             .AddOptions<QdrantOptions>()
             .Bind(configuration.GetSection(QdrantOptions.SectionName));
+        services
+            .AddOptions<RetrievalOptions>()
+            .Bind(configuration.GetSection(RetrievalOptions.SectionName));
         services
             .AddOptions<PersistenceOptions>()
             .Bind(configuration.GetSection(PersistenceOptions.SectionName));
@@ -123,7 +129,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IRoomDisplayNameService, MatrixRoomDisplayNameService>();
         services.AddSingleton<IMessageNormalizationService, MessageNormalizationService>();
         services.AddSingleton<IChunkBuilderService, ChunkBuilderService>();
+        services.AddSingleton<IChunkIndexingService, ChunkIndexingService>();
         services.AddSingleton<IExtractedItemService, ExtractedItemService>();
+        services.AddSingleton<IRetrievalService, RetrievalService>();
         services.AddSingleton<HeuristicStructuredExtractionService>();
         services.AddSingleton<DeepSeekStructuredExtractionService>();
         services.AddSingleton<IAiStructuredExtractionService, BootstrapStructuredExtractionService>();
@@ -139,6 +147,7 @@ public static class ServiceCollectionExtensions
         {
             services.AddHostedService<MatrixSyncBackgroundService>();
             services.AddHostedService<ChunkBuilderBackgroundService>();
+            services.AddHostedService<ChunkIndexingBackgroundService>();
             services.AddHostedService<ExtractionBackgroundService>();
         }
 

@@ -68,3 +68,15 @@ Stage-3 embedding service is configured under `Embedding` on the .NET side and `
 - `EMBEDDING_PROVIDER` chooses `mock` or `bgem3`. Default: `mock`.
 - `EMBEDDING_INSTALL_BGE=1` rebuilds the image with `FlagEmbedding` so the `bgem3` provider can actually boot.
 
+Stage-4 chunk indexing is configured under `ChunkIndexing`:
+
+- `ChunkIndexing.Enabled` turns the indexing worker on or off. Default: `true`.
+- `ChunkIndexing.PollSeconds` controls how often the worker picks pending chunks. Default: `10`.
+- `ChunkIndexing.BatchSize` caps how many chunks are embedded and upserted per tick. Default: `20`.
+
+Stage-5 retrieval is configured under `Retrieval`:
+
+- `Retrieval.Enabled` turns the Qdrant-backed retrieval path on or off. Default: `true`.
+- `Retrieval.PrefetchLimit` controls how many dense and sparse candidates are gathered before RRF fusion. Default: `24`.
+- `Retrieval.ResultLimit` controls how many ranked chunks come back from hybrid retrieval. Default: `8`.
+

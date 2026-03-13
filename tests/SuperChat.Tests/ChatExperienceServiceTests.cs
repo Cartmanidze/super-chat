@@ -64,6 +64,38 @@ public sealed class ChatExperienceServiceTests
     }
 
     [Fact]
+    public async Task AskAsync_CustomQuestionUsesRetrievalBeforeTokenSearch()
+    {
+        var retrievalService = new StubRetrievalService(
+        [
+            new RetrievedChunk(
+                Guid.NewGuid(),
+                "!room-1",
+                "ivan",
+                "dialog_chunk",
+                "Ivan: Please send the proposal tomorrow.\nYou: I will send it today.",
+                DateTimeOffset.UtcNow.AddMinutes(-15),
+                DateTimeOffset.UtcNow.AddMinutes(-5),
+                0.92)
+        ]);
+
+        var service = CreateService(
+            retrievalService: retrievalService,
+            roomDisplayNameService: new StubRoomDisplayNameService(new Dictionary<string, string> { ["!room-1"] = "Иван" }),
+            searchService: new StubSearchService());
+
+        var answer = await service.AskAsync(
+            Guid.NewGuid(),
+            new ChatPromptRequest(ChatPromptTemplate.Custom, "Что я обещал Ивану?"),
+            CancellationToken.None);
+
+        Assert.Equal(ChatPromptTemplate.Custom, answer.Mode);
+        Assert.Single(answer.Items);
+        Assert.Equal("Ivan: Please send the proposal tomorrow.", answer.Items[0].Title);
+        Assert.Equal("Иван", answer.Items[0].SourceRoom);
+    }
+
+    [Fact]
     public async Task AskAsync_FiltersRecentMessagesToConfiguredDay()
     {
         var timeProvider = new StaticTimeProvider(new DateTimeOffset(2026, 03, 12, 10, 00, 00, TimeSpan.Zero));
@@ -90,6 +122,7 @@ public sealed class ChatExperienceServiceTests
 
     private static ChatExperienceService CreateService(
         IDigestService? digestService = null,
+        IRetrievalService? retrievalService = null,
         ISearchService? searchService = null,
         IMessageNormalizationService? messageNormalizationService = null,
         IRoomDisplayNameService? roomDisplayNameService = null,
@@ -97,6 +130,7 @@ public sealed class ChatExperienceServiceTests
     {
         return new ChatExperienceService(
             digestService ?? new StubDigestService(),
+            retrievalService ?? new StubRetrievalService([]),
             searchService ?? new StubSearchService(),
             messageNormalizationService ?? new StubMessageNormalizationService([]),
             roomDisplayNameService ?? new StubRoomDisplayNameService(new Dictionary<string, string>()),
@@ -134,6 +168,14 @@ public sealed class ChatExperienceServiceTests
             return Task.FromResult(_results.TryGetValue(query, out var results)
                 ? results
                 : Array.Empty<SearchResultViewModel>());
+        }
+    }
+
+    private sealed class StubRetrievalService(IReadOnlyList<RetrievedChunk> results) : IRetrievalService
+    {
+        public Task<IReadOnlyList<RetrievedChunk>> RetrieveAsync(RetrievalRequest request, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(results);
         }
     }
 

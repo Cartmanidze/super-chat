@@ -9,6 +9,7 @@ namespace SuperChat.Infrastructure.Services;
 
 public sealed class ChatExperienceService(
     IDigestService digestService,
+    IRetrievalService retrievalService,
     ISearchService searchService,
     IMessageNormalizationService messageNormalizationService,
     IRoomDisplayNameService roomDisplayNameService,
@@ -125,6 +126,20 @@ public sealed class ChatExperienceService(
             };
         }
 
+        var retrievalResults = await RetrieveSmartAsync(userId, question, cancellationToken);
+        if (retrievalResults.Count > 0)
+        {
+            return new ChatAnswerViewModel(
+                ChatPromptTemplate.Custom,
+                question,
+                retrievalResults.Select(result => new ChatResultItemViewModel(
+                    result.Title,
+                    result.Summary,
+                    result.SourceRoom,
+                    result.ObservedAt))
+                .ToList());
+        }
+
         var results = await SearchSmartAsync(userId, question, cancellationToken);
         return new ChatAnswerViewModel(
             ChatPromptTemplate.Custom,
@@ -135,6 +150,50 @@ public sealed class ChatExperienceService(
                 result.SourceRoom,
                 result.ObservedAt))
             .ToList());
+    }
+
+    private async Task<IReadOnlyList<SearchResultViewModel>> RetrieveSmartAsync(
+        Guid userId,
+        string question,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var retrievedChunks = await retrievalService.RetrieveAsync(
+                new RetrievalRequest(userId, question, "chat_custom"),
+                cancellationToken);
+
+            if (retrievedChunks.Count == 0)
+            {
+                return [];
+            }
+
+            var roomNames = await roomDisplayNameService.ResolveManyAsync(
+                userId,
+                retrievedChunks.Select(item => item.ChatId),
+                cancellationToken);
+
+            return retrievedChunks
+                .Select(item =>
+                {
+                    var sourceRoom = roomNames.TryGetValue(item.ChatId, out var roomName)
+                        ? roomName
+                        : item.ChatId;
+
+                    return new SearchResultViewModel(
+                        BuildRetrievedTitle(item.Text),
+                        BuildRetrievedSummary(item.Text),
+                        item.Kind,
+                        sourceRoom,
+                        item.TsTo);
+                })
+                .ToList();
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(exception, "Retrieval pipeline failed for user {UserId}; falling back to token search.", userId);
+            return [];
+        }
     }
 
     private async Task<IReadOnlyList<SearchResultViewModel>> SearchSmartAsync(
@@ -184,6 +243,33 @@ public sealed class ChatExperienceService(
             .Distinct(StringComparer.Ordinal)
             .Take(6)
             .ToList();
+    }
+
+    internal static string BuildRetrievedTitle(string text)
+    {
+        var firstLine = text
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .FirstOrDefault();
+
+        if (string.IsNullOrWhiteSpace(firstLine))
+        {
+            return "Relevant context";
+        }
+
+        return firstLine.Length <= 72
+            ? firstLine
+            : $"{firstLine[..69]}...";
+    }
+
+    internal static string BuildRetrievedSummary(string text)
+    {
+        var normalized = text.Trim();
+        if (normalized.Length <= 320)
+        {
+            return normalized;
+        }
+
+        return $"{normalized[..317]}...";
     }
 
     private static string? DetectTemplateFromQuestion(string question)

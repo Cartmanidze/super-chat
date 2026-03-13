@@ -2,6 +2,7 @@ using System.Net;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SuperChat.Contracts.Configuration;
+using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Infrastructure.Services;
 
 namespace SuperChat.Tests;
@@ -77,6 +78,98 @@ public sealed class QdrantClientTests
             request => Assert.Equal("/collections/memory_bgem3_v1/index", request.Path));
     }
 
+    [Fact]
+    public async Task UpsertMemoryPointsAsync_SendsNamedDenseAndSparseVectorsWithPayload()
+    {
+        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+        var service = CreateService(handler);
+
+        await service.UpsertMemoryPointsAsync(
+            [
+                new QdrantMemoryPoint(
+                    "11111111-1111-1111-1111-111111111111",
+                    [0.1f, 0.2f, 0.3f],
+                    new SparseTextVector([7, 11], [0.6f, 0.4f]),
+                    new Dictionary<string, object?>
+                    {
+                        ["user_id"] = "user-1",
+                        ["chat_id"] = "!room:matrix.localhost",
+                        ["kind"] = "dialog_chunk",
+                        ["ts_from"] = 1234567890L
+                    })
+            ],
+            CancellationToken.None);
+
+        var request = Assert.Single(handler.Requests);
+        Assert.Equal(HttpMethod.Put, request.Method);
+        Assert.Equal("/collections/memory_bgem3_v1/points", request.Path);
+        Assert.Equal("?wait=true", request.Query);
+        Assert.Contains("\"id\":\"11111111-1111-1111-1111-111111111111\"", request.Body, StringComparison.Ordinal);
+        Assert.Contains("\"text-dense\":[0.1,0.2,0.3]", request.Body, StringComparison.Ordinal);
+        Assert.Contains("\"text-sparse\":{\"indices\":[7,11],\"values\":[0.6,0.4]}", request.Body, StringComparison.Ordinal);
+        Assert.Contains("\"user_id\":\"user-1\"", request.Body, StringComparison.Ordinal);
+        Assert.Contains("\"chat_id\":\"!room:matrix.localhost\"", request.Body, StringComparison.Ordinal);
+        Assert.Contains("\"kind\":\"dialog_chunk\"", request.Body, StringComparison.Ordinal);
+        Assert.Contains("\"ts_from\":1234567890", request.Body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task QueryMemoryPointsAsync_SendsHybridRrfQueryWithPayloadFilter()
+    {
+        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(
+                """
+                {
+                  "result": {
+                    "points": [
+                      {
+                        "id": "11111111-1111-1111-1111-111111111111",
+                        "score": 0.91,
+                        "payload": {
+                          "chunk_id": "11111111-1111-1111-1111-111111111111",
+                          "chat_id": "!room:matrix.localhost",
+                          "kind": "dialog_chunk"
+                        }
+                      }
+                    ]
+                  }
+                }
+                """)
+        });
+
+        var service = CreateService(handler);
+
+        var result = await service.QueryMemoryPointsAsync(
+            new QdrantHybridQuery(
+                [0.1f, 0.2f, 0.3f],
+                new SparseTextVector([7, 11], [0.6f, 0.4f]),
+                "user-1",
+                "!room:matrix.localhost",
+                "ivan",
+                "dialog_chunk",
+                24,
+                8),
+            CancellationToken.None);
+
+        var request = Assert.Single(handler.Requests);
+        Assert.Equal(HttpMethod.Post, request.Method);
+        Assert.Equal("/collections/memory_bgem3_v1/points/query", request.Path);
+        Assert.Contains("\"fusion\":\"rrf\"", request.Body, StringComparison.Ordinal);
+        Assert.Contains("\"using\":\"text-dense\"", request.Body, StringComparison.Ordinal);
+        Assert.Contains("\"using\":\"text-sparse\"", request.Body, StringComparison.Ordinal);
+        Assert.Contains("\"user_id\"", request.Body, StringComparison.Ordinal);
+        Assert.Contains("\"chat_id\"", request.Body, StringComparison.Ordinal);
+        Assert.Contains("\"peer_id\"", request.Body, StringComparison.Ordinal);
+        Assert.Contains("\"kind\"", request.Body, StringComparison.Ordinal);
+        Assert.Contains("\"with_payload\":true", request.Body, StringComparison.Ordinal);
+
+        var point = Assert.Single(result);
+        Assert.Equal("11111111-1111-1111-1111-111111111111", point.PointId);
+        Assert.Equal(0.91, point.Score, 3);
+        Assert.Equal("!room:matrix.localhost", point.Payload["chat_id"]);
+    }
+
     private static QdrantClient CreateService(RecordingHandler handler)
     {
         var httpClient = new HttpClient(handler)
@@ -118,11 +211,12 @@ public sealed class QdrantClientTests
             Requests.Add(new RecordedRequest(
                 request.Method,
                 request.RequestUri!.AbsolutePath,
+                request.RequestUri.Query,
                 body));
 
             return responseFactory(request);
         }
     }
 
-    private sealed record RecordedRequest(HttpMethod Method, string Path, string Body);
+    private sealed record RecordedRequest(HttpMethod Method, string Path, string Query, string Body);
 }
