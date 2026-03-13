@@ -140,6 +140,47 @@ public sealed class ChatExperienceServiceTests
     }
 
     [Fact]
+    public async Task AskAsync_CustomQuestionUsesGeneratedAiAnswerWhenAvailable()
+    {
+        var retrievalService = new StubRetrievalService(
+        [
+            new RetrievedChunk(
+                Guid.NewGuid(),
+                "!room-1",
+                "ivan",
+                "dialog_chunk",
+                "Ivan: Please send the proposal tomorrow.\nYou: I will send it today.",
+                DateTimeOffset.UtcNow.AddMinutes(-15),
+                DateTimeOffset.UtcNow.AddMinutes(-5),
+                0.92)
+        ]);
+
+        var answerGenerationService = new StubChatAnswerGenerationService(
+            new GeneratedChatAnswer(
+                "You promised Ivan that you would send the proposal today.",
+                [
+                    new GeneratedChatAnswerItem("ctx_1", "Promise to Ivan", "You explicitly said you would send the proposal today.")
+                ]));
+
+        var service = CreateService(
+            retrievalService: retrievalService,
+            answerGenerationService: answerGenerationService,
+            roomDisplayNameService: new StubRoomDisplayNameService(new Dictionary<string, string> { ["!room-1"] = "Иван" }),
+            searchService: new StubSearchService());
+
+        var answer = await service.AskAsync(
+            Guid.NewGuid(),
+            new ChatPromptRequest(ChatPromptTemplate.Custom, "Что я обещал Ивану?"),
+            CancellationToken.None);
+
+        Assert.Equal(ChatPromptTemplate.Custom, answer.Mode);
+        Assert.Equal("You promised Ivan that you would send the proposal today.", answer.AssistantText);
+        Assert.Single(answer.Items);
+        Assert.Equal("Promise to Ivan", answer.Items[0].Title);
+        Assert.Equal("Иван", answer.Items[0].SourceRoom);
+    }
+
+    [Fact]
     public async Task AskAsync_FiltersRecentMessagesToConfiguredDay()
     {
         var timeProvider = new StaticTimeProvider(new DateTimeOffset(2026, 03, 12, 10, 00, 00, TimeSpan.Zero));
@@ -201,6 +242,7 @@ public sealed class ChatExperienceServiceTests
 
     private static ChatExperienceService CreateService(
         IDigestService? digestService = null,
+        IChatAnswerGenerationService? answerGenerationService = null,
         IRetrievalService? retrievalService = null,
         ISearchService? searchService = null,
         IMessageNormalizationService? messageNormalizationService = null,
@@ -229,6 +271,7 @@ public sealed class ChatExperienceServiceTests
         return new ChatExperienceService(
             new ChatTemplateCatalog(),
             handlers,
+            answerGenerationService ?? new StubChatAnswerGenerationService(null),
             retrievalService ?? new StubRetrievalService([]),
             searchService ?? new StubSearchService(),
             resolvedRoomDisplayNameService,
@@ -278,6 +321,17 @@ public sealed class ChatExperienceServiceTests
         public Task<IReadOnlyList<RetrievedChunk>> RetrieveAsync(RetrievalRequest request, CancellationToken cancellationToken)
         {
             return Task.FromResult(results);
+        }
+    }
+
+    private sealed class StubChatAnswerGenerationService(GeneratedChatAnswer? result) : IChatAnswerGenerationService
+    {
+        public Task<GeneratedChatAnswer?> TryGenerateAsync(
+            string question,
+            IReadOnlyList<ChatAnswerContextItem> contextItems,
+            CancellationToken cancellationToken)
+        {
+            return Task.FromResult(result);
         }
     }
 

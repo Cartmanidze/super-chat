@@ -205,6 +205,10 @@ else
         }
 
         function buildAssistantText(payload) {
+          if (payload.assistantText && payload.assistantText.trim().length > 0) {
+            return payload.assistantText;
+          }
+
           if (!payload.items || payload.items.length === 0) {
             return strings.empties[payload.mode] || strings.empties[defaultTemplateId];
           }

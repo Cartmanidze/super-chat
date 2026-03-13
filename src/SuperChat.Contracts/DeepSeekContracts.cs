@@ -5,7 +5,9 @@ namespace SuperChat.Contracts;
 public sealed record DeepSeekChatCompletionRequest(
     [property: JsonPropertyName("model")] string Model,
     [property: JsonPropertyName("messages")] IReadOnlyList<DeepSeekMessage> Messages,
-    [property: JsonPropertyName("response_format")] DeepSeekResponseFormat ResponseFormat);
+    [property: JsonPropertyName("response_format")] DeepSeekResponseFormat ResponseFormat,
+    [property: JsonPropertyName("max_tokens")] int? MaxTokens = null,
+    [property: JsonPropertyName("temperature")] double? Temperature = null);
 
 public sealed record DeepSeekMessage(
     [property: JsonPropertyName("role")] string Role,

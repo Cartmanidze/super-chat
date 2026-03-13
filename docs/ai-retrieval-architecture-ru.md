@@ -890,6 +890,19 @@ Qdrant можно пересобрать из `message_chunks`.
 - тяжело дебажить
 - тяжело гарантировать контракт
 
+### Что уже реализовано в репозитории
+
+Для этого репозитория stage 6 уже материализован как отдельный answer-generation слой:
+
+- добавлен низкоуровневый `DeepSeekJsonClient`, который ходит в `/chat/completions`
+- запросы в DeepSeek всегда идут с `response_format = json_object`
+- в prompt жёстко задаётся JSON-схема ответа и правило использовать только переданный retrieval-контекст
+- `ChatExperienceService` сначала получает retrieval shortlist, а затем передаёт его в `ChatAnswerGenerationService`
+- модель не придумывает `source_room` и `timestamp`: она возвращает только `reference_key`, а backend маппит его обратно на реальные chunk-метаданные
+- если DeepSeek не настроен, недоступен или вернул плохой ответ, система мягко откатывается на уже существующий retrieval/search fallback
+
+Это важный шаг: Stage 6 теперь не просто идея из документа, а отдельный reusable-слой, который потом можно будет переиспользовать и для `thread summaries`, и для `daily summaries`
+
 ### Результат этапа
 
 Custom-вопросы начинают получать не эвристический, а реально собранный AI-ответ.
@@ -1079,13 +1092,15 @@ Custom-вопросы начнут получать намного более р
 - bootstrap ingestion уже работает
 - extraction уже работает
 - chat UI уже работает
-- stage 1 foundation уже начат и реализован локально
-- stage 2 chunk builder уже реализован локально в безопасном tail-rebuild варианте
-- stage 3 embedding service уже реализован локально как отдельный Python sidecar с `mock`-режимом по умолчанию и `BGE-M3`-ready конфигурацией
-- retrieval query path ещё не включён
+- stage 1 foundation уже реализован
+- stage 2 chunk builder уже реализован в безопасном tail-rebuild варианте
+- stage 3 embedding service уже реализован как отдельный Python sidecar с `mock`-режимом по умолчанию и `BGE-M3`-ready конфигурацией
+- stage 4 chunk indexing в Qdrant уже реализован
+- stage 5 retrieval query path уже включён
+- stage 6 DeepSeek JSON answer flow уже реализован для custom chat path
 - summaries и semantic memory ещё впереди
 
-То есть проект уже стоит на хорошем фундаменте, но retrieval-архитектура пока только начинает материализоваться.
+То есть проект уже стоит не только на фундаменте, но и на первом рабочем retrieval + answer-generation пайплайне. Следующие большие слои теперь действительно про summaries, semantic memory и качество retrieval, а не про базовую проводку.
 
 ## 18. Короткий итог
 

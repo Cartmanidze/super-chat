@@ -85,3 +85,11 @@ Stage-5 retrieval is configured under `Retrieval`:
 - `Retrieval.PrefetchLimit` controls how many dense and sparse candidates are gathered before RRF fusion. Default: `24`.
 - `Retrieval.ResultLimit` controls how many ranked chunks come back from hybrid retrieval. Default: `8`.
 
+Stage-6 chat answer generation is configured under `ChatAnswering`:
+
+- `ChatAnswering.Enabled` turns the DeepSeek-backed answer synthesis on or off. Default: `true`.
+- `ChatAnswering.MaxContextChunks` limits how many retrieved chunks are sent to DeepSeek. Default: `5`.
+- `ChatAnswering.MaxEvidenceItems` limits how many evidence cards come back from the AI answer. Default: `3`.
+- `ChatAnswering.MaxContextCharacters` caps the total context text sent to DeepSeek. Default: `4800`.
+- `ChatAnswering.MaxOutputTokens` caps the JSON answer size requested from DeepSeek. Default: `500`.
+

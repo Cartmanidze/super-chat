@@ -20,6 +20,9 @@ public static class ServiceCollectionExtensions
         services.AddMemoryCache();
 
         services
+            .AddOptions<ChatAnsweringOptions>()
+            .Bind(configuration.GetSection(ChatAnsweringOptions.SectionName));
+        services
             .AddOptions<ChunkingOptions>()
             .Bind(configuration.GetSection(ChunkingOptions.SectionName));
         services
@@ -95,6 +98,21 @@ public static class ServiceCollectionExtensions
 
             client.Timeout = TimeSpan.FromSeconds(Math.Max(1, options.TimeoutSeconds));
         });
+        services.AddHttpClient<IDeepSeekJsonClient, DeepSeekJsonClient>((serviceProvider, client) =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<DeepSeekOptions>>().Value;
+            if (Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var baseUri))
+            {
+                client.BaseAddress = baseUri;
+            }
+
+            if (!string.IsNullOrWhiteSpace(options.ApiKey))
+            {
+                client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", options.ApiKey);
+            }
+
+            client.Timeout = TimeSpan.FromSeconds(60);
+        });
         services.AddDbContextFactory<SuperChatDbContext>((serviceProvider, optionsBuilder) =>
         {
             var persistence = serviceProvider.GetRequiredService<IOptions<PersistenceOptions>>().Value;
@@ -136,6 +154,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IChatTemplateHandler, WaitingChatTemplateHandler>();
         services.AddSingleton<IChatTemplateHandler, MeetingsChatTemplateHandler>();
         services.AddSingleton<IChatTemplateHandler, RecentChatTemplateHandler>();
+        services.AddSingleton<IChatAnswerGenerationService, ChatAnswerGenerationService>();
         services.AddSingleton<IChunkBuilderService, ChunkBuilderService>();
         services.AddSingleton<IChunkIndexingService, ChunkIndexingService>();
         services.AddSingleton<IMeetingProjectionService, MeetingProjectionService>();

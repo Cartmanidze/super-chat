@@ -19,6 +19,7 @@ public sealed class ChatExperienceService : IChatExperienceService
 
     private readonly IChatTemplateCatalog _templateCatalog;
     private readonly IReadOnlyDictionary<string, IChatTemplateHandler> _handlersById;
+    private readonly IChatAnswerGenerationService _chatAnswerGenerationService;
     private readonly IRetrievalService _retrievalService;
     private readonly ISearchService _searchService;
     private readonly IRoomDisplayNameService _roomDisplayNameService;
@@ -27,6 +28,7 @@ public sealed class ChatExperienceService : IChatExperienceService
     public ChatExperienceService(
         IChatTemplateCatalog templateCatalog,
         IEnumerable<IChatTemplateHandler> handlers,
+        IChatAnswerGenerationService chatAnswerGenerationService,
         IRetrievalService retrievalService,
         ISearchService searchService,
         IRoomDisplayNameService roomDisplayNameService,
@@ -34,6 +36,7 @@ public sealed class ChatExperienceService : IChatExperienceService
     {
         _templateCatalog = templateCatalog;
         _handlersById = handlers.ToDictionary(handler => handler.TemplateId, StringComparer.OrdinalIgnoreCase);
+        _chatAnswerGenerationService = chatAnswerGenerationService;
         _retrievalService = retrievalService;
         _searchService = searchService;
         _roomDisplayNameService = roomDisplayNameService;
@@ -85,6 +88,45 @@ public sealed class ChatExperienceService : IChatExperienceService
         var retrievalResults = await RetrieveSmartAsync(userId, question, cancellationToken);
         if (retrievalResults.Count > 0)
         {
+            var generatedAnswer = await _chatAnswerGenerationService.TryGenerateAsync(
+                question,
+                retrievalResults.Select((result, index) => new ChatAnswerContextItem(
+                    $"ctx_{index + 1}",
+                    result.SourceRoom,
+                    result.ObservedAt,
+                    result.Text))
+                .ToList(),
+                cancellationToken);
+
+            if (generatedAnswer is not null)
+            {
+                var contextsByReference = retrievalResults
+                    .Select((result, index) => new { ReferenceKey = $"ctx_{index + 1}", Result = result })
+                    .ToDictionary(item => item.ReferenceKey, item => item.Result, StringComparer.Ordinal);
+
+                var answerItems = generatedAnswer.Items
+                    .Where(item => contextsByReference.ContainsKey(item.ReferenceKey))
+                    .Select(item =>
+                    {
+                        var context = contextsByReference[item.ReferenceKey];
+                        return new ChatResultItemViewModel(
+                            item.Title,
+                            item.Summary,
+                            context.SourceRoom,
+                            context.ObservedAt);
+                    })
+                    .ToList();
+
+                if (answerItems.Count > 0 || !string.IsNullOrWhiteSpace(generatedAnswer.AssistantText))
+                {
+                    return new ChatAnswerViewModel(
+                        ChatPromptTemplate.Custom,
+                        question,
+                        answerItems,
+                        generatedAnswer.AssistantText);
+                }
+            }
+
             return new ChatAnswerViewModel(
                 ChatPromptTemplate.Custom,
                 question,
@@ -108,7 +150,7 @@ public sealed class ChatExperienceService : IChatExperienceService
             .ToList());
     }
 
-    private async Task<IReadOnlyList<SearchResultViewModel>> RetrieveSmartAsync(
+    private async Task<IReadOnlyList<RetrievedChatContext>> RetrieveSmartAsync(
         Guid userId,
         string question,
         CancellationToken cancellationToken)
@@ -136,12 +178,12 @@ public sealed class ChatExperienceService : IChatExperienceService
                         ? roomName
                         : string.Empty;
 
-                    return new SearchResultViewModel(
+                    return new RetrievedChatContext(
                         BuildRetrievedTitle(item.Text),
                         BuildRetrievedSummary(item.Text),
-                        item.Kind,
                         sourceRoom,
-                        item.TsTo);
+                        item.TsTo,
+                        item.Text);
                 })
                 .ToList();
         }
@@ -151,6 +193,13 @@ public sealed class ChatExperienceService : IChatExperienceService
             return [];
         }
     }
+
+    private sealed record RetrievedChatContext(
+        string Title,
+        string Summary,
+        string SourceRoom,
+        DateTimeOffset ObservedAt,
+        string Text);
 
     private async Task<IReadOnlyList<SearchResultViewModel>> SearchSmartAsync(
         Guid userId,
