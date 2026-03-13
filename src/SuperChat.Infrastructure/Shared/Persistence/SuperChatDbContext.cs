@@ -26,6 +26,12 @@ public sealed class SuperChatDbContext(DbContextOptions<SuperChatDbContext> opti
 
     public DbSet<FeedbackEventEntity> FeedbackEvents => Set<FeedbackEventEntity>();
 
+    public DbSet<ChunkBuildCheckpointEntity> ChunkBuildCheckpoints => Set<ChunkBuildCheckpointEntity>();
+
+    public DbSet<MessageChunkEntity> MessageChunks => Set<MessageChunkEntity>();
+
+    public DbSet<RetrievalLogEntity> RetrievalLogs => Set<RetrievalLogEntity>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         var telegramStateConverter = new EnumToStringConverter<TelegramConnectionState>();
@@ -158,6 +164,63 @@ public sealed class SuperChatDbContext(DbContextOptions<SuperChatDbContext> opti
             entity.Property(item => item.CreatedAt).HasColumnName("created_at");
             entity.HasIndex(item => new { item.UserId, item.CreatedAt });
         });
+
+        modelBuilder.Entity<ChunkBuildCheckpointEntity>(entity =>
+        {
+            entity.ToTable("chunk_build_checkpoints");
+            entity.HasKey(item => item.UserId);
+            entity.Property(item => item.UserId).HasColumnName("user_id");
+            entity.Property(item => item.LastObservedIngestedAt).HasColumnName("last_observed_ingested_at");
+            entity.Property(item => item.LastObservedMessageId).HasColumnName("last_observed_message_id");
+            entity.Property(item => item.UpdatedAt).HasColumnName("updated_at");
+        });
+
+        modelBuilder.Entity<MessageChunkEntity>(entity =>
+        {
+            entity.ToTable("message_chunks");
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.Id).HasColumnName("id");
+            entity.Property(item => item.UserId).HasColumnName("user_id");
+            entity.Property(item => item.Source).HasColumnName("source");
+            entity.Property(item => item.Provider).HasColumnName("provider");
+            entity.Property(item => item.Transport).HasColumnName("transport");
+            entity.Property(item => item.ChatId).HasColumnName("chat_id");
+            entity.Property(item => item.PeerId).HasColumnName("peer_id");
+            entity.Property(item => item.ThreadId).HasColumnName("thread_id");
+            entity.Property(item => item.Kind).HasColumnName("kind");
+            entity.Property(item => item.Text).HasColumnName("text");
+            entity.Property(item => item.MessageCount).HasColumnName("message_count");
+            entity.Property(item => item.FirstNormalizedMessageId).HasColumnName("first_normalized_message_id");
+            entity.Property(item => item.LastNormalizedMessageId).HasColumnName("last_normalized_message_id");
+            entity.Property(item => item.TsFrom).HasColumnName("ts_from");
+            entity.Property(item => item.TsTo).HasColumnName("ts_to");
+            entity.Property(item => item.ContentHash).HasColumnName("content_hash");
+            entity.Property(item => item.ChunkVersion).HasColumnName("chunk_version");
+            entity.Property(item => item.EmbeddingVersion).HasColumnName("embedding_version");
+            entity.Property(item => item.QdrantPointId).HasColumnName("qdrant_point_id");
+            entity.Property(item => item.IndexedAt).HasColumnName("indexed_at");
+            entity.Property(item => item.CreatedAt).HasColumnName("created_at");
+            entity.Property(item => item.UpdatedAt).HasColumnName("updated_at");
+            entity.HasIndex(item => new { item.UserId, item.TsFrom });
+            entity.HasIndex(item => new { item.UserId, item.ChatId, item.TsFrom });
+        });
+
+        modelBuilder.Entity<RetrievalLogEntity>(entity =>
+        {
+            entity.ToTable("retrieval_logs");
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.Id).HasColumnName("id");
+            entity.Property(item => item.UserId).HasColumnName("user_id");
+            entity.Property(item => item.QueryText).HasColumnName("query_text");
+            entity.Property(item => item.QueryKind).HasColumnName("query_kind");
+            entity.Property(item => item.FiltersJson).HasColumnName("filters_json");
+            entity.Property(item => item.CandidateCount).HasColumnName("candidate_count");
+            entity.Property(item => item.SelectedChunkIdsJson).HasColumnName("selected_chunk_ids_json");
+            entity.Property(item => item.LatencyMs).HasColumnName("latency_ms");
+            entity.Property(item => item.ModelVersionsJson).HasColumnName("model_versions_json");
+            entity.Property(item => item.CreatedAt).HasColumnName("created_at");
+            entity.HasIndex(item => new { item.UserId, item.CreatedAt });
+        });
     }
 }
 
@@ -257,5 +320,53 @@ public sealed class FeedbackEventEntity
     public string Area { get; set; } = string.Empty;
     public string Value { get; set; } = string.Empty;
     public string? Notes { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+}
+
+public sealed class ChunkBuildCheckpointEntity
+{
+    public Guid UserId { get; set; }
+    public DateTimeOffset? LastObservedIngestedAt { get; set; }
+    public Guid? LastObservedMessageId { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+
+public sealed class MessageChunkEntity
+{
+    public Guid Id { get; set; }
+    public Guid UserId { get; set; }
+    public string Source { get; set; } = string.Empty;
+    public string Provider { get; set; } = string.Empty;
+    public string Transport { get; set; } = string.Empty;
+    public string ChatId { get; set; } = string.Empty;
+    public string? PeerId { get; set; }
+    public string? ThreadId { get; set; }
+    public string Kind { get; set; } = "dialog_chunk";
+    public string Text { get; set; } = string.Empty;
+    public int MessageCount { get; set; }
+    public Guid? FirstNormalizedMessageId { get; set; }
+    public Guid? LastNormalizedMessageId { get; set; }
+    public DateTimeOffset TsFrom { get; set; }
+    public DateTimeOffset TsTo { get; set; }
+    public string ContentHash { get; set; } = string.Empty;
+    public int ChunkVersion { get; set; } = 1;
+    public string? EmbeddingVersion { get; set; }
+    public string? QdrantPointId { get; set; }
+    public DateTimeOffset? IndexedAt { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+
+public sealed class RetrievalLogEntity
+{
+    public Guid Id { get; set; }
+    public Guid UserId { get; set; }
+    public string QueryText { get; set; } = string.Empty;
+    public string QueryKind { get; set; } = string.Empty;
+    public string? FiltersJson { get; set; }
+    public int CandidateCount { get; set; }
+    public string? SelectedChunkIdsJson { get; set; }
+    public int? LatencyMs { get; set; }
+    public string? ModelVersionsJson { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 }

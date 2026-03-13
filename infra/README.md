@@ -18,6 +18,13 @@ The local stack initializes three PostgreSQL databases through `infra/postgres/i
 - `synapse`
 - `mautrix_telegram`
 
+The local Compose stack now also includes:
+
+- `qdrant`, which is used as the stage-1 retrieval index
+- `embedding-service`, a Python sidecar for stage-3 text embeddings
+
+PostgreSQL stays the source of truth for chunks and logs.
+
 ## VPS pilot bootstrap
 
 1. Copy `infra/prod/.env.example` to `infra/prod/.env`.
@@ -32,6 +39,14 @@ The local stack initializes three PostgreSQL databases through `infra/postgres/i
 
 The CI workflow can deploy the app layer automatically after a successful `main` build. The deploy job pushes the checked-out commit into the server bare repository and then runs `bash infra/prod/scripts/deploy-app.sh` on the VPS, so only `superchat-web` and `superchat-api` are rebuilt automatically.
 
+There is now also a separate GitHub workflow for full-stack deploys:
+
+- `.github/workflows/deploy-full-stack.yml`
+- it can be started manually via `workflow_dispatch`
+- it can auto-run on `main` when infra paths change
+- it runs `bash infra/prod/scripts/deploy.sh`, so the whole production compose stack is recreated
+- use this path for changes under `infra/prod/**`, `infra/embedding-service/**`, and other changes that add or reshape compose services
+
 Required GitHub `production` environment secrets:
 
 - `PROD_SSH_PRIVATE_KEY`: private key allowed in `authorized_keys` on the production host
@@ -40,6 +55,7 @@ Required GitHub `production` environment secrets:
 Recommended GitHub `production` environment variables:
 
 - `PROD_DEPLOY_ENABLED`: set to `true` when the production environment is fully configured and ready for auto-deploy
+- `PROD_FULL_STACK_DEPLOY_ENABLED`: set to `true` when infra changes on `main` are allowed to trigger the full-stack workflow automatically
 - `PROD_SSH_HOST`: SSH host or IP for the production server
 - `PROD_SSH_PORT`: SSH port, defaults to `22`
 - `PROD_SSH_USER`: SSH user, defaults to `root`
@@ -50,12 +66,17 @@ Recommended GitHub `production` environment variables:
 - `PROD_WEB_HEALTHCHECK_URL`: web smoke-check URL, defaults to `https://app.tranify.ru/health`
 - `PROD_API_HEALTHCHECK_URL`: API smoke-check URL, defaults to `https://api.tranify.ru/api/v1/health`
 
+Important:
+
+- `PROD_DEPLOY_ENABLED` and `PROD_FULL_STACK_DEPLOY_ENABLED` should be repository-level GitHub variables, not only environment-level variables
+- secrets such as `PROD_SSH_PRIVATE_KEY` and `PROD_SSH_KNOWN_HOSTS` still belong in the `production` environment
+
 ## Notes
 
 - `infra/prod/` assumes `SuperChat.Web` and `SuperChat.Api` run as separate containers.
 - `infra/prod/` expects a dedicated bridge host such as `bridge.example.com` for mautrix public login pages.
 - `infra/prod/caddy/Caddyfile.template` is the only source for Caddy config; runtime `Caddyfile` is generated.
 - `infra/prod/synapse/homeserver.yaml.template`, `infra/prod/synapse/telegram-registration.yaml.template`, and `infra/prod/mautrix/config.yaml.template` are the source templates; runtime `.yaml` files are generated artifacts.
-- The automated GitHub deploy updates `superchat-web` and `superchat-api` only; Synapse, mautrix-telegram, Postgres, and Caddy stay on the manual/full-stack deploy path.
+- The automated GitHub deploy updates `superchat-web` and `superchat-api` only; Qdrant, `embedding-service`, Synapse, mautrix-telegram, Postgres, and Caddy stay on the manual/full-stack deploy path.
 - This gets the VPS stack running, but the app-side Telegram connect flow is still bootstrap logic until the real management-room and `/sync` integration lands.
 - These are still bootstrap templates, not a full hardened ops package with monitoring, backups, or secret rotation.

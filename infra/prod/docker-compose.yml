@@ -51,6 +51,28 @@ services:
     volumes:
       - ./mautrix:/data
 
+  qdrant:
+    image: qdrant/qdrant:v1.15.4
+    restart: unless-stopped
+    volumes:
+      - qdrant-data:/qdrant/storage
+
+  embedding-service:
+    build:
+      context: ../embedding-service
+      args:
+        INSTALL_BGE: ${EMBEDDING_INSTALL_BGE:-0}
+    image: prod-superchat-embedding:hotfix
+    restart: unless-stopped
+    environment:
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-mock}
+      EMBEDDING_MODEL_NAME: ${EMBEDDING_MODEL_NAME:-BAAI/bge-m3}
+      EMBEDDING_PORT: ${EMBEDDING_PORT:-7291}
+      EMBEDDING_DEVICE: ${EMBEDDING_DEVICE:-cpu}
+      EMBEDDING_DENSE_VECTOR_SIZE: ${EMBEDDING_DENSE_VECTOR_SIZE:-1024}
+    volumes:
+      - embedding-cache:/root/.cache/huggingface
+
   superchat-web:
     build:
       context: ../..
@@ -59,6 +81,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      qdrant:
+        condition: service_started
+      embedding-service:
+        condition: service_started
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
@@ -66,6 +92,11 @@ services:
       Persistence__Provider: Postgres
       Persistence__ConnectionString: ${SUPERCHAT_PERSISTENCE_CONNECTION}
       Persistence__AutoInitialize: "true"
+      Chunking__Enabled: ${CHUNKING_ENABLED:-true}
+      Chunking__PollSeconds: ${CHUNKING_POLL_SECONDS:-5}
+      Chunking__MaxGapMinutes: ${CHUNKING_MAX_GAP_MINUTES:-15}
+      Chunking__MaxMessagesPerChunk: ${CHUNKING_MAX_MESSAGES_PER_CHUNK:-8}
+      Chunking__MaxChunkCharacters: ${CHUNKING_MAX_CHUNK_CHARACTERS:-1600}
       SuperChat__BaseUrl: ${SUPERCHAT_BASE_URL}
       SuperChat__AllowedEmails__0: ${SUPERCHAT_ALLOWED_EMAILS__0}
       SuperChat__AllowedEmails__1: ${SUPERCHAT_ALLOWED_EMAILS__1}
@@ -86,6 +117,17 @@ services:
       Email__SmtpPort: ${EMAIL_SMTP_PORT}
       DeepSeek__ApiKey: ${DEEPSEEK_API_KEY}
       DeepSeek__Model: ${DEEPSEEK_MODEL}
+      Qdrant__BaseUrl: ${QDRANT_BASE_URL:-http://qdrant:6333}
+      Qdrant__ApiKey: ${QDRANT_API_KEY}
+      Qdrant__AutoInitialize: ${QDRANT_AUTO_INITIALIZE:-true}
+      Qdrant__MemoryCollectionName: ${QDRANT_MEMORY_COLLECTION_NAME:-memory_bgem3_v1}
+      Qdrant__DenseVectorName: ${QDRANT_DENSE_VECTOR_NAME:-text-dense}
+      Qdrant__SparseVectorName: ${QDRANT_SPARSE_VECTOR_NAME:-text-sparse}
+      Qdrant__DenseVectorSize: ${QDRANT_DENSE_VECTOR_SIZE:-1024}
+      Embedding__Enabled: ${EMBEDDING_ENABLED:-true}
+      Embedding__BaseUrl: ${EMBEDDING_BASE_URL:-http://embedding-service:7291}
+      Embedding__TimeoutSeconds: ${EMBEDDING_TIMEOUT_SECONDS:-60}
+      Embedding__DenseVectorSize: ${EMBEDDING_DENSE_VECTOR_SIZE:-1024}
 
   superchat-api:
     build:
@@ -95,6 +137,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      qdrant:
+        condition: service_started
+      embedding-service:
+        condition: service_started
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
@@ -102,6 +148,11 @@ services:
       Persistence__Provider: Postgres
       Persistence__ConnectionString: ${SUPERCHAT_PERSISTENCE_CONNECTION}
       Persistence__AutoInitialize: "true"
+      Chunking__Enabled: ${CHUNKING_ENABLED:-true}
+      Chunking__PollSeconds: ${CHUNKING_POLL_SECONDS:-5}
+      Chunking__MaxGapMinutes: ${CHUNKING_MAX_GAP_MINUTES:-15}
+      Chunking__MaxMessagesPerChunk: ${CHUNKING_MAX_MESSAGES_PER_CHUNK:-8}
+      Chunking__MaxChunkCharacters: ${CHUNKING_MAX_CHUNK_CHARACTERS:-1600}
       SuperChat__BaseUrl: ${SUPERCHAT_BASE_URL}
       SuperChat__AllowedEmails__0: ${SUPERCHAT_ALLOWED_EMAILS__0}
       SuperChat__AllowedEmails__1: ${SUPERCHAT_ALLOWED_EMAILS__1}
@@ -122,6 +173,17 @@ services:
       Email__SmtpPort: ${EMAIL_SMTP_PORT}
       DeepSeek__ApiKey: ${DEEPSEEK_API_KEY}
       DeepSeek__Model: ${DEEPSEEK_MODEL}
+      Qdrant__BaseUrl: ${QDRANT_BASE_URL:-http://qdrant:6333}
+      Qdrant__ApiKey: ${QDRANT_API_KEY}
+      Qdrant__AutoInitialize: ${QDRANT_AUTO_INITIALIZE:-true}
+      Qdrant__MemoryCollectionName: ${QDRANT_MEMORY_COLLECTION_NAME:-memory_bgem3_v1}
+      Qdrant__DenseVectorName: ${QDRANT_DENSE_VECTOR_NAME:-text-dense}
+      Qdrant__SparseVectorName: ${QDRANT_SPARSE_VECTOR_NAME:-text-sparse}
+      Qdrant__DenseVectorSize: ${QDRANT_DENSE_VECTOR_SIZE:-1024}
+      Embedding__Enabled: ${EMBEDDING_ENABLED:-true}
+      Embedding__BaseUrl: ${EMBEDDING_BASE_URL:-http://embedding-service:7291}
+      Embedding__TimeoutSeconds: ${EMBEDDING_TIMEOUT_SECONDS:-60}
+      Embedding__DenseVectorSize: ${EMBEDDING_DENSE_VECTOR_SIZE:-1024}
 
   caddy:
     image: caddy:2.8
@@ -145,5 +207,7 @@ services:
 
 volumes:
   postgres-data:
+  qdrant-data:
+  embedding-cache:
   caddy-data:
   caddy-config:

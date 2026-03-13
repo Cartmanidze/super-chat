@@ -20,8 +20,14 @@ public static class ServiceCollectionExtensions
         services.AddMemoryCache();
 
         services
+            .AddOptions<ChunkingOptions>()
+            .Bind(configuration.GetSection(ChunkingOptions.SectionName));
+        services
             .AddOptions<DeepSeekOptions>()
             .Bind(configuration.GetSection(DeepSeekOptions.SectionName));
+        services
+            .AddOptions<EmbeddingOptions>()
+            .Bind(configuration.GetSection(EmbeddingOptions.SectionName));
         services
             .AddOptions<EmailOptions>()
             .Bind(configuration.GetSection(EmailOptions.SectionName));
@@ -31,6 +37,9 @@ public static class ServiceCollectionExtensions
         services
             .AddOptions<PilotOptions>()
             .Bind(configuration.GetSection(PilotOptions.SectionName));
+        services
+            .AddOptions<QdrantOptions>()
+            .Bind(configuration.GetSection(QdrantOptions.SectionName));
         services
             .AddOptions<PersistenceOptions>()
             .Bind(configuration.GetSection(PersistenceOptions.SectionName));
@@ -53,6 +62,29 @@ public static class ServiceCollectionExtensions
             {
                 client.BaseAddress = baseUri;
             }
+        });
+        services.AddHttpClient<IQdrantClient, QdrantClient>((serviceProvider, client) =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<QdrantOptions>>().Value;
+            if (Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var baseUri))
+            {
+                client.BaseAddress = baseUri;
+            }
+
+            if (!string.IsNullOrWhiteSpace(options.ApiKey))
+            {
+                client.DefaultRequestHeaders.Add("api-key", options.ApiKey);
+            }
+        });
+        services.AddHttpClient<IEmbeddingService, EmbeddingServiceClient>((serviceProvider, client) =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<EmbeddingOptions>>().Value;
+            if (Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var baseUri))
+            {
+                client.BaseAddress = baseUri;
+            }
+
+            client.Timeout = TimeSpan.FromSeconds(Math.Max(1, options.TimeoutSeconds));
         });
         services.AddDbContextFactory<SuperChatDbContext>((serviceProvider, optionsBuilder) =>
         {
@@ -90,6 +122,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IIntegrationConnectionService, IntegrationConnectionService>();
         services.AddSingleton<IRoomDisplayNameService, MatrixRoomDisplayNameService>();
         services.AddSingleton<IMessageNormalizationService, MessageNormalizationService>();
+        services.AddSingleton<IChunkBuilderService, ChunkBuilderService>();
         services.AddSingleton<IExtractedItemService, ExtractedItemService>();
         services.AddSingleton<HeuristicStructuredExtractionService>();
         services.AddSingleton<DeepSeekStructuredExtractionService>();
@@ -100,10 +133,12 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IFeedbackService, FeedbackService>();
         services.AddSingleton<IHealthSnapshotService, HealthSnapshotService>();
         services.AddHostedService<PersistenceInitializationHostedService>();
+        services.AddHostedService<QdrantInitializationHostedService>();
 
         if (enableBackgroundWorkers)
         {
             services.AddHostedService<MatrixSyncBackgroundService>();
+            services.AddHostedService<ChunkBuilderBackgroundService>();
             services.AddHostedService<ExtractionBackgroundService>();
         }
 

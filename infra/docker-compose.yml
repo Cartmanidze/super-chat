@@ -24,6 +24,31 @@
       - "${MAILPIT_SMTP_PORT:-1025}:1025"
       - "${MAILPIT_UI_PORT:-8025}:8025"
 
+  qdrant:
+    image: qdrant/qdrant:v1.15.4
+    restart: unless-stopped
+    ports:
+      - "${QDRANT_PORT:-6333}:6333"
+    volumes:
+      - qdrant-data:/qdrant/storage
+
+  embedding-service:
+    build:
+      context: ./embedding-service
+      args:
+        INSTALL_BGE: ${EMBEDDING_INSTALL_BGE:-0}
+    restart: unless-stopped
+    environment:
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-mock}
+      EMBEDDING_MODEL_NAME: ${EMBEDDING_MODEL_NAME:-BAAI/bge-m3}
+      EMBEDDING_PORT: ${EMBEDDING_PORT:-7291}
+      EMBEDDING_DEVICE: ${EMBEDDING_DEVICE:-cpu}
+      EMBEDDING_DENSE_VECTOR_SIZE: ${EMBEDDING_DENSE_VECTOR_SIZE:-1024}
+    ports:
+      - "${EMBEDDING_PORT:-7291}:${EMBEDDING_PORT:-7291}"
+    volumes:
+      - embedding-cache:/root/.cache/huggingface
+
   synapse:
     image: ${SYNAPSE_IMAGE:-matrixdotorg/synapse:v1.128.0}
     restart: unless-stopped
@@ -64,5 +89,7 @@
 
 volumes:
   postgres-data:
+  qdrant-data:
+  embedding-cache:
   caddy-data:
   caddy-config:

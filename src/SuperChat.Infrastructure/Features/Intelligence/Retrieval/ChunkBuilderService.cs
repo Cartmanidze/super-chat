@@ -1,0 +1,297 @@
+using System.Security.Cryptography;
+using System.Text;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using SuperChat.Contracts.Configuration;
+using SuperChat.Domain.Model;
+using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Infrastructure.Persistence;
+
+namespace SuperChat.Infrastructure.Services;
+
+public sealed class ChunkBuilderService(
+    IDbContextFactory<SuperChatDbContext> dbContextFactory,
+    IOptions<ChunkingOptions> chunkingOptions,
+    TimeProvider timeProvider) : IChunkBuilderService
+{
+    public async Task<ChunkBuildRunResult> BuildPendingChunksAsync(CancellationToken cancellationToken)
+    {
+        var options = chunkingOptions.Value;
+        if (!options.Enabled)
+        {
+            return ChunkBuildRunResult.Empty;
+        }
+
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var checkpoints = await dbContext.ChunkBuildCheckpoints
+            .AsNoTracking()
+            .ToDictionaryAsync(item => item.UserId, cancellationToken);
+
+        var latestMessagesByUser = await dbContext.NormalizedMessages
+            .AsNoTracking()
+            .GroupBy(item => item.UserId)
+            .Select(group => new UserLatestIngested(group.Key, group.Max(item => item.IngestedAt)))
+            .ToListAsync(cancellationToken);
+
+        var usersToProcess = latestMessagesByUser
+            .Where(item => ShouldProcessUser(item.LatestIngestedAt, checkpoints.GetValueOrDefault(item.UserId)))
+            .Select(item => item.UserId)
+            .ToList();
+
+        var aggregate = ChunkBuildRunResult.Empty;
+        foreach (var userId in usersToProcess)
+        {
+            aggregate = aggregate.Merge(await ProcessUserAsync(
+                userId,
+                checkpoints.GetValueOrDefault(userId),
+                options,
+                cancellationToken));
+        }
+
+        return aggregate;
+    }
+
+    internal static bool ShouldProcessUser(DateTimeOffset latestIngestedAt, ChunkBuildCheckpointEntity? checkpoint)
+    {
+        return checkpoint?.LastObservedIngestedAt is not DateTimeOffset lastObservedIngestedAt ||
+               latestIngestedAt >= lastObservedIngestedAt;
+    }
+
+    internal static IReadOnlyList<NormalizedMessageEntity> FilterNewMessages(
+        IReadOnlyList<NormalizedMessageEntity> candidateMessages,
+        ChunkBuildCheckpointEntity? checkpoint)
+    {
+        if (checkpoint?.LastObservedIngestedAt is not DateTimeOffset lastObservedIngestedAt)
+        {
+            return candidateMessages;
+        }
+
+        return candidateMessages
+            .Where(item => item.IngestedAt > lastObservedIngestedAt ||
+                           (item.IngestedAt == lastObservedIngestedAt &&
+                            (checkpoint.LastObservedMessageId is null || item.Id.CompareTo(checkpoint.LastObservedMessageId.Value) > 0)))
+            .ToList();
+    }
+
+    internal static IReadOnlyList<MessageChunkEntity> BuildChunkEntities(
+        Guid userId,
+        string roomId,
+        IReadOnlyList<NormalizedMessage> messages,
+        ChunkingOptions options,
+        DateTimeOffset now)
+    {
+        if (messages.Count == 0)
+        {
+            return [];
+        }
+
+        var orderedMessages = messages
+            .OrderBy(item => item.SentAt)
+            .ThenBy(item => item.IngestedAt)
+            .ThenBy(item => item.Id)
+            .ToList();
+
+        var maxGap = TimeSpan.FromMinutes(Math.Max(1, options.MaxGapMinutes));
+        var maxMessagesPerChunk = Math.Max(1, options.MaxMessagesPerChunk);
+        var maxChunkCharacters = Math.Max(200, options.MaxChunkCharacters);
+
+        var chunks = new List<MessageChunkEntity>();
+        var buffer = new List<NormalizedMessage>();
+        var currentLength = 0;
+
+        foreach (var message in orderedMessages)
+        {
+            var renderedMessage = RenderMessageLine(message);
+            if (buffer.Count > 0)
+            {
+                var previousMessage = buffer[^1];
+                var gapTooLarge = message.SentAt - previousMessage.SentAt > maxGap;
+                var messageLimitReached = buffer.Count >= maxMessagesPerChunk;
+                var projectedLength = currentLength + 1 + renderedMessage.Length;
+                var characterLimitReached = projectedLength > maxChunkCharacters;
+
+                if (gapTooLarge || messageLimitReached || characterLimitReached)
+                {
+                    chunks.Add(CreateChunkEntity(userId, roomId, buffer, now));
+                    buffer.Clear();
+                    currentLength = 0;
+                }
+            }
+
+            buffer.Add(message);
+            currentLength = currentLength == 0
+                ? renderedMessage.Length
+                : currentLength + 1 + renderedMessage.Length;
+        }
+
+        if (buffer.Count > 0)
+        {
+            chunks.Add(CreateChunkEntity(userId, roomId, buffer, now));
+        }
+
+        return chunks;
+    }
+
+    private async Task<ChunkBuildRunResult> ProcessUserAsync(
+        Guid userId,
+        ChunkBuildCheckpointEntity? checkpoint,
+        ChunkingOptions options,
+        CancellationToken cancellationToken)
+    {
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var checkpointBoundary = checkpoint?.LastObservedIngestedAt ?? DateTimeOffset.MinValue;
+        var candidateMessages = await dbContext.NormalizedMessages
+            .AsNoTracking()
+            .Where(item => item.UserId == userId && item.IngestedAt >= checkpointBoundary)
+            .OrderBy(item => item.IngestedAt)
+            .ThenBy(item => item.Id)
+            .ToListAsync(cancellationToken);
+
+        var newMessages = FilterNewMessages(candidateMessages, checkpoint);
+        if (newMessages.Count == 0)
+        {
+            return ChunkBuildRunResult.Empty;
+        }
+
+        var roomPlans = newMessages
+            .GroupBy(item => item.MatrixRoomId)
+            .Select(group => new RoomRebuildPlan(
+                group.Key,
+                group.Min(item => item.SentAt).AddMinutes(-Math.Max(1, options.MaxGapMinutes))))
+            .ToList();
+
+        var now = timeProvider.GetUtcNow();
+        var roomsRebuilt = 0;
+        var chunksWritten = 0;
+        var messagesConsidered = 0;
+
+        foreach (var roomPlan in roomPlans)
+        {
+            var roomMessages = await dbContext.NormalizedMessages
+                .AsNoTracking()
+                .Where(item => item.UserId == userId &&
+                               item.MatrixRoomId == roomPlan.RoomId &&
+                               item.SentAt >= roomPlan.RebuildFrom)
+                .OrderBy(item => item.SentAt)
+                .ThenBy(item => item.IngestedAt)
+                .ThenBy(item => item.Id)
+                .Select(item => item.ToDomain())
+                .ToListAsync(cancellationToken);
+
+            var overlappingChunks = await dbContext.MessageChunks
+                .Where(item => item.UserId == userId &&
+                               item.ChatId == roomPlan.RoomId &&
+                               item.TsTo >= roomPlan.RebuildFrom)
+                .ToListAsync(cancellationToken);
+
+            if (overlappingChunks.Count > 0)
+            {
+                dbContext.MessageChunks.RemoveRange(overlappingChunks);
+            }
+
+            if (roomMessages.Count == 0)
+            {
+                continue;
+            }
+
+            var rebuiltChunks = BuildChunkEntities(userId, roomPlan.RoomId, roomMessages, options, now);
+            dbContext.MessageChunks.AddRange(rebuiltChunks);
+
+            roomsRebuilt++;
+            chunksWritten += rebuiltChunks.Count;
+            messagesConsidered += roomMessages.Count;
+        }
+
+        var storedCheckpoint = await dbContext.ChunkBuildCheckpoints
+            .SingleOrDefaultAsync(item => item.UserId == userId, cancellationToken);
+
+        if (storedCheckpoint is null)
+        {
+            storedCheckpoint = new ChunkBuildCheckpointEntity
+            {
+                UserId = userId
+            };
+
+            dbContext.ChunkBuildCheckpoints.Add(storedCheckpoint);
+        }
+
+        var lastMessage = newMessages
+            .OrderBy(item => item.IngestedAt)
+            .ThenBy(item => item.Id)
+            .Last();
+
+        storedCheckpoint.LastObservedIngestedAt = lastMessage.IngestedAt;
+        storedCheckpoint.LastObservedMessageId = lastMessage.Id;
+        storedCheckpoint.UpdatedAt = now;
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return new ChunkBuildRunResult(
+            1,
+            roomsRebuilt,
+            chunksWritten,
+            messagesConsidered);
+    }
+
+    private static MessageChunkEntity CreateChunkEntity(
+        Guid userId,
+        string roomId,
+        IReadOnlyList<NormalizedMessage> messages,
+        DateTimeOffset now)
+    {
+        var firstMessage = messages[0];
+        var lastMessage = messages[^1];
+        var text = string.Join('\n', messages.Select(RenderMessageLine));
+
+        return new MessageChunkEntity
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            Source = firstMessage.Source,
+            Provider = firstMessage.Source,
+            Transport = "matrix_bridge",
+            ChatId = roomId,
+            PeerId = null,
+            ThreadId = null,
+            Kind = "dialog_chunk",
+            Text = text,
+            MessageCount = messages.Count,
+            FirstNormalizedMessageId = firstMessage.Id,
+            LastNormalizedMessageId = lastMessage.Id,
+            TsFrom = firstMessage.SentAt,
+            TsTo = lastMessage.SentAt,
+            ContentHash = ComputeContentHash(roomId, messages),
+            ChunkVersion = 1,
+            EmbeddingVersion = null,
+            QdrantPointId = null,
+            IndexedAt = null,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+    }
+
+    private static string RenderMessageLine(NormalizedMessage message)
+    {
+        return $"{message.SenderName}: {message.Text.Trim()}";
+    }
+
+    private static string ComputeContentHash(string roomId, IReadOnlyList<NormalizedMessage> messages)
+    {
+        var lines = new List<string>(messages.Count + 1)
+        {
+            roomId
+        };
+
+        lines.AddRange(messages.Select(item => $"{item.Id:N}|{item.SentAt.UtcTicks}|{item.SenderName}|{item.Text}"));
+
+        var payload = string.Join('\n', lines);
+
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(payload));
+        return Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
+    private sealed record UserLatestIngested(Guid UserId, DateTimeOffset LatestIngestedAt);
+
+    private sealed record RoomRebuildPlan(string RoomId, DateTimeOffset RebuildFrom);
+}

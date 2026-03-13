@@ -30,6 +30,7 @@ required_vars=(
   CADDY_ACME_EMAIL
   EMAIL_FROM
   EMAIL_SMTP_HOST
+  QDRANT_BASE_URL
 )
 
 missing=0

@@ -11,6 +11,8 @@ Thumbs.db
 *.suo
 *.db
 *.local
+__pycache__/
+*.pyc
 .env
 .env.*
 !.env.example

@@ -84,6 +84,60 @@ public sealed class PersistenceInitializationHostedService(
                 next_batch_token text NULL,
                 updated_at timestamptz NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS chunk_build_checkpoints (
+                user_id uuid PRIMARY KEY,
+                last_observed_ingested_at timestamptz NULL,
+                last_observed_message_id uuid NULL,
+                updated_at timestamptz NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS message_chunks (
+                id uuid PRIMARY KEY,
+                user_id uuid NOT NULL,
+                source text NOT NULL,
+                provider text NOT NULL,
+                transport text NOT NULL,
+                chat_id text NOT NULL,
+                peer_id text NULL,
+                thread_id text NULL,
+                kind text NOT NULL,
+                text text NOT NULL,
+                message_count integer NOT NULL,
+                first_normalized_message_id uuid NULL,
+                last_normalized_message_id uuid NULL,
+                ts_from timestamptz NOT NULL,
+                ts_to timestamptz NOT NULL,
+                content_hash text NOT NULL,
+                chunk_version integer NOT NULL,
+                embedding_version text NULL,
+                qdrant_point_id text NULL,
+                indexed_at timestamptz NULL,
+                created_at timestamptz NOT NULL,
+                updated_at timestamptz NOT NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS ix_message_chunks_user_id_ts_from
+                ON message_chunks (user_id, ts_from);
+
+            CREATE INDEX IF NOT EXISTS ix_message_chunks_user_id_chat_id_ts_from
+                ON message_chunks (user_id, chat_id, ts_from);
+
+            CREATE TABLE IF NOT EXISTS retrieval_logs (
+                id uuid PRIMARY KEY,
+                user_id uuid NOT NULL,
+                query_text text NOT NULL,
+                query_kind text NOT NULL,
+                filters_json text NULL,
+                candidate_count integer NOT NULL,
+                selected_chunk_ids_json text NULL,
+                latency_ms integer NULL,
+                model_versions_json text NULL,
+                created_at timestamptz NOT NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS ix_retrieval_logs_user_id_created_at
+                ON retrieval_logs (user_id, created_at);
             """,
             cancellationToken);
     }
