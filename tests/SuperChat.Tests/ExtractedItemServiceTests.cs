@@ -113,8 +113,13 @@ public sealed class ExtractedItemServiceTests
 
         Assert.Equal(userId, projectedMeeting.UserId);
         Assert.Equal("$evt-meeting", projectedMeeting.SourceEventId);
-        Assert.Equal(dueAt, projectedMeeting.ScheduledFor);
+        Assert.Equal(dueAt.ToUniversalTime(), projectedMeeting.ScheduledFor);
+        Assert.Equal(TimeSpan.Zero, projectedMeeting.ScheduledFor.Offset);
         Assert.Equal("Мб заехать за тобой в 11?", projectedMeeting.Summary);
+
+        var meetings = await new MeetingService(factory).GetUpcomingAsync(userId, dueAt.AddHours(-2), 10, CancellationToken.None);
+        Assert.Single(meetings);
+        Assert.Equal(dueAt.ToUniversalTime(), meetings[0].ScheduledFor);
     }
 
     private static async Task<IDbContextFactory<SuperChatDbContext>> CreateFactoryAsync(CancellationToken cancellationToken)

@@ -46,8 +46,8 @@ public sealed class MeetingService(IDbContextFactory<SuperChatDbContext> dbConte
                 existing.Summary = item.Summary;
                 existing.SourceRoom = item.SourceRoom;
                 existing.Person = item.Person;
-                existing.ObservedAt = item.ObservedAt;
-                existing.ScheduledFor = item.DueAt!.Value;
+                existing.ObservedAt = NormalizeToUtc(item.ObservedAt);
+                existing.ScheduledFor = NormalizeToUtc(item.DueAt!.Value);
                 existing.Confidence = item.Confidence;
                 existing.UpdatedAt = now;
                 continue;
@@ -62,8 +62,8 @@ public sealed class MeetingService(IDbContextFactory<SuperChatDbContext> dbConte
                 SourceRoom = item.SourceRoom,
                 SourceEventId = item.SourceEventId,
                 Person = item.Person,
-                ObservedAt = item.ObservedAt,
-                ScheduledFor = item.DueAt!.Value,
+                ObservedAt = NormalizeToUtc(item.ObservedAt),
+                ScheduledFor = NormalizeToUtc(item.DueAt!.Value),
                 Confidence = item.Confidence,
                 CreatedAt = now,
                 UpdatedAt = now
@@ -80,11 +80,12 @@ public sealed class MeetingService(IDbContextFactory<SuperChatDbContext> dbConte
         CancellationToken cancellationToken)
     {
         var boundedTake = Math.Clamp(take, 1, 50);
+        var utcFromInclusive = NormalizeToUtc(fromInclusive);
 
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         var entities = await dbContext.Meetings
             .AsNoTracking()
-            .Where(item => item.UserId == userId && item.ScheduledFor >= fromInclusive)
+            .Where(item => item.UserId == userId && item.ScheduledFor >= utcFromInclusive)
             .OrderBy(item => item.ScheduledFor)
             .ThenByDescending(item => item.Confidence)
             .Take(boundedTake)
@@ -98,5 +99,12 @@ public sealed class MeetingService(IDbContextFactory<SuperChatDbContext> dbConte
     private static string BuildKey(Guid userId, string sourceEventId)
     {
         return $"{userId:N}|{sourceEventId}";
+    }
+
+    private static DateTimeOffset NormalizeToUtc(DateTimeOffset value)
+    {
+        return value.Offset == TimeSpan.Zero
+            ? value
+            : value.ToUniversalTime();
     }
 }
