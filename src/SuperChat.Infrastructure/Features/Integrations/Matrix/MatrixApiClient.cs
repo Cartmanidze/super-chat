@@ -206,6 +206,7 @@ public sealed partial class MatrixApiClient(
     public async Task<string?> GetRoomDisplayNameAsync(
         string accessToken,
         string roomId,
+        string? currentMatrixUserId,
         CancellationToken cancellationToken)
     {
         using var request = CreateUserRequest(
@@ -229,10 +230,35 @@ public sealed partial class MatrixApiClient(
             return roomName;
         }
 
-        return payload
+        var canonicalAlias = payload
             .Where(item => string.Equals(item.Type, "m.room.canonical_alias", StringComparison.Ordinal))
             .Select(item => TryGetString(item.Content, "alias"))
             .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
+        if (!string.IsNullOrWhiteSpace(canonicalAlias))
+        {
+            return canonicalAlias;
+        }
+
+        var memberDisplayNames = payload
+            .Where(item => string.Equals(item.Type, "m.room.member", StringComparison.Ordinal))
+            .Where(item => string.Equals(TryGetString(item.Content, "membership"), "join", StringComparison.OrdinalIgnoreCase) ||
+                           string.Equals(TryGetString(item.Content, "membership"), "invite", StringComparison.OrdinalIgnoreCase))
+            .Where(item => !string.Equals(item.StateKey, currentMatrixUserId, StringComparison.Ordinal))
+            .Select(item => TryGetString(item.Content, "displayname"))
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value!.Trim())
+            .Where(value => !string.Equals(value, "Telegram Bridge", StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.Ordinal)
+            .Take(3)
+            .ToList();
+
+        return memberDisplayNames.Count switch
+        {
+            0 => null,
+            1 => memberDisplayNames[0],
+            _ => string.Join(", ", memberDisplayNames)
+        };
     }
 
     public Uri? TryExtractFirstUrl(string text)
@@ -423,6 +449,9 @@ public sealed partial class MatrixApiClient(
     private sealed class RoomStateEventPayload
     {
         public string? Type { get; init; }
+
+        [JsonPropertyName("state_key")]
+        public string? StateKey { get; init; }
 
         public JsonElement? Content { get; init; }
     }

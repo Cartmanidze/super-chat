@@ -178,7 +178,7 @@ public sealed class ChatExperienceService(
                 {
                     var sourceRoom = roomNames.TryGetValue(item.ChatId, out var roomName)
                         ? roomName
-                        : item.ChatId;
+                        : string.Empty;
 
                     return new SearchResultViewModel(
                         BuildRetrievedTitle(item.Text),

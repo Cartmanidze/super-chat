@@ -10,6 +10,7 @@ public sealed class ExtractedItemService(IDbContextFactory<SuperChatDbContext> d
     public async Task AddRangeAsync(IEnumerable<ExtractedItem> items, CancellationToken cancellationToken)
     {
         var entities = items
+            .Where(ExtractedItemFilters.ShouldKeep)
             .Select(item => new ExtractedItemEntity
             {
                 Id = item.Id,
@@ -45,6 +46,7 @@ public sealed class ExtractedItemService(IDbContextFactory<SuperChatDbContext> d
             .ToListAsync(cancellationToken);
 
         return entities
+            .Where(ExtractedItemFilters.ShouldKeep)
             .OrderByDescending(item => item.ObservedAt)
             .Select(item => item.ToDomain())
             .ToList();

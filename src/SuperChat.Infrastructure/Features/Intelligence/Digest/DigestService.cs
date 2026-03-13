@@ -42,10 +42,25 @@ public sealed class DigestService(
         var roomNames = await roomDisplayNameService.ResolveManyAsync(userId, cards.Select(item => item.SourceRoom), cancellationToken);
 
         return cards
-            .Select(card => roomNames.TryGetValue(card.SourceRoom, out var roomName)
-                ? card with { SourceRoom = roomName }
-                : card)
+            .Select(card =>
+            {
+                if (roomNames.TryGetValue(card.SourceRoom, out var roomName))
+                {
+                    return card with { SourceRoom = roomName };
+                }
+
+                return LooksLikeMatrixRoomId(card.SourceRoom)
+                    ? card with { SourceRoom = string.Empty }
+                    : card;
+            })
             .ToList();
+    }
+
+    private static bool LooksLikeMatrixRoomId(string value)
+    {
+        return !string.IsNullOrWhiteSpace(value) &&
+               value.StartsWith("!", StringComparison.Ordinal) &&
+               value.Contains(':', StringComparison.Ordinal);
     }
 
     private static TimeZoneInfo ResolveTodayTimeZone(ILogger logger, string configuredTimeZoneId)

@@ -37,11 +37,6 @@ public sealed class HeuristicStructuredExtractionService
             items.Add(CreateItem(message, ExtractedItemKind.WaitingOn, "Awaiting response", text, dueAt));
         }
 
-        if (items.Count == 0)
-        {
-            items.Add(CreateItem(message, ExtractedItemKind.Task, "Follow-up candidate", text, dueAt, 0.51));
-        }
-
         return Task.FromResult<IReadOnlyCollection<ExtractedItem>>(items);
     }
 

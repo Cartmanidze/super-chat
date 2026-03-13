@@ -155,11 +155,62 @@ public sealed class MatrixApiClientTests
 
         var client = CreateClient(handler);
 
-        var roomName = await client.GetRoomDisplayNameAsync("access-token", "!room:matrix.localhost", CancellationToken.None);
+        var roomName = await client.GetRoomDisplayNameAsync(
+            "access-token",
+            "!room:matrix.localhost",
+            "@superchat-user:matrix.localhost",
+            CancellationToken.None);
 
         Assert.Equal("Sales Team", roomName);
         Assert.Equal(HttpMethod.Get, handler.LastRequest!.Method);
         Assert.Equal("/_matrix/client/v3/rooms/%21room%3Amatrix.localhost/state", handler.LastRequest.RequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task GetRoomDisplayNameAsync_ReturnsOtherMemberDisplayName_WhenRoomHasNoName()
+    {
+        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(
+                """
+                [
+                  {
+                    "type": "m.room.member",
+                    "state_key": "@superchat-user:matrix.localhost",
+                    "content": {
+                      "membership": "join",
+                      "displayname": "Super Chat Hidden User"
+                    }
+                  },
+                  {
+                    "type": "m.room.member",
+                    "state_key": "@telegram-alice:matrix.localhost",
+                    "content": {
+                      "membership": "join",
+                      "displayname": "Alice"
+                    }
+                  },
+                  {
+                    "type": "m.room.member",
+                    "state_key": "@telegrambot:matrix.localhost",
+                    "content": {
+                      "membership": "join",
+                      "displayname": "Telegram Bridge"
+                    }
+                  }
+                ]
+                """)
+        });
+
+        var client = CreateClient(handler);
+
+        var roomName = await client.GetRoomDisplayNameAsync(
+            "access-token",
+            "!room:matrix.localhost",
+            "@superchat-user:matrix.localhost",
+            CancellationToken.None);
+
+        Assert.Equal("Alice", roomName);
     }
 
     [Fact]

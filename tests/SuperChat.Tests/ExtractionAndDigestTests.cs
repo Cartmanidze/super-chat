@@ -29,6 +29,27 @@ public sealed class ExtractionAndDigestTests
     }
 
     [Fact]
+    public async Task HeuristicExtraction_DoesNotCreateGenericFollowUpCandidate()
+    {
+        var message = new NormalizedMessage(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "telegram",
+            "!room:matrix.localhost",
+            "$event-plain",
+            "Alex",
+            "video.mp4",
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow,
+            false);
+
+        var service = new HeuristicStructuredExtractionService();
+        var items = await service.ExtractAsync(message, CancellationToken.None);
+
+        Assert.Empty(items);
+    }
+
+    [Fact]
     public void DigestComposer_PrioritizesWaitingAndTodayItems()
     {
         var now = DateTimeOffset.UtcNow;

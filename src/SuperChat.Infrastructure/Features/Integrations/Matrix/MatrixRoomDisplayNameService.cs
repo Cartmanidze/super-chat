@@ -60,7 +60,12 @@ public sealed class MatrixRoomDisplayNameService(
             return resolved;
         }
 
-        var lookups = await Task.WhenAll(unresolved.Select(roomId => ResolveRoomNameAsync(identity.AccessToken, roomId, cancellationToken)));
+        var lookups = await Task.WhenAll(
+            unresolved.Select(roomId => ResolveRoomNameAsync(
+                identity.AccessToken,
+                identity.MatrixUserId,
+                roomId,
+                cancellationToken)));
         foreach (var lookup in lookups)
         {
             if (string.IsNullOrWhiteSpace(lookup.DisplayName))
@@ -77,12 +82,17 @@ public sealed class MatrixRoomDisplayNameService(
 
     private async Task<(string RoomId, string? DisplayName)> ResolveRoomNameAsync(
         string accessToken,
+        string? currentMatrixUserId,
         string roomId,
         CancellationToken cancellationToken)
     {
         try
         {
-            var roomName = await matrixApiClient.GetRoomDisplayNameAsync(accessToken, roomId, cancellationToken);
+            var roomName = await matrixApiClient.GetRoomDisplayNameAsync(
+                accessToken,
+                roomId,
+                currentMatrixUserId,
+                cancellationToken);
             return (roomId, roomName);
         }
         catch (Exception ex)

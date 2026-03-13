@@ -52,9 +52,24 @@ public sealed class SearchService(
         var roomNames = await roomDisplayNameService.ResolveManyAsync(userId, results.Select(item => item.SourceRoom), cancellationToken);
 
         return results
-            .Select(result => roomNames.TryGetValue(result.SourceRoom, out var roomName)
-                ? result with { SourceRoom = roomName }
-                : result)
+            .Select(result =>
+            {
+                if (roomNames.TryGetValue(result.SourceRoom, out var roomName))
+                {
+                    return result with { SourceRoom = roomName };
+                }
+
+                return LooksLikeMatrixRoomId(result.SourceRoom)
+                    ? result with { SourceRoom = string.Empty }
+                    : result;
+            })
             .ToList();
+    }
+
+    private static bool LooksLikeMatrixRoomId(string value)
+    {
+        return !string.IsNullOrWhiteSpace(value) &&
+               value.StartsWith("!", StringComparison.Ordinal) &&
+               value.Contains(':', StringComparison.Ordinal);
     }
 }
