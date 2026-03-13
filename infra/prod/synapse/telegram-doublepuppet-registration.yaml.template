@@ -1,0 +1,10 @@
+id: telegram-doublepuppet
+as_token: ${MAUTRIX_DOUBLE_PUPPET_AS_TOKEN}
+hs_token: ${MAUTRIX_DOUBLE_PUPPET_AS_TOKEN}
+url: null
+sender_localpart: unused
+rate_limited: false
+namespaces:
+  users: []
+  aliases: []
+  rooms: []

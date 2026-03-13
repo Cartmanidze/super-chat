@@ -29,6 +29,7 @@ PostgreSQL stays the source of truth for chunks and logs.
 
 1. Copy `infra/prod/.env.example` to `infra/prod/.env`.
 2. Fill Matrix, Telegram, SMTP, DeepSeek, and Postgres secrets.
+   - for Telegram outgoing-message sync from the logged-in account, also set `MAUTRIX_DOUBLE_PUPPET_AS_TOKEN`
 3. Install `envsubst`, for example via `gettext-base`.
 4. Run `bash infra/prod/scripts/render-configs.sh`.
 5. Run `bash infra/prod/scripts/preflight.sh`.
@@ -82,6 +83,7 @@ Important:
 - `infra/prod/` expects a dedicated bridge host such as `bridge.example.com` for mautrix public login pages.
 - `infra/prod/caddy/Caddyfile.template` is the only source for Caddy config; runtime `Caddyfile` is generated.
 - `infra/prod/synapse/homeserver.yaml.template`, `infra/prod/synapse/telegram-registration.yaml.template`, and `infra/prod/mautrix/config.yaml.template` are the source templates; runtime `.yaml` files are generated artifacts.
+- `infra/prod/synapse/telegram-doublepuppet-registration.yaml.template` enables mautrix double-puppeting for the homeserver domain, which is required if you want the bridge to mirror the logged-in user's own Telegram messages reliably.
 - The automated GitHub deploy updates `superchat-web` and `superchat-api` only; Qdrant, `embedding-service`, Synapse, mautrix-telegram, Postgres, and Caddy stay on the manual/full-stack deploy path.
 - This gets the VPS stack running, but the app-side Telegram connect flow is still bootstrap logic until the real management-room and `/sync` integration lands.
 - These are still bootstrap templates, not a full hardened ops package with monitoring, backups, or secret rotation.

@@ -41,3 +41,4 @@ retention:
 
 app_service_config_files:
   - /data/telegram-registration.yaml
+  - /data/telegram-doublepuppet-registration.yaml
