@@ -333,7 +333,7 @@ public sealed class QdrantClient(
         [property: JsonPropertyName("limit")] int Limit);
 
     private sealed record SparseVectorDto(
-        [property: JsonPropertyName("indices")] IReadOnlyList<int> Indices,
+        [property: JsonPropertyName("indices")] IReadOnlyList<long> Indices,
         [property: JsonPropertyName("values")] IReadOnlyList<float> Values);
 
     private sealed record FusionQueryDto(

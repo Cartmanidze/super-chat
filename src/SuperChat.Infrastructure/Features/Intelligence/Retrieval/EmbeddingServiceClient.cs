@@ -73,6 +73,6 @@ public sealed class EmbeddingServiceClient(
         [property: JsonPropertyName("embedding_version")] string? EmbeddingVersion);
 
     private sealed record SparseVectorResponse(
-        [property: JsonPropertyName("indices")] List<int> Indices,
+        [property: JsonPropertyName("indices")] List<long> Indices,
         [property: JsonPropertyName("values")] List<float> Values);
 }

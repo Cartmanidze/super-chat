@@ -33,7 +33,7 @@ public sealed class EmbeddingServiceClientTests
         var result = await service.EmbedAsync("hello world", CancellationToken.None);
 
         Assert.Equal(new[] { 0.1f, 0.2f, 0.3f }, result.DenseVector);
-        Assert.Equal(new[] { 7, 11 }, result.SparseVector.Indices);
+        Assert.Equal(new long[] { 7, 11 }, result.SparseVector.Indices);
         Assert.Equal(new[] { 0.6f, 0.4f }, result.SparseVector.Values);
         Assert.Equal("mock", result.Provider);
         Assert.Equal("BAAI/bge-m3", result.Model);

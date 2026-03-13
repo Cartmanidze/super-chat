@@ -13,5 +13,5 @@ public sealed record TextEmbedding(
     string EmbeddingVersion);
 
 public sealed record SparseTextVector(
-    IReadOnlyList<int> Indices,
+    IReadOnlyList<long> Indices,
     IReadOnlyList<float> Values);
