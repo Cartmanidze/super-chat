@@ -1,8 +1,14 @@
 namespace SuperChat.Infrastructure.Abstractions;
 
+public enum EmbeddingPurpose
+{
+    Document = 0,
+    Query = 1
+}
+
 public interface IEmbeddingService
 {
-    Task<TextEmbedding> EmbedAsync(string text, CancellationToken cancellationToken);
+    Task<TextEmbedding> EmbedAsync(string text, EmbeddingPurpose purpose, CancellationToken cancellationToken);
 }
 
 public sealed record TextEmbedding(

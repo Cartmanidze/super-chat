@@ -150,7 +150,7 @@ public sealed class RetrievalServiceTests
 
     private sealed class RecordingEmbeddingService : IEmbeddingService
     {
-        public Task<TextEmbedding> EmbedAsync(string text, CancellationToken cancellationToken)
+        public Task<TextEmbedding> EmbedAsync(string text, EmbeddingPurpose purpose, CancellationToken cancellationToken)
         {
             return Task.FromResult(new TextEmbedding(
                 [0.1f, 0.2f, 0.3f],

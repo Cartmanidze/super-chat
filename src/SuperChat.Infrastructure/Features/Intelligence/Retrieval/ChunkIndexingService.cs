@@ -48,7 +48,7 @@ public sealed class ChunkIndexingService(
                 continue;
             }
 
-            var embedding = await embeddingService.EmbedAsync(chunk.Text, cancellationToken);
+            var embedding = await embeddingService.EmbedAsync(chunk.Text, EmbeddingPurpose.Document, cancellationToken);
             var pointId = BuildPointId(chunk);
             var embeddingVersion = ResolveEmbeddingVersion(embedding);
 

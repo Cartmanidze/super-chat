@@ -91,7 +91,11 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient<IEmbeddingService, EmbeddingServiceClient>((serviceProvider, client) =>
         {
             var options = serviceProvider.GetRequiredService<IOptions<EmbeddingOptions>>().Value;
-            if (Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var baseUri))
+            var configuredBaseUrl = string.Equals(options.Backend, "YandexCloud", StringComparison.OrdinalIgnoreCase)
+                ? options.YandexBaseUrl
+                : options.BaseUrl;
+
+            if (Uri.TryCreate(configuredBaseUrl, UriKind.Absolute, out var baseUri))
             {
                 client.BaseAddress = baseUri;
             }

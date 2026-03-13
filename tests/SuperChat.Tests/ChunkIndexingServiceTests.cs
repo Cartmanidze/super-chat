@@ -213,7 +213,7 @@ public sealed class ChunkIndexingServiceTests
     {
         public List<string> RequestedTexts { get; } = [];
 
-        public Task<TextEmbedding> EmbedAsync(string text, CancellationToken cancellationToken)
+        public Task<TextEmbedding> EmbedAsync(string text, EmbeddingPurpose purpose, CancellationToken cancellationToken)
         {
             RequestedTexts.Add(text);
 

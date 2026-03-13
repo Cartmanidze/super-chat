@@ -33,7 +33,7 @@ public sealed class RetrievalService(
         }
 
         var stopwatch = Stopwatch.StartNew();
-        var embedding = await embeddingService.EmbedAsync(normalizedQuery, cancellationToken);
+        var embedding = await embeddingService.EmbedAsync(normalizedQuery, EmbeddingPurpose.Query, cancellationToken);
         var query = new QdrantHybridQuery(
             embedding.DenseVector,
             embedding.SparseVector,

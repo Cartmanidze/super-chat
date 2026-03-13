@@ -83,8 +83,6 @@ services:
         condition: service_healthy
       qdrant:
         condition: service_started
-      embedding-service:
-        condition: service_started
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
@@ -138,9 +136,17 @@ services:
       Qdrant__SparseVectorName: ${QDRANT_SPARSE_VECTOR_NAME:-text-sparse}
       Qdrant__DenseVectorSize: ${QDRANT_DENSE_VECTOR_SIZE:-1024}
       Embedding__Enabled: ${EMBEDDING_ENABLED:-true}
+      Embedding__Backend: ${EMBEDDING_BACKEND:-LocalService}
       Embedding__BaseUrl: ${EMBEDDING_BASE_URL:-http://embedding-service:7291}
       Embedding__TimeoutSeconds: ${EMBEDDING_TIMEOUT_SECONDS:-60}
       Embedding__DenseVectorSize: ${EMBEDDING_DENSE_VECTOR_SIZE:-1024}
+      Embedding__YandexBaseUrl: ${EMBEDDING_YANDEX_BASE_URL:-https://ai.api.cloud.yandex.net}
+      Embedding__YandexApiKey: ${EMBEDDING_YANDEX_API_KEY}
+      Embedding__YandexFolderId: ${EMBEDDING_YANDEX_FOLDER_ID}
+      Embedding__YandexDocModelUri: ${EMBEDDING_YANDEX_DOC_MODEL_URI}
+      Embedding__YandexQueryModelUri: ${EMBEDDING_YANDEX_QUERY_MODEL_URI}
+      Embedding__YandexDocModelName: ${EMBEDDING_YANDEX_DOC_MODEL_NAME:-text-search-doc}
+      Embedding__YandexQueryModelName: ${EMBEDDING_YANDEX_QUERY_MODEL_NAME:-text-search-query}
 
   superchat-api:
     build:
@@ -152,8 +158,6 @@ services:
         condition: service_healthy
       qdrant:
         condition: service_started
-      embedding-service:
-        condition: service_started
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
@@ -207,9 +211,17 @@ services:
       Qdrant__SparseVectorName: ${QDRANT_SPARSE_VECTOR_NAME:-text-sparse}
       Qdrant__DenseVectorSize: ${QDRANT_DENSE_VECTOR_SIZE:-1024}
       Embedding__Enabled: ${EMBEDDING_ENABLED:-true}
+      Embedding__Backend: ${EMBEDDING_BACKEND:-LocalService}
       Embedding__BaseUrl: ${EMBEDDING_BASE_URL:-http://embedding-service:7291}
       Embedding__TimeoutSeconds: ${EMBEDDING_TIMEOUT_SECONDS:-60}
       Embedding__DenseVectorSize: ${EMBEDDING_DENSE_VECTOR_SIZE:-1024}
+      Embedding__YandexBaseUrl: ${EMBEDDING_YANDEX_BASE_URL:-https://ai.api.cloud.yandex.net}
+      Embedding__YandexApiKey: ${EMBEDDING_YANDEX_API_KEY}
+      Embedding__YandexFolderId: ${EMBEDDING_YANDEX_FOLDER_ID}
+      Embedding__YandexDocModelUri: ${EMBEDDING_YANDEX_DOC_MODEL_URI}
+      Embedding__YandexQueryModelUri: ${EMBEDDING_YANDEX_QUERY_MODEL_URI}
+      Embedding__YandexDocModelName: ${EMBEDDING_YANDEX_DOC_MODEL_NAME:-text-search-doc}
+      Embedding__YandexQueryModelName: ${EMBEDDING_YANDEX_QUERY_MODEL_NAME:-text-search-query}
 
   caddy:
     image: caddy:2.8

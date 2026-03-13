@@ -10,7 +10,7 @@
 - Telegram connection bootstrap flow with a development bridge stub
 - PostgreSQL-backed auth, connection state, message normalization, extraction, digest, search, and feedback paths
 - Stage-1 retrieval foundation with PostgreSQL chunk/log tables and Qdrant collection bootstrap
-- Docker Compose skeleton for Postgres, Qdrant, a dedicated embedding sidecar, Synapse, mautrix-telegram, Caddy, and Mailpit
+- Docker Compose skeleton for Postgres, Qdrant, an optional embedding sidecar, Synapse, mautrix-telegram, Caddy, and Mailpit
 - Production bootstrap under `infra/prod/` for VPS pilot deployment
 - GitHub Actions CI/CD for build, tests, and production app deploy on `main`
 
@@ -59,14 +59,21 @@ Stage-2 retrieval chunking is configured separately under `Chunking`:
 - `MaxMessagesPerChunk` caps how many messages go into one chunk. Default: `8`.
 - `MaxChunkCharacters` caps rendered chunk size. Default: `1600`.
 
-Stage-3 embedding service is configured under `Embedding` on the .NET side and `EMBEDDING_*` for the Python sidecar:
+Stage-3 embeddings are configured under `Embedding` on the .NET side and `EMBEDDING_*` for the optional Python sidecar:
 
 - `Embedding.Enabled` turns the client on or off. Default: `true`.
-- `Embedding.BaseUrl` points Web/API to the sidecar. Local default: `http://localhost:7291`.
+- `Embedding.Backend` chooses `LocalService` or `YandexCloud`. Default: `LocalService`.
+- `Embedding.BaseUrl` points Web/API to the sidecar when `Backend=LocalService`. Local default: `http://localhost:7291`.
 - `Embedding.TimeoutSeconds` controls the HTTP timeout to the sidecar. Default: `60`.
 - `Embedding.DenseVectorSize` documents the expected dense vector width. Default: `1024`.
-- `EMBEDDING_PROVIDER` chooses `mock` or `bgem3`. Default: `mock`.
-- `EMBEDDING_INSTALL_BGE=1` rebuilds the image with `FlagEmbedding` so the `bgem3` provider can actually boot.
+- `Embedding.YandexBaseUrl` points to Yandex AI Studio. Default: `https://ai.api.cloud.yandex.net`.
+- `Embedding.YandexApiKey` stores the Yandex AI Studio API key.
+- `Embedding.YandexFolderId` lets the app build model URIs like `emb://<folder_id>/text-search-doc/latest`.
+- `Embedding.YandexDocModelUri` / `Embedding.YandexQueryModelUri` can override the generated model URIs explicitly.
+- `Embedding.YandexDocModelName` / `Embedding.YandexQueryModelName` default to `text-search-doc` and `text-search-query`.
+- When `Backend=YandexCloud`, set both `Embedding.DenseVectorSize` and `Qdrant.DenseVectorSize` to the Yandex embedding width you use. The standard Yandex search embeddings are currently `256`.
+- `EMBEDDING_PROVIDER` chooses `mock` or `bgem3` for the optional Python sidecar. Default: `mock`.
+- `EMBEDDING_INSTALL_BGE=1` rebuilds the sidecar image with `FlagEmbedding` so the `bgem3` provider can actually boot.
 
 Stage-4 chunk indexing is configured under `ChunkIndexing`:
 

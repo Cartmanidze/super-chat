@@ -2,6 +2,7 @@ using System.Net;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SuperChat.Contracts.Configuration;
+using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Infrastructure.Services;
 
 namespace SuperChat.Tests;
@@ -9,7 +10,7 @@ namespace SuperChat.Tests;
 public sealed class EmbeddingServiceClientTests
 {
     [Fact]
-    public async Task EmbedAsync_ReturnsParsedEmbeddingPayload()
+    public async Task EmbedAsync_ReturnsParsedLocalServicePayload()
     {
         var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
         {
@@ -28,9 +29,18 @@ public sealed class EmbeddingServiceClientTests
                 """)
         });
 
-        var service = CreateService(handler, denseVectorSize: 3);
+        var service = CreateService(
+            handler,
+            new EmbeddingOptions
+            {
+                Enabled = true,
+                Backend = "LocalService",
+                BaseUrl = "http://embedding-service:7291",
+                TimeoutSeconds = 60,
+                DenseVectorSize = 3
+            });
 
-        var result = await service.EmbedAsync("hello world", CancellationToken.None);
+        var result = await service.EmbedAsync("hello world", EmbeddingPurpose.Document, CancellationToken.None);
 
         Assert.Equal(new[] { 0.1f, 0.2f, 0.3f }, result.DenseVector);
         Assert.Equal(new long[] { 7, 11 }, result.SparseVector.Indices);
@@ -43,7 +53,7 @@ public sealed class EmbeddingServiceClientTests
     }
 
     [Fact]
-    public async Task EmbedAsync_ThrowsForMismatchedSparseVectorArrays()
+    public async Task EmbedAsync_ThrowsForMismatchedLocalSparseVectorArrays()
     {
         var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
         {
@@ -62,29 +72,108 @@ public sealed class EmbeddingServiceClientTests
                 """)
         });
 
-        var service = CreateService(handler, denseVectorSize: 3);
+        var service = CreateService(
+            handler,
+            new EmbeddingOptions
+            {
+                Enabled = true,
+                Backend = "LocalService",
+                BaseUrl = "http://embedding-service:7291",
+                TimeoutSeconds = 60,
+                DenseVectorSize = 3
+            });
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.EmbedAsync("hello world", CancellationToken.None));
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.EmbedAsync("hello world", EmbeddingPurpose.Document, CancellationToken.None));
 
         Assert.Contains("mismatched sparse vector arrays", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static EmbeddingServiceClient CreateService(RecordingHandler handler, int denseVectorSize)
+    [Fact]
+    public async Task EmbedAsync_UsesYandexQueryModelForQueryEmbeddings()
     {
-        var httpClient = new HttpClient(handler)
+        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
         {
-            BaseAddress = new Uri("http://embedding-service:7291")
-        };
-
-        var options = Options.Create(new EmbeddingOptions
-        {
-            Enabled = true,
-            BaseUrl = "http://embedding-service:7291",
-            TimeoutSeconds = 60,
-            DenseVectorSize = denseVectorSize
+            Content = new StringContent(
+                """
+                {
+                  "embedding": [0.11, 0.22, 0.33],
+                  "modelVersion": "2026-03-01"
+                }
+                """)
         });
 
-        return new EmbeddingServiceClient(httpClient, options, NullLogger<EmbeddingServiceClient>.Instance);
+        var service = CreateService(
+            handler,
+            new EmbeddingOptions
+            {
+                Enabled = true,
+                Backend = "YandexCloud",
+                YandexBaseUrl = "https://ai.api.cloud.yandex.net",
+                YandexApiKey = "yc-secret",
+                YandexFolderId = "b1g-folder",
+                YandexDocModelName = "text-search-doc",
+                YandexQueryModelName = "text-search-query",
+                DenseVectorSize = 3
+            });
+
+        var result = await service.EmbedAsync("Что я обещал Ивану?", EmbeddingPurpose.Query, CancellationToken.None);
+
+        Assert.Equal("yandex_cloud", result.Provider);
+        Assert.Equal("emb://b1g-folder/text-search-query/latest", result.Model);
+        Assert.Equal("emb://b1g-folder/text-search-query/latest:2026-03-01", result.EmbeddingVersion);
+        Assert.Equal("/foundationModels/v1/textEmbedding", handler.LastRequest!.RequestUri!.AbsolutePath);
+        Assert.Equal("Api-Key yc-secret", handler.LastRequest.Headers.Authorization!.ToString());
+        Assert.Contains("\"modelUri\":\"emb://b1g-folder/text-search-query/latest\"", handler.LastRequestBody, StringComparison.Ordinal);
+        Assert.Contains("\"text\":\"\\u0427\\u0442\\u043e \\u044f \\u043e\\u0431\\u0435\\u0449\\u0430\\u043b \\u0418\\u0432\\u0430\\u043d\\u0443?\"", handler.LastRequestBody, StringComparison.Ordinal);
+        Assert.NotEmpty(result.SparseVector.Indices);
+        Assert.Equal(result.SparseVector.Indices.Count, result.SparseVector.Values.Count);
+    }
+
+    [Fact]
+    public async Task EmbedAsync_UsesExplicitYandexDocumentModelUriWhenConfigured()
+    {
+        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(
+                """
+                {
+                  "embedding": [0.1, 0.2],
+                  "modelVersion": "2026-02-15"
+                }
+                """)
+        });
+
+        var service = CreateService(
+            handler,
+            new EmbeddingOptions
+            {
+                Enabled = true,
+                Backend = "YandexCloud",
+                YandexBaseUrl = "https://ai.api.cloud.yandex.net",
+                YandexApiKey = "yc-secret",
+                YandexDocModelUri = "emb://folder-x/text-search-doc/latest",
+                DenseVectorSize = 2
+            });
+
+        var result = await service.EmbedAsync("Contract summary", EmbeddingPurpose.Document, CancellationToken.None);
+
+        Assert.Equal("emb://folder-x/text-search-doc/latest", result.Model);
+        Assert.Contains("\"modelUri\":\"emb://folder-x/text-search-doc/latest\"", handler.LastRequestBody, StringComparison.Ordinal);
+    }
+
+    private static EmbeddingServiceClient CreateService(RecordingHandler handler, EmbeddingOptions embeddingOptions)
+    {
+        var baseUrl = embeddingOptions.Backend.Equals("YandexCloud", StringComparison.OrdinalIgnoreCase)
+            ? embeddingOptions.YandexBaseUrl
+            : embeddingOptions.BaseUrl;
+
+        var httpClient = new HttpClient(handler)
+        {
+            BaseAddress = new Uri(baseUrl)
+        };
+
+        return new EmbeddingServiceClient(httpClient, Options.Create(embeddingOptions), NullLogger<EmbeddingServiceClient>.Instance);
     }
 
     private sealed class RecordingHandler(Func<HttpRequestMessage, HttpResponseMessage> responseFactory) : HttpMessageHandler
