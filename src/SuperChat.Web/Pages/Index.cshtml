@@ -3,28 +3,21 @@
 @model IndexModel
 @{
   ViewData["Title"] = T["Chat.PageTitle"];
-  var todayQuestion = T["Chat.Template.Today.Question"].Value;
-  var waitingQuestion = T["Chat.Template.Waiting.Question"].Value;
-  var meetingsQuestion = T["Chat.Template.Meetings.Question"].Value;
-  var recentQuestion = T["Chat.Template.Recent.Question"].Value;
+  var templates = Model.Templates;
+  var defaultTemplate = Model.DefaultTemplate;
+  var defaultQuestion = T[defaultTemplate.QuestionKey].Value;
   var clientStrings = JsonSerializer.Serialize(new
   {
     genericError = T["Chat.Error.Generic"].Value,
     thinking = T["Chat.Thinking"].Value,
-    intros = new
-    {
-      today = T["Chat.Answer.Today.Intro"].Value,
-      waiting = T["Chat.Answer.Waiting.Intro"].Value,
-      meetings = T["Chat.Answer.Meetings.Intro"].Value,
-      recent = T["Chat.Answer.Recent.Intro"].Value
-    },
-    empties = new
-    {
-      today = T["Chat.Answer.Today.Empty"].Value,
-      waiting = T["Chat.Answer.Waiting.Empty"].Value,
-      meetings = T["Chat.Answer.Meetings.Empty"].Value,
-      recent = T["Chat.Answer.Recent.Empty"].Value
-    },
+    intros = templates.ToDictionary(
+      template => template.Id,
+      template => T[template.AnswerIntroKey].Value,
+      StringComparer.Ordinal),
+    empties = templates.ToDictionary(
+      template => template.Id,
+      template => T[template.AnswerEmptyKey].Value,
+      StringComparer.Ordinal),
     sourceLabel = T["Chat.Answer.Source"].Value
   });
 }
@@ -77,59 +70,36 @@ else
       @if (Model.CanAskQuestions)
       {
         <div class="template-picker" role="radiogroup" aria-label="@T["Chat.Templates.Label"]">
-          <button type="button"
-                  class="template-card is-selected"
-                  data-template-id="today"
-                  data-template-question="@todayQuestion"
-                  data-template-description="@T["Chat.Template.Today.Description"]"
-                  aria-pressed="true">
-            <strong>@T["Chat.Template.Today.Title"]</strong>
-            <span>@T["Chat.Template.Today.Description"]</span>
-          </button>
-          <button type="button"
-                  class="template-card"
-                  data-template-id="waiting"
-                  data-template-question="@waitingQuestion"
-                  data-template-description="@T["Chat.Template.Waiting.Description"]"
-                  aria-pressed="false">
-            <strong>@T["Chat.Template.Waiting.Title"]</strong>
-            <span>@T["Chat.Template.Waiting.Description"]</span>
-          </button>
-          <button type="button"
-                  class="template-card"
-                  data-template-id="meetings"
-                  data-template-question="@meetingsQuestion"
-                  data-template-description="@T["Chat.Template.Meetings.Description"]"
-                  aria-pressed="false">
-            <strong>@T["Chat.Template.Meetings.Title"]</strong>
-            <span>@T["Chat.Template.Meetings.Description"]</span>
-          </button>
-          <button type="button"
-                  class="template-card"
-                  data-template-id="recent"
-                  data-template-question="@recentQuestion"
-                  data-template-description="@T["Chat.Template.Recent.Description"]"
-                  aria-pressed="false">
-            <strong>@T["Chat.Template.Recent.Title"]</strong>
-            <span>@T["Chat.Template.Recent.Description"]</span>
-          </button>
+          @foreach (var template in templates)
+          {
+            var isDefaultTemplate = string.Equals(template.Id, defaultTemplate.Id, StringComparison.OrdinalIgnoreCase);
+            <button type="button"
+                    class="template-card@(isDefaultTemplate ? " is-selected" : string.Empty)"
+                    data-template-id="@template.Id"
+                    data-template-question="@T[template.QuestionKey]"
+                    data-template-description="@T[template.DescriptionKey]"
+                    aria-pressed="@(isDefaultTemplate ? "true" : "false")">
+              <strong>@T[template.TitleKey]</strong>
+              <span>@T[template.DescriptionKey]</span>
+            </button>
+          }
         </div>
 
         <form id="chat-form" method="post" asp-page-handler="Ask" class="chat-composer">
           @Html.AntiForgeryToken()
-          <input asp-for="TemplateId" type="hidden" value="today" />
+          <input asp-for="TemplateId" type="hidden" value="@defaultTemplate.Id" />
 
           <label asp-for="Question" class="visually-hidden">@T["Chat.Input.Label"]</label>
           <textarea asp-for="Question"
                     id="chat-question"
                     rows="2"
                     maxlength="@Model.MaxQuestionLength"
-                    readonly>@todayQuestion</textarea>
+                    readonly>@defaultQuestion</textarea>
 
           <div class="composer-footer">
-            <p id="composer-hint" class="composer-hint">@T["Chat.Template.Today.Description"]</p>
+            <p id="composer-hint" class="composer-hint">@T[defaultTemplate.DescriptionKey]</p>
             <div class="composer-actions">
-              <span class="composer-counter"><span id="char-count">@todayQuestion.Length</span>/@Model.MaxQuestionLength</span>
+              <span class="composer-counter"><span id="char-count">@defaultQuestion.Length</span>/@Model.MaxQuestionLength</span>
               <button id="chat-send" type="submit" class="send-button">@T["Chat.Send"]</button>
             </div>
           </div>
@@ -156,6 +126,7 @@ else
         var sendButton = document.getElementById("chat-send");
         var feed = document.getElementById("chat-feed");
         var maxLength = @Model.MaxQuestionLength;
+        var defaultTemplateId = "@defaultTemplate.Id";
 
         function updateCounter() {
           charCount.textContent = String(questionInput.value.length);
@@ -172,7 +143,7 @@ else
             item.setAttribute("aria-pressed", active ? "true" : "false");
           });
 
-          templateInput.value = button.dataset.templateId || "today";
+          templateInput.value = button.dataset.templateId || defaultTemplateId;
           hint.textContent = button.dataset.templateDescription || "";
           questionInput.readOnly = true;
           questionInput.value = button.dataset.templateQuestion || "";
@@ -235,10 +206,10 @@ else
 
         function buildAssistantText(payload) {
           if (!payload.items || payload.items.length === 0) {
-            return strings.empties[payload.mode] || strings.empties.today;
+            return strings.empties[payload.mode] || strings.empties[defaultTemplateId];
           }
 
-          return strings.intros[payload.mode] || strings.intros.today;
+          return strings.intros[payload.mode] || strings.intros[defaultTemplateId];
         }
 
         buttons.forEach(function (button) {

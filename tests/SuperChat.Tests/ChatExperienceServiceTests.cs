@@ -207,14 +207,31 @@ public sealed class ChatExperienceServiceTests
         IRoomDisplayNameService? roomDisplayNameService = null,
         TimeProvider? timeProvider = null)
     {
+        var resolvedDigestService = digestService ?? new StubDigestService();
+        var resolvedMessageNormalizationService = messageNormalizationService ?? new StubMessageNormalizationService([]);
+        var resolvedRoomDisplayNameService = roomDisplayNameService ?? new StubRoomDisplayNameService(new Dictionary<string, string>());
+        var resolvedTimeProvider = timeProvider ?? new StaticTimeProvider(DateTimeOffset.UtcNow);
+        var pilotOptions = new PilotOptions { TodayTimeZoneId = "Europe/Moscow" };
+
+        var handlers = new IChatTemplateHandler[]
+        {
+            new TodayChatTemplateHandler(resolvedDigestService),
+            new WaitingChatTemplateHandler(resolvedDigestService),
+            new MeetingsChatTemplateHandler(resolvedDigestService),
+            new RecentChatTemplateHandler(
+                resolvedMessageNormalizationService,
+                resolvedRoomDisplayNameService,
+                resolvedTimeProvider,
+                pilotOptions,
+                NullLogger<RecentChatTemplateHandler>.Instance)
+        };
+
         return new ChatExperienceService(
-            digestService ?? new StubDigestService(),
+            new ChatTemplateCatalog(),
+            handlers,
             retrievalService ?? new StubRetrievalService([]),
             searchService ?? new StubSearchService(),
-            messageNormalizationService ?? new StubMessageNormalizationService([]),
-            roomDisplayNameService ?? new StubRoomDisplayNameService(new Dictionary<string, string>()),
-            timeProvider ?? new StaticTimeProvider(DateTimeOffset.UtcNow),
-            new PilotOptions { TodayTimeZoneId = "Europe/Moscow" },
+            resolvedRoomDisplayNameService,
             NullLogger<ChatExperienceService>.Instance);
     }
 

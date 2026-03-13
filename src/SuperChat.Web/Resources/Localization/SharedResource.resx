@@ -468,6 +468,9 @@
   <data name="Chat.Template.Custom.Description" xml:space="preserve">
     <value>Спросите своими словами. До 100 символов.</value>
   </data>
+  <data name="Chat.Template.Custom.Question" xml:space="preserve">
+    <value>Что важно по моим сообщениям?</value>
+  </data>
   <data name="Chat.Input.Label" xml:space="preserve">
     <value>Вопрос</value>
   </data>

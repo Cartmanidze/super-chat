@@ -11,6 +11,7 @@ namespace SuperChat.Web.Pages;
 public sealed class IndexModel(
     IAuthFlowService authFlowService,
     IIntegrationConnectionService integrationConnectionService,
+    IChatTemplateCatalog chatTemplateCatalog,
     IChatExperienceService chatExperienceService,
     IUiTextService uiTextService) : PageModel
 {
@@ -32,6 +33,10 @@ public sealed class IndexModel(
     public Uri? DevelopmentLink { get; private set; }
 
     public int MaxQuestionLength => ChatPromptRequest.MaxQuestionLength;
+
+    public IReadOnlyList<ChatTemplateDefinition> Templates { get; } = chatTemplateCatalog.GetVisibleTemplates();
+
+    public ChatTemplateDefinition DefaultTemplate => Templates.First();
 
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {

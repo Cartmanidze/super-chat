@@ -128,6 +128,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IIntegrationConnectionService, IntegrationConnectionService>();
         services.AddSingleton<IRoomDisplayNameService, MatrixRoomDisplayNameService>();
         services.AddSingleton<IMessageNormalizationService, MessageNormalizationService>();
+        services.AddSingleton<IChatTemplateCatalog, ChatTemplateCatalog>();
+        services.AddSingleton<IChatTemplateHandler, TodayChatTemplateHandler>();
+        services.AddSingleton<IChatTemplateHandler, WaitingChatTemplateHandler>();
+        services.AddSingleton<IChatTemplateHandler, MeetingsChatTemplateHandler>();
+        services.AddSingleton<IChatTemplateHandler, RecentChatTemplateHandler>();
         services.AddSingleton<IChunkBuilderService, ChunkBuilderService>();
         services.AddSingleton<IChunkIndexingService, ChunkIndexingService>();
         services.AddSingleton<IMeetingService, MeetingService>();

@@ -1,21 +1,12 @@
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
-using SuperChat.Contracts.Configuration;
 using SuperChat.Contracts.ViewModels;
 using SuperChat.Domain.Model;
 using SuperChat.Infrastructure.Abstractions;
 
 namespace SuperChat.Infrastructure.Services;
 
-public sealed class ChatExperienceService(
-    IDigestService digestService,
-    IRetrievalService retrievalService,
-    ISearchService searchService,
-    IMessageNormalizationService messageNormalizationService,
-    IRoomDisplayNameService roomDisplayNameService,
-    TimeProvider timeProvider,
-    PilotOptions pilotOptions,
-    ILogger<ChatExperienceService> logger) : IChatExperienceService
+public sealed class ChatExperienceService : IChatExperienceService
 {
     private static readonly HashSet<string> StopWords =
     [
@@ -26,10 +17,33 @@ public sealed class ChatExperienceService(
         "есть", "было", "были", "если", "мое", "меня", "него", "нее"
     ];
 
-    public async Task<ChatAnswerViewModel> AskAsync(Guid userId, ChatPromptRequest request, CancellationToken cancellationToken)
+    private readonly IChatTemplateCatalog _templateCatalog;
+    private readonly IReadOnlyDictionary<string, IChatTemplateHandler> _handlersById;
+    private readonly IRetrievalService _retrievalService;
+    private readonly ISearchService _searchService;
+    private readonly IRoomDisplayNameService _roomDisplayNameService;
+    private readonly ILogger<ChatExperienceService> _logger;
+
+    public ChatExperienceService(
+        IChatTemplateCatalog templateCatalog,
+        IEnumerable<IChatTemplateHandler> handlers,
+        IRetrievalService retrievalService,
+        ISearchService searchService,
+        IRoomDisplayNameService roomDisplayNameService,
+        ILogger<ChatExperienceService> logger)
+    {
+        _templateCatalog = templateCatalog;
+        _handlersById = handlers.ToDictionary(handler => handler.TemplateId, StringComparer.OrdinalIgnoreCase);
+        _retrievalService = retrievalService;
+        _searchService = searchService;
+        _roomDisplayNameService = roomDisplayNameService;
+        _logger = logger;
+    }
+
+    public Task<ChatAnswerViewModel> AskAsync(Guid userId, ChatPromptRequest request, CancellationToken cancellationToken)
     {
         var templateId = ChatPromptTemplate.Normalize(request.TemplateId);
-        if (!ChatPromptTemplate.IsSupported(templateId))
+        if (!_templateCatalog.TryGetTemplate(templateId, out _))
         {
             throw new ArgumentException("Unsupported chat template.", nameof(request.TemplateId));
         }
@@ -45,87 +59,19 @@ public sealed class ChatExperienceService(
             throw new ArgumentException($"Question must be {ChatPromptRequest.MaxQuestionLength} characters or fewer.", nameof(request.Question));
         }
 
-        return templateId switch
+        return ChatPromptTemplate.IsCustom(templateId)
+            ? BuildCustomAnswerAsync(userId, question, cancellationToken)
+            : DispatchToTemplateAsync(userId, templateId, question, cancellationToken);
+    }
+
+    private Task<ChatAnswerViewModel> DispatchToTemplateAsync(Guid userId, string templateId, string question, CancellationToken cancellationToken)
+    {
+        if (_handlersById.TryGetValue(templateId, out var handler))
         {
-            ChatPromptTemplate.Today => await BuildTodayAnswerAsync(userId, question, cancellationToken),
-            ChatPromptTemplate.Waiting => await BuildWaitingAnswerAsync(userId, question, cancellationToken),
-            ChatPromptTemplate.Meetings => await BuildMeetingsAnswerAsync(userId, question, cancellationToken),
-            ChatPromptTemplate.Recent => await BuildRecentAnswerAsync(userId, question, cancellationToken),
-            ChatPromptTemplate.Custom => await BuildCustomAnswerAsync(userId, question, cancellationToken),
-            _ => throw new ArgumentOutOfRangeException(nameof(request.TemplateId))
-        };
-    }
+            return handler.HandleAsync(userId, question, cancellationToken);
+        }
 
-    private async Task<ChatAnswerViewModel> BuildTodayAnswerAsync(Guid userId, string question, CancellationToken cancellationToken)
-    {
-        var cards = await digestService.GetTodayAsync(userId, cancellationToken);
-        return new ChatAnswerViewModel(
-            ChatPromptTemplate.Today,
-            question,
-            cards.Select(card => new ChatResultItemViewModel(
-                card.Title,
-                card.Summary,
-                card.SourceRoom,
-                card.DueAt))
-            .ToList());
-    }
-
-    private async Task<ChatAnswerViewModel> BuildWaitingAnswerAsync(Guid userId, string question, CancellationToken cancellationToken)
-    {
-        var cards = await digestService.GetWaitingAsync(userId, cancellationToken);
-        return new ChatAnswerViewModel(
-            ChatPromptTemplate.Waiting,
-            question,
-            cards.Select(card => MapCard(card, "Awaiting response"))
-            .ToList());
-    }
-
-    private async Task<ChatAnswerViewModel> BuildMeetingsAnswerAsync(Guid userId, string question, CancellationToken cancellationToken)
-    {
-        var cards = await digestService.GetMeetingsAsync(userId, cancellationToken);
-        return new ChatAnswerViewModel(
-            ChatPromptTemplate.Meetings,
-            question,
-            cards.Select(card => MapCard(card, "Upcoming meeting"))
-            .ToList());
-    }
-
-    private async Task<ChatAnswerViewModel> BuildRecentAnswerAsync(Guid userId, string question, CancellationToken cancellationToken)
-    {
-        var messages = await messageNormalizationService.GetRecentMessagesAsync(userId, 80, cancellationToken);
-        var timeZone = ResolveTodayTimeZone(logger, pilotOptions.TodayTimeZoneId);
-        var now = TimeZoneInfo.ConvertTime(timeProvider.GetUtcNow(), timeZone);
-        var dayStart = new DateTimeOffset(now.Year, now.Month, now.Day, 0, 0, 0, now.Offset);
-        var nextDayStart = dayStart.AddDays(1);
-
-        var recentToday = messages
-            .Where(message =>
-            {
-                var localSentAt = TimeZoneInfo.ConvertTime(message.SentAt, timeZone);
-                return localSentAt >= dayStart && localSentAt < nextDayStart;
-            })
-            .Take(8)
-            .ToList();
-
-        var roomNames = await roomDisplayNameService.ResolveManyAsync(userId, recentToday.Select(message => message.MatrixRoomId), cancellationToken);
-        var items = recentToday
-            .Select(message =>
-            {
-                var sourceRoom = roomNames.TryGetValue(message.MatrixRoomId, out var roomName)
-                    ? roomName
-                    : LooksLikeMatrixRoomId(message.MatrixRoomId)
-                        ? string.Empty
-                        : message.MatrixRoomId;
-
-                return new ChatResultItemViewModel(
-                    MessagePresentationFormatter.ResolveDisplaySenderName(message.SenderName, sourceRoom),
-                    message.Text,
-                    sourceRoom,
-                    message.SentAt);
-            })
-            .ToList();
-
-        return new ChatAnswerViewModel(ChatPromptTemplate.Recent, question, items);
+        throw new InvalidOperationException($"No chat template handler is registered for '{templateId}'.");
     }
 
     private async Task<ChatAnswerViewModel> BuildCustomAnswerAsync(Guid userId, string question, CancellationToken cancellationToken)
@@ -133,14 +79,7 @@ public sealed class ChatExperienceService(
         var routedTemplate = DetectTemplateFromQuestion(question);
         if (routedTemplate is not null)
         {
-            return routedTemplate switch
-            {
-                ChatPromptTemplate.Today => await BuildTodayAnswerAsync(userId, question, cancellationToken),
-                ChatPromptTemplate.Waiting => await BuildWaitingAnswerAsync(userId, question, cancellationToken),
-                ChatPromptTemplate.Meetings => await BuildMeetingsAnswerAsync(userId, question, cancellationToken),
-                ChatPromptTemplate.Recent => await BuildRecentAnswerAsync(userId, question, cancellationToken),
-                _ => throw new InvalidOperationException("Unsupported routed chat template.")
-            };
+            return await DispatchToTemplateAsync(userId, routedTemplate, question, cancellationToken);
         }
 
         var retrievalResults = await RetrieveSmartAsync(userId, question, cancellationToken);
@@ -176,7 +115,7 @@ public sealed class ChatExperienceService(
     {
         try
         {
-            var retrievedChunks = await retrievalService.RetrieveAsync(
+            var retrievedChunks = await _retrievalService.RetrieveAsync(
                 new RetrievalRequest(userId, question, "chat_custom"),
                 cancellationToken);
 
@@ -185,7 +124,7 @@ public sealed class ChatExperienceService(
                 return [];
             }
 
-            var roomNames = await roomDisplayNameService.ResolveManyAsync(
+            var roomNames = await _roomDisplayNameService.ResolveManyAsync(
                 userId,
                 retrievedChunks.Select(item => item.ChatId),
                 cancellationToken);
@@ -208,7 +147,7 @@ public sealed class ChatExperienceService(
         }
         catch (Exception exception)
         {
-            logger.LogWarning(exception, "Retrieval pipeline failed for user {UserId}; falling back to token search.", userId);
+            _logger.LogWarning(exception, "Retrieval pipeline failed for user {UserId}; falling back to token search.", userId);
             return [];
         }
     }
@@ -218,7 +157,7 @@ public sealed class ChatExperienceService(
         string question,
         CancellationToken cancellationToken)
     {
-        var directResults = await searchService.SearchAsync(userId, question, cancellationToken);
+        var directResults = await _searchService.SearchAsync(userId, question, cancellationToken);
         if (directResults.Count > 0)
         {
             return directResults;
@@ -229,7 +168,7 @@ public sealed class ChatExperienceService(
 
         foreach (var candidate in BuildSearchCandidates(question))
         {
-            var candidateResults = await searchService.SearchAsync(userId, candidate, cancellationToken);
+            var candidateResults = await _searchService.SearchAsync(userId, candidate, cancellationToken);
             foreach (var result in candidateResults)
             {
                 var key = $"{result.Title}|{result.Summary}|{result.SourceRoom}|{result.ObservedAt:O}";
@@ -316,46 +255,8 @@ public sealed class ChatExperienceService(
         return null;
     }
 
-    private static ChatResultItemViewModel MapCard(DashboardCardViewModel card, string genericTitle)
-    {
-        if (string.Equals(card.Title, genericTitle, StringComparison.Ordinal) && !string.IsNullOrWhiteSpace(card.Summary))
-        {
-            return new ChatResultItemViewModel(card.Summary, string.Empty, card.SourceRoom, card.DueAt);
-        }
-
-        return new ChatResultItemViewModel(card.Title, card.Summary, card.SourceRoom, card.DueAt);
-    }
-
     private static bool ContainsAny(string text, params string[] values)
     {
         return values.Any(value => text.Contains(value, StringComparison.Ordinal));
-    }
-
-    private static bool LooksLikeMatrixRoomId(string value)
-    {
-        return !string.IsNullOrWhiteSpace(value) &&
-               value.StartsWith("!", StringComparison.Ordinal) &&
-               value.Contains(':', StringComparison.Ordinal);
-    }
-
-    private static TimeZoneInfo ResolveTodayTimeZone(ILogger logger, string configuredTimeZoneId)
-    {
-        if (!string.IsNullOrWhiteSpace(configuredTimeZoneId))
-        {
-            try
-            {
-                return TimeZoneInfo.FindSystemTimeZoneById(configuredTimeZoneId);
-            }
-            catch (TimeZoneNotFoundException ex)
-            {
-                logger.LogWarning(ex, "Configured chat time zone '{TimeZoneId}' was not found. Falling back to UTC.", configuredTimeZoneId);
-            }
-            catch (InvalidTimeZoneException ex)
-            {
-                logger.LogWarning(ex, "Configured chat time zone '{TimeZoneId}' is invalid. Falling back to UTC.", configuredTimeZoneId);
-            }
-        }
-
-        return TimeZoneInfo.Utc;
     }
 }
