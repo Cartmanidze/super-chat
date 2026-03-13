@@ -23,7 +23,7 @@ public sealed class ChatExperienceService(
         "about", "where", "when", "your", "have", "been", "will",
         "как", "какие", "какой", "мне", "мой", "моя", "мои", "надо", "нужно", "что", "это",
         "этот", "эта", "эти", "там", "тут", "где", "когда", "или", "для", "про", "могу",
-        "есть", "было", "были", "если", "мои", "моя", "мое", "мне", "меня", "него", "нее"
+        "есть", "было", "были", "если", "мое", "меня", "него", "нее"
     ];
 
     public async Task<ChatAnswerViewModel> AskAsync(Guid userId, ChatPromptRequest request, CancellationToken cancellationToken)
@@ -49,6 +49,7 @@ public sealed class ChatExperienceService(
         {
             ChatPromptTemplate.Today => await BuildTodayAnswerAsync(userId, question, cancellationToken),
             ChatPromptTemplate.Waiting => await BuildWaitingAnswerAsync(userId, question, cancellationToken),
+            ChatPromptTemplate.Meetings => await BuildMeetingsAnswerAsync(userId, question, cancellationToken),
             ChatPromptTemplate.Recent => await BuildRecentAnswerAsync(userId, question, cancellationToken),
             ChatPromptTemplate.Custom => await BuildCustomAnswerAsync(userId, question, cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(request.TemplateId))
@@ -75,11 +76,17 @@ public sealed class ChatExperienceService(
         return new ChatAnswerViewModel(
             ChatPromptTemplate.Waiting,
             question,
-            cards.Select(card => new ChatResultItemViewModel(
-                card.Title,
-                card.Summary,
-                card.SourceRoom,
-                card.DueAt))
+            cards.Select(card => MapCard(card, "Awaiting response"))
+            .ToList());
+    }
+
+    private async Task<ChatAnswerViewModel> BuildMeetingsAnswerAsync(Guid userId, string question, CancellationToken cancellationToken)
+    {
+        var cards = await digestService.GetMeetingsAsync(userId, cancellationToken);
+        return new ChatAnswerViewModel(
+            ChatPromptTemplate.Meetings,
+            question,
+            cards.Select(card => MapCard(card, "Upcoming meeting"))
             .ToList());
     }
 
@@ -130,6 +137,7 @@ public sealed class ChatExperienceService(
             {
                 ChatPromptTemplate.Today => await BuildTodayAnswerAsync(userId, question, cancellationToken),
                 ChatPromptTemplate.Waiting => await BuildWaitingAnswerAsync(userId, question, cancellationToken),
+                ChatPromptTemplate.Meetings => await BuildMeetingsAnswerAsync(userId, question, cancellationToken),
                 ChatPromptTemplate.Recent => await BuildRecentAnswerAsync(userId, question, cancellationToken),
                 _ => throw new InvalidOperationException("Unsupported routed chat template.")
             };
@@ -285,6 +293,11 @@ public sealed class ChatExperienceService(
     {
         var normalized = question.ToLowerInvariant();
 
+        if (ContainsAny(normalized, "встреч", "созвон", "meeting", "call", "calendar"))
+        {
+            return ChatPromptTemplate.Meetings;
+        }
+
         if (ContainsAny(normalized, "жду", "ожида", "waiting", "reply", "ответ"))
         {
             return ChatPromptTemplate.Waiting;
@@ -301,6 +314,16 @@ public sealed class ChatExperienceService(
         }
 
         return null;
+    }
+
+    private static ChatResultItemViewModel MapCard(DashboardCardViewModel card, string genericTitle)
+    {
+        if (string.Equals(card.Title, genericTitle, StringComparison.Ordinal) && !string.IsNullOrWhiteSpace(card.Summary))
+        {
+            return new ChatResultItemViewModel(card.Summary, string.Empty, card.SourceRoom, card.DueAt);
+        }
+
+        return new ChatResultItemViewModel(card.Title, card.Summary, card.SourceRoom, card.DueAt);
     }
 
     private static bool ContainsAny(string text, params string[] values)

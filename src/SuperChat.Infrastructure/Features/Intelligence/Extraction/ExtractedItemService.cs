@@ -5,12 +5,17 @@ using SuperChat.Infrastructure.Persistence;
 
 namespace SuperChat.Infrastructure.Services;
 
-public sealed class ExtractedItemService(IDbContextFactory<SuperChatDbContext> dbContextFactory) : IExtractedItemService
+public sealed class ExtractedItemService(
+    IDbContextFactory<SuperChatDbContext> dbContextFactory,
+    IMeetingService meetingService) : IExtractedItemService
 {
     public async Task AddRangeAsync(IEnumerable<ExtractedItem> items, CancellationToken cancellationToken)
     {
-        var entities = items
+        var filteredItems = items
             .Where(ExtractedItemFilters.ShouldKeep)
+            .ToList();
+
+        var entities = filteredItems
             .Select(item => new ExtractedItemEntity
             {
                 Id = item.Id,
@@ -35,6 +40,7 @@ public sealed class ExtractedItemService(IDbContextFactory<SuperChatDbContext> d
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         dbContext.ExtractedItems.AddRange(entities);
         await dbContext.SaveChangesAsync(cancellationToken);
+        await meetingService.UpsertRangeAsync(filteredItems, cancellationToken);
     }
 
     public async Task<IReadOnlyList<ExtractedItem>> GetForUserAsync(Guid userId, CancellationToken cancellationToken)

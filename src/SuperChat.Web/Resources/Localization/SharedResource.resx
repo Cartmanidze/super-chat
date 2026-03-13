@@ -415,7 +415,7 @@
     <value>Войдите по magic link и дальше работайте только в одном компактном окне чата.</value>
   </data>
   <data name="Chat.Greeting" xml:space="preserve">
-    <value>Выберите шаблон вопроса или переключитесь на кастомный вариант и задайте свой вопрос.</value>
+    <value>Выберите шаблон вопроса и отправьте его в чат.</value>
   </data>
   <data name="Chat.Greeting.NoConnection" xml:space="preserve">
     <value>Чат станет доступен после подключения Telegram.</value>
@@ -453,6 +453,15 @@
   <data name="Chat.Template.Recent.Question" xml:space="preserve">
     <value>Что было в сообщениях сегодня?</value>
   </data>
+  <data name="Chat.Template.Meetings.Title" xml:space="preserve">
+    <value>Ближайшие встречи</value>
+  </data>
+  <data name="Chat.Template.Meetings.Description" xml:space="preserve">
+    <value>Покажем ближайшие встречи и договорённости по времени.</value>
+  </data>
+  <data name="Chat.Template.Meetings.Question" xml:space="preserve">
+    <value>Какие у меня ближайшие встречи?</value>
+  </data>
   <data name="Chat.Template.Custom.Title" xml:space="preserve">
     <value>Свой вопрос</value>
   </data>
@@ -488,6 +497,12 @@
   </data>
   <data name="Chat.Answer.Recent.Empty" xml:space="preserve">
     <value>За текущий день сообщений пока нет.</value>
+  </data>
+  <data name="Chat.Answer.Meetings.Intro" xml:space="preserve">
+    <value>Вот ближайшие встречи, которые удалось выделить.</value>
+  </data>
+  <data name="Chat.Answer.Meetings.Empty" xml:space="preserve">
+    <value>Ближайших встреч пока не видно.</value>
   </data>
   <data name="Chat.Answer.Custom.Intro" xml:space="preserve">
     <value>Вот что удалось найти по вашему вопросу.</value>

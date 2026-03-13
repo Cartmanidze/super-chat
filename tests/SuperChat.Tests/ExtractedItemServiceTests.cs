@@ -12,7 +12,7 @@ public sealed class ExtractedItemServiceTests
     {
         var factory = await CreateFactoryAsync(CancellationToken.None);
         var userId = Guid.NewGuid();
-        var service = new ExtractedItemService(factory);
+        var service = CreateService(factory);
 
         await service.AddRangeAsync(
         [
@@ -76,11 +76,45 @@ public sealed class ExtractedItemServiceTests
             await dbContext.SaveChangesAsync(CancellationToken.None);
         }
 
-        var service = new ExtractedItemService(factory);
+        var service = CreateService(factory);
         var items = await service.GetForUserAsync(userId, CancellationToken.None);
 
         Assert.Single(items);
         Assert.Equal("Send contract", items[0].Title);
+    }
+
+    [Fact]
+    public async Task AddRangeAsync_ProjectsMeetingsIntoSeparateTable()
+    {
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        var userId = Guid.NewGuid();
+        var service = CreateService(factory);
+        var dueAt = new DateTimeOffset(2026, 03, 13, 11, 00, 00, TimeSpan.FromHours(6));
+
+        await service.AddRangeAsync(
+        [
+            new ExtractedItem(
+                Guid.NewGuid(),
+                userId,
+                ExtractedItemKind.Meeting,
+                "Upcoming meeting",
+                "Мб заехать за тобой в 11?",
+                "!friends:matrix.localhost",
+                "$evt-meeting",
+                null,
+                dueAt.AddHours(-1),
+                dueAt,
+                0.86)
+        ],
+        CancellationToken.None);
+
+        await using var dbContext = await factory.CreateDbContextAsync(CancellationToken.None);
+        var projectedMeeting = await dbContext.Meetings.SingleAsync(CancellationToken.None);
+
+        Assert.Equal(userId, projectedMeeting.UserId);
+        Assert.Equal("$evt-meeting", projectedMeeting.SourceEventId);
+        Assert.Equal(dueAt, projectedMeeting.ScheduledFor);
+        Assert.Equal("Мб заехать за тобой в 11?", projectedMeeting.Summary);
     }
 
     private static async Task<IDbContextFactory<SuperChatDbContext>> CreateFactoryAsync(CancellationToken cancellationToken)
@@ -93,6 +127,11 @@ public sealed class ExtractedItemServiceTests
         await using var dbContext = await factory.CreateDbContextAsync(cancellationToken);
         await dbContext.Database.EnsureCreatedAsync(cancellationToken);
         return factory;
+    }
+
+    private static ExtractedItemService CreateService(IDbContextFactory<SuperChatDbContext> factory)
+    {
+        return new ExtractedItemService(factory, new MeetingService(factory));
     }
 
     private sealed class TestDbContextFactory(DbContextOptions<SuperChatDbContext> options) : IDbContextFactory<SuperChatDbContext>

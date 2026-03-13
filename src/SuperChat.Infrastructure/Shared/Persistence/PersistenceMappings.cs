@@ -64,4 +64,19 @@ internal static class PersistenceMappings
             entity.DueAt,
             entity.Confidence);
     }
+
+    public static MeetingRecord ToDomain(this MeetingEntity entity)
+    {
+        return new MeetingRecord(
+            entity.Id,
+            entity.UserId,
+            entity.Title,
+            entity.Summary,
+            entity.SourceRoom,
+            entity.SourceEventId,
+            entity.Person,
+            entity.ObservedAt,
+            entity.ScheduledFor,
+            entity.Confidence);
+    }
 }

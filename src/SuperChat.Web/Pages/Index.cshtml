@@ -5,6 +5,7 @@
   ViewData["Title"] = T["Chat.PageTitle"];
   var todayQuestion = T["Chat.Template.Today.Question"].Value;
   var waitingQuestion = T["Chat.Template.Waiting.Question"].Value;
+  var meetingsQuestion = T["Chat.Template.Meetings.Question"].Value;
   var recentQuestion = T["Chat.Template.Recent.Question"].Value;
   var clientStrings = JsonSerializer.Serialize(new
   {
@@ -14,15 +15,15 @@
     {
       today = T["Chat.Answer.Today.Intro"].Value,
       waiting = T["Chat.Answer.Waiting.Intro"].Value,
-      recent = T["Chat.Answer.Recent.Intro"].Value,
-      custom = T["Chat.Answer.Custom.Intro"].Value
+      meetings = T["Chat.Answer.Meetings.Intro"].Value,
+      recent = T["Chat.Answer.Recent.Intro"].Value
     },
     empties = new
     {
       today = T["Chat.Answer.Today.Empty"].Value,
       waiting = T["Chat.Answer.Waiting.Empty"].Value,
-      recent = T["Chat.Answer.Recent.Empty"].Value,
-      custom = T["Chat.Answer.Custom.Empty"].Value
+      meetings = T["Chat.Answer.Meetings.Empty"].Value,
+      recent = T["Chat.Answer.Recent.Empty"].Value
     },
     sourceLabel = T["Chat.Answer.Source"].Value
   });
@@ -81,7 +82,6 @@ else
                   data-template-id="today"
                   data-template-question="@todayQuestion"
                   data-template-description="@T["Chat.Template.Today.Description"]"
-                  data-custom="false"
                   aria-pressed="true">
             <strong>@T["Chat.Template.Today.Title"]</strong>
             <span>@T["Chat.Template.Today.Description"]</span>
@@ -91,31 +91,27 @@ else
                   data-template-id="waiting"
                   data-template-question="@waitingQuestion"
                   data-template-description="@T["Chat.Template.Waiting.Description"]"
-                  data-custom="false"
                   aria-pressed="false">
             <strong>@T["Chat.Template.Waiting.Title"]</strong>
             <span>@T["Chat.Template.Waiting.Description"]</span>
           </button>
           <button type="button"
                   class="template-card"
+                  data-template-id="meetings"
+                  data-template-question="@meetingsQuestion"
+                  data-template-description="@T["Chat.Template.Meetings.Description"]"
+                  aria-pressed="false">
+            <strong>@T["Chat.Template.Meetings.Title"]</strong>
+            <span>@T["Chat.Template.Meetings.Description"]</span>
+          </button>
+          <button type="button"
+                  class="template-card"
                   data-template-id="recent"
                   data-template-question="@recentQuestion"
                   data-template-description="@T["Chat.Template.Recent.Description"]"
-                  data-custom="false"
                   aria-pressed="false">
             <strong>@T["Chat.Template.Recent.Title"]</strong>
             <span>@T["Chat.Template.Recent.Description"]</span>
-          </button>
-          <button type="button"
-                  class="template-card template-card-custom"
-                  data-template-id="custom"
-                  data-template-question=""
-                  data-template-description="@T["Chat.Template.Custom.Description"]"
-                  data-custom="true"
-                  data-custom-placeholder="@T["Chat.Input.CustomPlaceholder"]"
-                  aria-pressed="false">
-            <strong>@T["Chat.Template.Custom.Title"]</strong>
-            <span>@T["Chat.Template.Custom.Description"]</span>
           </button>
         </div>
 
@@ -176,19 +172,10 @@ else
             item.setAttribute("aria-pressed", active ? "true" : "false");
           });
 
-          templateInput.value = button.dataset.templateId || "custom";
+          templateInput.value = button.dataset.templateId || "today";
           hint.textContent = button.dataset.templateDescription || "";
-
-          if (button.dataset.custom === "true") {
-            questionInput.readOnly = false;
-            questionInput.value = "";
-            questionInput.placeholder = button.dataset.customPlaceholder || "";
-            questionInput.focus();
-          } else {
-            questionInput.readOnly = true;
-            questionInput.value = button.dataset.templateQuestion || "";
-            questionInput.placeholder = "";
-          }
+          questionInput.readOnly = true;
+          questionInput.value = button.dataset.templateQuestion || "";
 
           updateCounter();
           updateSubmitState();
@@ -248,21 +235,16 @@ else
 
         function buildAssistantText(payload) {
           if (!payload.items || payload.items.length === 0) {
-            return strings.empties[payload.mode] || strings.empties.custom;
+            return strings.empties[payload.mode] || strings.empties.today;
           }
 
-          return strings.intros[payload.mode] || strings.intros.custom;
+          return strings.intros[payload.mode] || strings.intros.today;
         }
 
         buttons.forEach(function (button) {
           button.addEventListener("click", function () {
             setActiveTemplate(button);
           });
-        });
-
-        questionInput.addEventListener("input", function () {
-          updateCounter();
-          updateSubmitState();
         });
 
         form.addEventListener("submit", async function (event) {
@@ -290,6 +272,7 @@ else
               var errorPayload = await response.json().catch(function () { return null; });
               var errorMessage = errorPayload && errorPayload.error ? errorPayload.error : strings.genericError;
               appendBubble("assistant", errorMessage);
+              updateSubmitState();
               return;
             }
 
@@ -298,10 +281,6 @@ else
           } catch (error) {
             typingBubble.remove();
             appendBubble("assistant", strings.genericError);
-          }
-
-          if (templateInput.value === "custom") {
-            questionInput.value = "";
           }
 
           updateCounter();

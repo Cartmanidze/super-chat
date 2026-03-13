@@ -120,9 +120,10 @@ public sealed class RoomDisplayNamePresentationTests
                     now.AddHours(2),
                     0.95)
             ]),
+            new StubMeetingService([]),
             new StubRoomDisplayNameService(new Dictionary<string, string>
             {
-                ["!team:matrix.localhost"] = "Команда продаж"
+                ["!team:matrix.localhost"] = "Sales Ops"
             }),
             new FixedTimeProvider(now),
             new PilotOptions
@@ -134,7 +135,20 @@ public sealed class RoomDisplayNamePresentationTests
         var cards = await service.GetTodayAsync(userId, CancellationToken.None);
 
         Assert.Single(cards);
-        Assert.Equal("Команда продаж", cards[0].SourceRoom);
+        Assert.Equal("Sales Ops", cards[0].SourceRoom);
+    }
+
+    private sealed class StubMeetingService(IReadOnlyList<MeetingRecord> items) : IMeetingService
+    {
+        public Task UpsertRangeAsync(IEnumerable<ExtractedItem> items, CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<IReadOnlyList<MeetingRecord>> GetUpcomingAsync(Guid userId, DateTimeOffset fromInclusive, int take, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(items.Where(item => item.UserId == userId).Take(take).ToList() as IReadOnlyList<MeetingRecord>);
+        }
     }
 
     private sealed class StubExtractedItemService(IReadOnlyList<ExtractedItem> items) : IExtractedItemService

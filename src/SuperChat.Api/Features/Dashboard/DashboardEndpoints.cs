@@ -30,6 +30,15 @@ public static class DashboardEndpoints
             return Results.Ok(cards);
         });
 
+        group.MapGet("/meetings", async (
+            HttpContext httpContext,
+            IDigestService digestService,
+            CancellationToken cancellationToken) =>
+        {
+            var cards = await digestService.GetMeetingsAsync(httpContext.User.GetRequiredUserId(), cancellationToken);
+            return Results.Ok(cards);
+        });
+
         return group;
     }
 }

@@ -17,22 +17,22 @@ public sealed class HeuristicStructuredExtractionService
         var lowered = text.ToLowerInvariant();
         var dueAt = ResolveDueAt(message.SentAt, lowered);
 
-        if (lowered.Contains("meeting") || lowered.Contains("call") || lowered.Contains("встреч") || lowered.Contains("созвон"))
+        if (LooksLikeMeeting(lowered, dueAt))
         {
             items.Add(CreateItem(message, ExtractedItemKind.Meeting, "Upcoming meeting", text, dueAt));
         }
 
-        if (lowered.Contains("please send") || lowered.Contains("need to") || lowered.Contains("todo") || lowered.Contains("отправ") || lowered.Contains("нужно"))
+        if (ContainsAny(lowered, "please send", "need to", "todo", "отправ", "нужно"))
         {
             items.Add(CreateItem(message, ExtractedItemKind.Task, "Action needed", text, dueAt));
         }
 
-        if (lowered.Contains("i will") || lowered.Contains("i'll") || lowered.Contains("promise") || lowered.Contains("сделаю") || lowered.Contains("обещаю"))
+        if (ContainsAny(lowered, "i will", "i'll", "promise", "сделаю", "обещаю"))
         {
             items.Add(CreateItem(message, ExtractedItemKind.Commitment, "Commitment made", text, dueAt));
         }
 
-        if (lowered.Contains("waiting for reply") || lowered.Contains("waiting on") || lowered.Contains("respond") || lowered.Contains("жд") || lowered.Contains("ответ"))
+        if (ContainsAny(lowered, "waiting for reply", "waiting on", "respond", "жд", "ответ"))
         {
             items.Add(CreateItem(message, ExtractedItemKind.WaitingOn, "Awaiting response", text, dueAt));
         }
@@ -64,14 +64,35 @@ public sealed class HeuristicStructuredExtractionService
             confidence);
     }
 
+    private static bool LooksLikeMeeting(string lowered, DateTimeOffset? dueAt)
+    {
+        if (ContainsAny(lowered, "meeting", "call", "встреч", "созвон", "zoom", "calendar"))
+        {
+            return true;
+        }
+
+        if (dueAt is null)
+        {
+            return false;
+        }
+
+        return ContainsAny(lowered, "заехать", "подъехать", "увид", "встрет", "созвон", "call", "meeting");
+    }
+
     private static DateTimeOffset? ResolveDueAt(DateTimeOffset sentAt, string lowered)
     {
-        if (lowered.Contains("tomorrow") || lowered.Contains("завтра"))
+        var explicitTime = TryResolveExplicitTime(sentAt, lowered);
+        if (explicitTime is not null)
+        {
+            return explicitTime;
+        }
+
+        if (ContainsAny(lowered, "tomorrow", "завтра"))
         {
             return sentAt.Date.AddDays(1).AddHours(10);
         }
 
-        if (lowered.Contains("friday") || lowered.Contains("пятниц"))
+        if (ContainsAny(lowered, "friday", "пятниц"))
         {
             var candidate = sentAt;
             while (candidate.DayOfWeek != DayOfWeek.Friday)
@@ -82,11 +103,56 @@ public sealed class HeuristicStructuredExtractionService
             return candidate.Date.AddHours(11);
         }
 
-        if (lowered.Contains("end of day") || lowered.Contains("концу дня"))
+        if (ContainsAny(lowered, "end of day", "концу дня"))
         {
             return sentAt.Date.AddHours(18);
         }
 
         return null;
+    }
+
+    private static DateTimeOffset? TryResolveExplicitTime(DateTimeOffset sentAt, string lowered)
+    {
+        var match = Regex.Match(lowered, @"(?:\b(?:at|в)\s*)(?<hour>\d{1,2})(?::(?<minute>\d{2}))?\b");
+        if (!match.Success)
+        {
+            return null;
+        }
+
+        var hour = int.Parse(match.Groups["hour"].Value);
+        var minute = match.Groups["minute"].Success
+            ? int.Parse(match.Groups["minute"].Value)
+            : 0;
+
+        if (hour > 23 || minute > 59)
+        {
+            return null;
+        }
+
+        var candidateDate = sentAt.Date;
+        if (ContainsAny(lowered, "tomorrow", "завтра"))
+        {
+            candidateDate = candidateDate.AddDays(1);
+        }
+        else if (ContainsAny(lowered, "friday", "пятниц"))
+        {
+            while (candidateDate.DayOfWeek != DayOfWeek.Friday)
+            {
+                candidateDate = candidateDate.AddDays(1);
+            }
+        }
+
+        var candidate = candidateDate.AddHours(hour).AddMinutes(minute);
+        if (candidate < sentAt.AddMinutes(-15))
+        {
+            candidate = candidate.AddDays(1);
+        }
+
+        return candidate;
+    }
+
+    private static bool ContainsAny(string text, params string[] values)
+    {
+        return values.Any(value => text.Contains(value, StringComparison.Ordinal));
     }
 }

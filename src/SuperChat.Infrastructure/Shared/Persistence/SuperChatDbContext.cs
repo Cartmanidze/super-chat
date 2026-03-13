@@ -24,6 +24,8 @@ public sealed class SuperChatDbContext(DbContextOptions<SuperChatDbContext> opti
 
     public DbSet<ExtractedItemEntity> ExtractedItems => Set<ExtractedItemEntity>();
 
+    public DbSet<MeetingEntity> Meetings => Set<MeetingEntity>();
+
     public DbSet<FeedbackEventEntity> FeedbackEvents => Set<FeedbackEventEntity>();
 
     public DbSet<ChunkBuildCheckpointEntity> ChunkBuildCheckpoints => Set<ChunkBuildCheckpointEntity>();
@@ -150,6 +152,26 @@ public sealed class SuperChatDbContext(DbContextOptions<SuperChatDbContext> opti
             entity.Property(item => item.DueAt).HasColumnName("due_at");
             entity.Property(item => item.Confidence).HasColumnName("confidence");
             entity.HasIndex(item => new { item.UserId, item.ObservedAt });
+        });
+
+        modelBuilder.Entity<MeetingEntity>(entity =>
+        {
+            entity.ToTable("meetings");
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.Id).HasColumnName("id");
+            entity.Property(item => item.UserId).HasColumnName("user_id");
+            entity.Property(item => item.Title).HasColumnName("title");
+            entity.Property(item => item.Summary).HasColumnName("summary");
+            entity.Property(item => item.SourceRoom).HasColumnName("source_room");
+            entity.Property(item => item.SourceEventId).HasColumnName("source_event_id");
+            entity.Property(item => item.Person).HasColumnName("person");
+            entity.Property(item => item.ObservedAt).HasColumnName("observed_at");
+            entity.Property(item => item.ScheduledFor).HasColumnName("scheduled_for");
+            entity.Property(item => item.Confidence).HasColumnName("confidence");
+            entity.Property(item => item.CreatedAt).HasColumnName("created_at");
+            entity.Property(item => item.UpdatedAt).HasColumnName("updated_at");
+            entity.HasIndex(item => new { item.UserId, item.ScheduledFor });
+            entity.HasIndex(item => new { item.UserId, item.SourceEventId }).IsUnique();
         });
 
         modelBuilder.Entity<FeedbackEventEntity>(entity =>
@@ -321,6 +343,22 @@ public sealed class FeedbackEventEntity
     public string Value { get; set; } = string.Empty;
     public string? Notes { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
+}
+
+public sealed class MeetingEntity
+{
+    public Guid Id { get; set; }
+    public Guid UserId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Summary { get; set; } = string.Empty;
+    public string SourceRoom { get; set; } = string.Empty;
+    public string SourceEventId { get; set; } = string.Empty;
+    public string? Person { get; set; }
+    public DateTimeOffset ObservedAt { get; set; }
+    public DateTimeOffset ScheduledFor { get; set; }
+    public double Confidence { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
 }
 
 public sealed class ChunkBuildCheckpointEntity

@@ -36,10 +36,54 @@ public sealed class ChatExperienceServiceTests
 
         var exception = await Assert.ThrowsAsync<ArgumentException>(() => service.AskAsync(
             Guid.NewGuid(),
-            new ChatPromptRequest(ChatPromptTemplate.Custom, new string('x', 101)),
+            new ChatPromptRequest(ChatPromptTemplate.Today, new string('x', 101)),
             CancellationToken.None));
 
         Assert.Contains("100", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AskAsync_ReturnsMeetingCards_ForMeetingsTemplate()
+    {
+        var scheduledFor = new DateTimeOffset(2026, 03, 13, 11, 00, 00, TimeSpan.FromHours(6));
+        var service = CreateService(
+            digestService: new StubDigestService(
+                meetings:
+                [
+                    new DashboardCardViewModel("Upcoming meeting", "Мб заехать за тобой в 11?", "Meeting", scheduledFor, "Stanislav Klyukhin (Telegram)")
+                ]));
+
+        var answer = await service.AskAsync(
+            Guid.NewGuid(),
+            new ChatPromptRequest(ChatPromptTemplate.Meetings, "Какие у меня ближайшие встречи?"),
+            CancellationToken.None);
+
+        Assert.Equal(ChatPromptTemplate.Meetings, answer.Mode);
+        Assert.Single(answer.Items);
+        Assert.Equal("Мб заехать за тобой в 11?", answer.Items[0].Title);
+        Assert.Equal(string.Empty, answer.Items[0].Summary);
+        Assert.Equal(scheduledFor, answer.Items[0].Timestamp);
+    }
+
+    [Fact]
+    public async Task AskAsync_WaitingTemplate_HidesGenericAwaitingResponseTitle()
+    {
+        var service = CreateService(
+            digestService: new StubDigestService(
+                waiting:
+                [
+                    new DashboardCardViewModel("Awaiting response", "Нужен ответ от Валерии по договору", "WaitingOn", null, "Валерия (Telegram)")
+                ]));
+
+        var answer = await service.AskAsync(
+            Guid.NewGuid(),
+            new ChatPromptRequest(ChatPromptTemplate.Waiting, "Где я сейчас жду ответа?"),
+            CancellationToken.None);
+
+        Assert.Equal(ChatPromptTemplate.Waiting, answer.Mode);
+        Assert.Single(answer.Items);
+        Assert.Equal("Нужен ответ от Валерии по договору", answer.Items[0].Title);
+        Assert.Equal(string.Empty, answer.Items[0].Summary);
     }
 
     [Fact]
@@ -176,7 +220,8 @@ public sealed class ChatExperienceServiceTests
 
     private sealed class StubDigestService(
         IReadOnlyList<DashboardCardViewModel>? today = null,
-        IReadOnlyList<DashboardCardViewModel>? waiting = null) : IDigestService
+        IReadOnlyList<DashboardCardViewModel>? waiting = null,
+        IReadOnlyList<DashboardCardViewModel>? meetings = null) : IDigestService
     {
         public Task<IReadOnlyList<DashboardCardViewModel>> GetTodayAsync(Guid userId, CancellationToken cancellationToken)
         {
@@ -186,6 +231,11 @@ public sealed class ChatExperienceServiceTests
         public Task<IReadOnlyList<DashboardCardViewModel>> GetWaitingAsync(Guid userId, CancellationToken cancellationToken)
         {
             return Task.FromResult(waiting ?? Array.Empty<DashboardCardViewModel>());
+        }
+
+        public Task<IReadOnlyList<DashboardCardViewModel>> GetMeetingsAsync(Guid userId, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(meetings ?? Array.Empty<DashboardCardViewModel>());
         }
     }
 

@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using SuperChat.Contracts.Configuration;
 using SuperChat.Contracts.ViewModels;
+using SuperChat.Domain.Model;
 using SuperChat.Domain.Services;
 using SuperChat.Infrastructure.Abstractions;
 
@@ -8,6 +9,7 @@ namespace SuperChat.Infrastructure.Services;
 
 public sealed class DigestService(
     IExtractedItemService extractedItemService,
+    IMeetingService meetingService,
     IRoomDisplayNameService roomDisplayNameService,
     TimeProvider timeProvider,
     PilotOptions pilotOptions,
@@ -29,6 +31,17 @@ public sealed class DigestService(
         var items = await extractedItemService.GetForUserAsync(userId, cancellationToken);
         var cards = DigestComposer.BuildWaiting(items)
             .Select(item => new DashboardCardViewModel(item.Title, item.Summary, item.Kind.ToString(), item.DueAt, item.SourceRoom))
+            .ToList();
+
+        return await ResolveRoomNamesAsync(userId, cards, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<DashboardCardViewModel>> GetMeetingsAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var now = TimeZoneInfo.ConvertTime(timeProvider.GetUtcNow(), ResolveTodayTimeZone(logger, pilotOptions.TodayTimeZoneId));
+        var meetings = await meetingService.GetUpcomingAsync(userId, now.AddHours(-1), 20, cancellationToken);
+        var cards = DigestComposer.BuildMeetings(meetings, now)
+            .Select(item => new DashboardCardViewModel(item.Title, item.Summary, ExtractedItemKind.Meeting.ToString(), item.ScheduledFor, item.SourceRoom))
             .ToList();
 
         return await ResolveRoomNamesAsync(userId, cards, cancellationToken);

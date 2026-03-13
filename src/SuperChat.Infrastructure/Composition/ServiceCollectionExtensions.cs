@@ -130,6 +130,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IMessageNormalizationService, MessageNormalizationService>();
         services.AddSingleton<IChunkBuilderService, ChunkBuilderService>();
         services.AddSingleton<IChunkIndexingService, ChunkIndexingService>();
+        services.AddSingleton<IMeetingService, MeetingService>();
         services.AddSingleton<IExtractedItemService, ExtractedItemService>();
         services.AddSingleton<IRetrievalService, RetrievalService>();
         services.AddSingleton<HeuristicStructuredExtractionService>();

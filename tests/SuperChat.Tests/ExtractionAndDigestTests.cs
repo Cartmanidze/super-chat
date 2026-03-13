@@ -50,6 +50,29 @@ public sealed class ExtractionAndDigestTests
     }
 
     [Fact]
+    public async Task HeuristicExtraction_RecognizesMeetingWithExplicitTime()
+    {
+        var sentAt = new DateTimeOffset(2026, 03, 13, 10, 04, 38, TimeSpan.FromHours(6));
+        var message = new NormalizedMessage(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "telegram",
+            "!friends:matrix.localhost",
+            "$event-2",
+            "Stanislav",
+            "Мб заехать за тобой в 11?",
+            sentAt,
+            sentAt,
+            false);
+
+        var service = new HeuristicStructuredExtractionService();
+        var items = await service.ExtractAsync(message, CancellationToken.None);
+        var meeting = Assert.Single(items, item => item.Kind == ExtractedItemKind.Meeting);
+
+        Assert.Equal(sentAt.Date.AddHours(11), meeting.DueAt);
+    }
+
+    [Fact]
     public void DigestComposer_PrioritizesWaitingAndTodayItems()
     {
         var now = DateTimeOffset.UtcNow;
@@ -98,5 +121,23 @@ public sealed class ExtractionAndDigestTests
 
         Assert.Single(today);
         Assert.Equal("After midnight Moscow", today[0].Title);
+    }
+
+    [Fact]
+    public void DigestComposer_BuildMeetings_ReturnsNearestUpcomingMeetings()
+    {
+        var now = new DateTimeOffset(2026, 03, 13, 10, 00, 00, TimeSpan.FromHours(6));
+        var meetings = new[]
+        {
+            new MeetingRecord(Guid.NewGuid(), Guid.NewGuid(), "Upcoming meeting", "Созвон в 11", "!team", "$1", null, now.AddMinutes(-5), now.AddHours(1), 0.8),
+            new MeetingRecord(Guid.NewGuid(), Guid.NewGuid(), "Upcoming meeting", "Встреча завтра в 9", "!team", "$2", null, now, now.AddDays(1).AddHours(-1), 0.7),
+            new MeetingRecord(Guid.NewGuid(), Guid.NewGuid(), "Upcoming meeting", "Очень дальняя встреча", "!team", "$3", null, now, now.AddDays(30), 0.9)
+        };
+
+        var upcoming = DigestComposer.BuildMeetings(meetings, now);
+
+        Assert.Equal(2, upcoming.Count);
+        Assert.Equal("Созвон в 11", upcoming[0].Summary);
+        Assert.Equal("Встреча завтра в 9", upcoming[1].Summary);
     }
 }

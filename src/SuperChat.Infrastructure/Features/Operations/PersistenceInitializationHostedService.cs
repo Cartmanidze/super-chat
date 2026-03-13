@@ -92,6 +92,27 @@ public sealed class PersistenceInitializationHostedService(
                 updated_at timestamptz NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS meetings (
+                id uuid PRIMARY KEY,
+                user_id uuid NOT NULL,
+                title text NOT NULL,
+                summary text NOT NULL,
+                source_room text NOT NULL,
+                source_event_id text NOT NULL,
+                person text NULL,
+                observed_at timestamptz NOT NULL,
+                scheduled_for timestamptz NOT NULL,
+                confidence double precision NOT NULL,
+                created_at timestamptz NOT NULL,
+                updated_at timestamptz NOT NULL
+            );
+
+            CREATE UNIQUE INDEX IF NOT EXISTS ix_meetings_user_id_source_event_id
+                ON meetings (user_id, source_event_id);
+
+            CREATE INDEX IF NOT EXISTS ix_meetings_user_id_scheduled_for
+                ON meetings (user_id, scheduled_for);
+
             CREATE TABLE IF NOT EXISTS message_chunks (
                 id uuid PRIMARY KEY,
                 user_id uuid NOT NULL,
