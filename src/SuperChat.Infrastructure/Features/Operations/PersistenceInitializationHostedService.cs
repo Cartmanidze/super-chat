@@ -92,6 +92,13 @@ public sealed class PersistenceInitializationHostedService(
                 updated_at timestamptz NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS meeting_projection_checkpoints (
+                user_id uuid PRIMARY KEY,
+                last_observed_chunk_updated_at timestamptz NULL,
+                last_observed_chunk_id uuid NULL,
+                updated_at timestamptz NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS meetings (
                 id uuid PRIMARY KEY,
                 user_id uuid NOT NULL,

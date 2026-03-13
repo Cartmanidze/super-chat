@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using SuperChat.Contracts.Configuration;
 using SuperChat.Domain.Model;
 using SuperChat.Infrastructure.Persistence;
@@ -118,13 +119,13 @@ public sealed class ExtractedItemServiceTests
         Assert.Equal(TimeSpan.Zero, projectedMeeting.ScheduledFor.Offset);
         Assert.Equal("Мб заехать за тобой в 11?", projectedMeeting.Summary);
 
-        var meetings = await new MeetingService(factory, CreatePilotOptions()).GetUpcomingAsync(userId, dueAt.AddHours(-2), 10, CancellationToken.None);
+        var meetings = await new MeetingService(factory).GetUpcomingAsync(userId, dueAt.AddHours(-2), 10, CancellationToken.None);
         Assert.Single(meetings);
         Assert.Equal(dueAt.ToUniversalTime(), meetings[0].ScheduledFor);
     }
 
     [Fact]
-    public async Task GetUpcomingAsync_IncludesChunkDerivedMeetingCandidates()
+    public async Task GetUpcomingAsync_ReturnsProjectedChunkMeetings()
     {
         var factory = await CreateFactoryAsync(CancellationToken.None);
         var userId = Guid.NewGuid();
@@ -157,7 +158,19 @@ public sealed class ExtractedItemServiceTests
             await dbContext.SaveChangesAsync(CancellationToken.None);
         }
 
-        var meetings = await new MeetingService(factory, CreatePilotOptions()).GetUpcomingAsync(
+        var projectionService = new MeetingProjectionService(
+            factory,
+            Options.Create(new MeetingProjectionOptions
+            {
+                Enabled = true
+            }),
+            CreatePilotOptions(),
+            TimeProvider.System);
+
+        var projectionResult = await projectionService.ProjectPendingChunkMeetingsAsync(CancellationToken.None);
+        Assert.Equal(1, projectionResult.MeetingsProjected);
+
+        var meetings = await new MeetingService(factory).GetUpcomingAsync(
             userId,
             new DateTimeOffset(2026, 03, 13, 08, 00, 00, TimeSpan.Zero),
             10,
@@ -183,7 +196,7 @@ public sealed class ExtractedItemServiceTests
 
     private static ExtractedItemService CreateService(IDbContextFactory<SuperChatDbContext> factory)
     {
-        return new ExtractedItemService(factory, new MeetingService(factory, CreatePilotOptions()));
+        return new ExtractedItemService(factory, new MeetingService(factory));
     }
 
     private static PilotOptions CreatePilotOptions()

@@ -38,6 +38,9 @@ public static class ServiceCollectionExtensions
             .AddOptions<MatrixOptions>()
             .Bind(configuration.GetSection(MatrixOptions.SectionName));
         services
+            .AddOptions<MeetingProjectionOptions>()
+            .Bind(configuration.GetSection(MeetingProjectionOptions.SectionName));
+        services
             .AddOptions<PilotOptions>()
             .Bind(configuration.GetSection(PilotOptions.SectionName));
         services
@@ -135,6 +138,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IChatTemplateHandler, RecentChatTemplateHandler>();
         services.AddSingleton<IChunkBuilderService, ChunkBuilderService>();
         services.AddSingleton<IChunkIndexingService, ChunkIndexingService>();
+        services.AddSingleton<IMeetingProjectionService, MeetingProjectionService>();
         services.AddSingleton<IMeetingService, MeetingService>();
         services.AddSingleton<IExtractedItemService, ExtractedItemService>();
         services.AddSingleton<IRetrievalService, RetrievalService>();
@@ -154,6 +158,7 @@ public static class ServiceCollectionExtensions
             services.AddHostedService<MatrixSyncBackgroundService>();
             services.AddHostedService<ChunkBuilderBackgroundService>();
             services.AddHostedService<ChunkIndexingBackgroundService>();
+            services.AddHostedService<MeetingProjectionBackgroundService>();
             services.AddHostedService<ExtractionBackgroundService>();
         }
 

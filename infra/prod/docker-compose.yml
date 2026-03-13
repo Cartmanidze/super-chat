@@ -100,6 +100,8 @@ services:
       ChunkIndexing__Enabled: ${CHUNK_INDEXING_ENABLED:-true}
       ChunkIndexing__PollSeconds: ${CHUNK_INDEXING_POLL_SECONDS:-10}
       ChunkIndexing__BatchSize: ${CHUNK_INDEXING_BATCH_SIZE:-20}
+      MeetingProjection__Enabled: ${MEETING_PROJECTION_ENABLED:-true}
+      MeetingProjection__PollSeconds: ${MEETING_PROJECTION_POLL_SECONDS:-15}
       Retrieval__Enabled: ${RETRIEVAL_ENABLED:-true}
       Retrieval__PrefetchLimit: ${RETRIEVAL_PREFETCH_LIMIT:-24}
       Retrieval__ResultLimit: ${RETRIEVAL_RESULT_LIMIT:-8}
@@ -162,6 +164,8 @@ services:
       ChunkIndexing__Enabled: ${CHUNK_INDEXING_ENABLED:-true}
       ChunkIndexing__PollSeconds: ${CHUNK_INDEXING_POLL_SECONDS:-10}
       ChunkIndexing__BatchSize: ${CHUNK_INDEXING_BATCH_SIZE:-20}
+      MeetingProjection__Enabled: ${MEETING_PROJECTION_ENABLED:-true}
+      MeetingProjection__PollSeconds: ${MEETING_PROJECTION_POLL_SECONDS:-15}
       Retrieval__Enabled: ${RETRIEVAL_ENABLED:-true}
       Retrieval__PrefetchLimit: ${RETRIEVAL_PREFETCH_LIMIT:-24}
       Retrieval__ResultLimit: ${RETRIEVAL_RESULT_LIMIT:-8}

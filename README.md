@@ -74,6 +74,11 @@ Stage-4 chunk indexing is configured under `ChunkIndexing`:
 - `ChunkIndexing.PollSeconds` controls how often the worker picks pending chunks. Default: `10`.
 - `ChunkIndexing.BatchSize` caps how many chunks are embedded and upserted per tick. Default: `20`.
 
+Chunk-based meeting projection is configured under `MeetingProjection`:
+
+- `MeetingProjection.Enabled` turns the chunk-to-meetings worker on or off. Default: `true`.
+- `MeetingProjection.PollSeconds` controls how often the worker rebuilds chunk-derived meetings for changed rooms. Default: `15`.
+
 Stage-5 retrieval is configured under `Retrieval`:
 
 - `Retrieval.Enabled` turns the Qdrant-backed retrieval path on or off. Default: `true`.

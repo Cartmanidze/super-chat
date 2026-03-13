@@ -30,6 +30,8 @@ public sealed class SuperChatDbContext(DbContextOptions<SuperChatDbContext> opti
 
     public DbSet<ChunkBuildCheckpointEntity> ChunkBuildCheckpoints => Set<ChunkBuildCheckpointEntity>();
 
+    public DbSet<MeetingProjectionCheckpointEntity> MeetingProjectionCheckpoints => Set<MeetingProjectionCheckpointEntity>();
+
     public DbSet<MessageChunkEntity> MessageChunks => Set<MessageChunkEntity>();
 
     public DbSet<RetrievalLogEntity> RetrievalLogs => Set<RetrievalLogEntity>();
@@ -194,6 +196,16 @@ public sealed class SuperChatDbContext(DbContextOptions<SuperChatDbContext> opti
             entity.Property(item => item.UserId).HasColumnName("user_id");
             entity.Property(item => item.LastObservedIngestedAt).HasColumnName("last_observed_ingested_at");
             entity.Property(item => item.LastObservedMessageId).HasColumnName("last_observed_message_id");
+            entity.Property(item => item.UpdatedAt).HasColumnName("updated_at");
+        });
+
+        modelBuilder.Entity<MeetingProjectionCheckpointEntity>(entity =>
+        {
+            entity.ToTable("meeting_projection_checkpoints");
+            entity.HasKey(item => item.UserId);
+            entity.Property(item => item.UserId).HasColumnName("user_id");
+            entity.Property(item => item.LastObservedChunkUpdatedAt).HasColumnName("last_observed_chunk_updated_at");
+            entity.Property(item => item.LastObservedChunkId).HasColumnName("last_observed_chunk_id");
             entity.Property(item => item.UpdatedAt).HasColumnName("updated_at");
         });
 
@@ -366,6 +378,14 @@ public sealed class ChunkBuildCheckpointEntity
     public Guid UserId { get; set; }
     public DateTimeOffset? LastObservedIngestedAt { get; set; }
     public Guid? LastObservedMessageId { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+
+public sealed class MeetingProjectionCheckpointEntity
+{
+    public Guid UserId { get; set; }
+    public DateTimeOffset? LastObservedChunkUpdatedAt { get; set; }
+    public Guid? LastObservedChunkId { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }
 
