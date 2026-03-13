@@ -1,6 +1,7 @@
 FROM python:3.12-slim
 
 ARG INSTALL_BGE=0
+ARG TORCH_CPU_INDEX_URL=https://download.pytorch.org/whl/cpu
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -12,7 +13,10 @@ WORKDIR /app
 COPY requirements.txt ./
 
 RUN pip install --no-cache-dir -r requirements.txt \
-    && if [ "$INSTALL_BGE" = "1" ]; then pip install --no-cache-dir "FlagEmbedding>=1.3.3,<2"; fi
+    && if [ "$INSTALL_BGE" = "1" ]; then \
+        pip install --no-cache-dir --index-url "$TORCH_CPU_INDEX_URL" "torch>=2.1,<3" \
+        && pip install --no-cache-dir "FlagEmbedding>=1.3.3,<2"; \
+    fi
 
 COPY embedding_service.py ./
 
