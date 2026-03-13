@@ -215,8 +215,13 @@ def get_bgem3_model():
     try:
         flag_embedding = importlib.import_module("FlagEmbedding")
     except ImportError as exc:  # pragma: no cover - depends on optional build arg
+        if getattr(exc, "name", None) == "FlagEmbedding":
+            raise RuntimeError(
+                "FlagEmbedding is not installed. Rebuild the image with EMBEDDING_INSTALL_BGE=1."
+            ) from exc
+
         raise RuntimeError(
-            "FlagEmbedding is not installed. Rebuild the image with EMBEDDING_INSTALL_BGE=1."
+            f"FlagEmbedding failed to import: {exc}"
         ) from exc
 
     model_factory = getattr(flag_embedding, "BGEM3FlagModel", None)
