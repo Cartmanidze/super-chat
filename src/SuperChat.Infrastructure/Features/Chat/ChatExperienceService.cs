@@ -102,11 +102,20 @@ public sealed class ChatExperienceService(
 
         var roomNames = await roomDisplayNameService.ResolveManyAsync(userId, recentToday.Select(message => message.MatrixRoomId), cancellationToken);
         var items = recentToday
-            .Select(message => new ChatResultItemViewModel(
-                message.SenderName,
-                message.Text,
-                roomNames.TryGetValue(message.MatrixRoomId, out var roomName) ? roomName : message.MatrixRoomId,
-                message.SentAt))
+            .Select(message =>
+            {
+                var sourceRoom = roomNames.TryGetValue(message.MatrixRoomId, out var roomName)
+                    ? roomName
+                    : LooksLikeMatrixRoomId(message.MatrixRoomId)
+                        ? string.Empty
+                        : message.MatrixRoomId;
+
+                return new ChatResultItemViewModel(
+                    MessagePresentationFormatter.ResolveDisplaySenderName(message.SenderName, sourceRoom),
+                    message.Text,
+                    sourceRoom,
+                    message.SentAt);
+            })
             .ToList();
 
         return new ChatAnswerViewModel(ChatPromptTemplate.Recent, question, items);
@@ -297,6 +306,13 @@ public sealed class ChatExperienceService(
     private static bool ContainsAny(string text, params string[] values)
     {
         return values.Any(value => text.Contains(value, StringComparison.Ordinal));
+    }
+
+    private static bool LooksLikeMatrixRoomId(string value)
+    {
+        return !string.IsNullOrWhiteSpace(value) &&
+               value.StartsWith("!", StringComparison.Ordinal) &&
+               value.Contains(':', StringComparison.Ordinal);
     }
 
     private static TimeZoneInfo ResolveTodayTimeZone(ILogger logger, string configuredTimeZoneId)

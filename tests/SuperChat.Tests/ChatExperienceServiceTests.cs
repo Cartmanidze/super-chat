@@ -120,6 +120,41 @@ public sealed class ChatExperienceServiceTests
         Assert.Equal("Сегодняшнее сообщение", answer.Items[0].Summary);
     }
 
+    [Fact]
+    public async Task AskAsync_RecentUsesRoomDisplayNameWhenSenderNameIsOpaqueNumericId()
+    {
+        var userId = Guid.NewGuid();
+        var now = new DateTimeOffset(2026, 03, 13, 10, 00, 00, TimeSpan.Zero);
+        var messages = new[]
+        {
+            new NormalizedMessage(
+                Guid.NewGuid(),
+                userId,
+                "telegram",
+                "!room-1",
+                "$1",
+                "349223531",
+                "video.mp4",
+                now.AddMinutes(-5),
+                now.AddMinutes(-4),
+                true)
+        };
+
+        var service = CreateService(
+            messageNormalizationService: new StubMessageNormalizationService(messages),
+            roomDisplayNameService: new StubRoomDisplayNameService(new Dictionary<string, string> { ["!room-1"] = "Bi (Telegram)" }),
+            timeProvider: new StaticTimeProvider(now));
+
+        var answer = await service.AskAsync(
+            userId,
+            new ChatPromptRequest(ChatPromptTemplate.Recent, "Что было в сообщениях сегодня?"),
+            CancellationToken.None);
+
+        Assert.Single(answer.Items);
+        Assert.Equal("Bi", answer.Items[0].Title);
+        Assert.Equal("Bi (Telegram)", answer.Items[0].SourceRoom);
+    }
+
     private static ChatExperienceService CreateService(
         IDigestService? digestService = null,
         IRetrievalService? retrievalService = null,

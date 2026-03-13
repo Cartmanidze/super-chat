@@ -56,7 +56,13 @@ public sealed class SearchService(
             {
                 if (roomNames.TryGetValue(result.SourceRoom, out var roomName))
                 {
-                    return result with { SourceRoom = roomName };
+                    return result with
+                    {
+                        Title = string.Equals(result.Kind, "Message", StringComparison.Ordinal)
+                            ? MessagePresentationFormatter.ResolveDisplaySenderName(result.Title, roomName)
+                            : result.Title,
+                        SourceRoom = roomName
+                    };
                 }
 
                 return LooksLikeMatrixRoomId(result.SourceRoom)

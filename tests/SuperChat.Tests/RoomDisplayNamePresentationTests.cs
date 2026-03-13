@@ -70,6 +70,37 @@ public sealed class RoomDisplayNamePresentationTests
     }
 
     [Fact]
+    public async Task SearchService_UsesRoomDisplayNameWhenRawMessageSenderIsOpaqueNumericId()
+    {
+        var userId = Guid.NewGuid();
+        var service = new SearchService(
+            new StubExtractedItemService([]),
+            new StubMessageNormalizationService([
+                new NormalizedMessage(
+                    Guid.NewGuid(),
+                    userId,
+                    "telegram",
+                    "!dm:matrix.localhost",
+                    "$evt-opaque",
+                    "349223531",
+                    "video.mp4",
+                    DateTimeOffset.UtcNow,
+                    DateTimeOffset.UtcNow,
+                    false)
+            ]),
+            new StubRoomDisplayNameService(new Dictionary<string, string>
+            {
+                ["!dm:matrix.localhost"] = "Bi (Telegram)"
+            }));
+
+        var results = await service.SearchAsync(userId, "video", CancellationToken.None);
+
+        Assert.Single(results);
+        Assert.Equal("Bi", results[0].Title);
+        Assert.Equal("Bi (Telegram)", results[0].SourceRoom);
+    }
+
+    [Fact]
     public async Task DigestService_ReplacesRoomIdWithResolvedDisplayName()
     {
         var userId = Guid.NewGuid();
