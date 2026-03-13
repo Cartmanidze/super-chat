@@ -1,10 +1,12 @@
 using System.Text;
 using System.Text.Json;
+using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SuperChat.Contracts;
 using SuperChat.Contracts.Configuration;
 using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Infrastructure.Diagnostics;
 
 namespace SuperChat.Infrastructure.Services;
 
@@ -32,6 +34,16 @@ public sealed class ChatAnswerGenerationService(
             return null;
         }
 
+        var stopwatch = Stopwatch.StartNew();
+        var contextCharacters = limitedContext.Sum(item => item.Text.Length);
+
+        AiPipelineLog.ChatAnswerGenerationStarted(
+            logger,
+            question.Length,
+            limitedContext.Count,
+            contextCharacters,
+            configuredOptions.MaxOutputTokens);
+
         var prompt = BuildPrompt(question, limitedContext, configuredOptions);
         var messages = new[]
         {
@@ -51,6 +63,13 @@ public sealed class ChatAnswerGenerationService(
 
             if (response is null)
             {
+                stopwatch.Stop();
+                AiPipelineLog.ChatAnswerGenerationCompleted(
+                    logger,
+                    limitedContext.Count,
+                    0,
+                    0,
+                    stopwatch.ElapsedMilliseconds);
                 return null;
             }
 
@@ -73,14 +92,33 @@ public sealed class ChatAnswerGenerationService(
 
             if (string.IsNullOrWhiteSpace(assistantText) && items.Count == 0)
             {
+                stopwatch.Stop();
+                AiPipelineLog.ChatAnswerGenerationCompleted(
+                    logger,
+                    limitedContext.Count,
+                    0,
+                    0,
+                    stopwatch.ElapsedMilliseconds);
                 return null;
             }
 
+            stopwatch.Stop();
+            AiPipelineLog.ChatAnswerGenerationCompleted(
+                logger,
+                limitedContext.Count,
+                items.Count,
+                assistantText?.Length ?? 0,
+                stopwatch.ElapsedMilliseconds);
             return new GeneratedChatAnswer(assistantText ?? string.Empty, items);
         }
         catch (Exception exception)
         {
-            logger.LogWarning(exception, "DeepSeek answer generation failed.");
+            stopwatch.Stop();
+            AiPipelineLog.ChatAnswerGenerationFailed(
+                logger,
+                limitedContext.Count,
+                stopwatch.ElapsedMilliseconds,
+                exception);
             return null;
         }
     }

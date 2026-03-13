@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SuperChat.Contracts.Configuration;
 using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Infrastructure.Diagnostics;
 using SuperChat.Infrastructure.Persistence;
 
 namespace SuperChat.Infrastructure.Services;
@@ -11,7 +13,8 @@ public sealed class ChunkIndexingService(
     IEmbeddingService embeddingService,
     IQdrantClient qdrantClient,
     IOptions<ChunkIndexingOptions> chunkIndexingOptions,
-    TimeProvider timeProvider) : IChunkIndexingService
+    TimeProvider timeProvider,
+    ILogger<ChunkIndexingService> logger) : IChunkIndexingService
 {
     public async Task<ChunkIndexingRunResult> IndexPendingChunksAsync(CancellationToken cancellationToken)
     {
@@ -21,58 +24,86 @@ public sealed class ChunkIndexingService(
             return ChunkIndexingRunResult.Empty;
         }
 
-        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-        var pendingChunks = await dbContext.MessageChunks
-            .Where(item => item.IndexedAt == null ||
-                           item.QdrantPointId == null ||
-                           item.QdrantPointId == "" ||
-                           item.EmbeddingVersion == null ||
-                           item.EmbeddingVersion == "")
-            .OrderBy(item => item.CreatedAt)
-            .ThenBy(item => item.Id)
-            .Take(Math.Max(1, options.BatchSize))
-            .ToListAsync(cancellationToken);
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
-        if (pendingChunks.Count == 0)
+        await using (var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken))
         {
-            return ChunkIndexingRunResult.Empty;
-        }
+            var pendingChunks = await dbContext.MessageChunks
+                .Where(item => item.IndexedAt == null ||
+                               item.QdrantPointId == null ||
+                               item.QdrantPointId == "" ||
+                               item.EmbeddingVersion == null ||
+                               item.EmbeddingVersion == "")
+                .OrderBy(item => item.CreatedAt)
+                .ThenBy(item => item.Id)
+                .Take(Math.Max(1, options.BatchSize))
+                .ToListAsync(cancellationToken);
 
-        var now = timeProvider.GetUtcNow();
-        var points = new List<QdrantMemoryPoint>(pendingChunks.Count);
-
-        foreach (var chunk in pendingChunks)
-        {
-            if (string.IsNullOrWhiteSpace(chunk.Text))
+            if (pendingChunks.Count == 0)
             {
-                continue;
+                return ChunkIndexingRunResult.Empty;
             }
 
-            var embedding = await embeddingService.EmbedAsync(chunk.Text, EmbeddingPurpose.Document, cancellationToken);
-            var pointId = BuildPointId(chunk);
-            var embeddingVersion = ResolveEmbeddingVersion(embedding);
+            AiPipelineLog.ChunkIndexingRunStarted(logger, pendingChunks.Count, Math.Max(1, options.BatchSize));
 
-            points.Add(new QdrantMemoryPoint(
-                pointId,
-                embedding.DenseVector,
-                embedding.SparseVector,
-                BuildPayload(chunk, embeddingVersion)));
+            try
+            {
+                var now = timeProvider.GetUtcNow();
+                var points = new List<QdrantMemoryPoint>(pendingChunks.Count);
 
-            chunk.QdrantPointId = pointId;
-            chunk.EmbeddingVersion = embeddingVersion;
-            chunk.IndexedAt = now;
-            chunk.UpdatedAt = now;
+                foreach (var chunk in pendingChunks)
+                {
+                    if (string.IsNullOrWhiteSpace(chunk.Text))
+                    {
+                        continue;
+                    }
+
+                    var embedding = await embeddingService.EmbedAsync(chunk.Text, EmbeddingPurpose.Document, cancellationToken);
+                    var pointId = BuildPointId(chunk);
+                    var embeddingVersion = ResolveEmbeddingVersion(embedding);
+
+                    points.Add(new QdrantMemoryPoint(
+                        pointId,
+                        embedding.DenseVector,
+                        embedding.SparseVector,
+                        BuildPayload(chunk, embeddingVersion)));
+
+                    chunk.QdrantPointId = pointId;
+                    chunk.EmbeddingVersion = embeddingVersion;
+                    chunk.IndexedAt = now;
+                    chunk.UpdatedAt = now;
+                }
+
+                if (points.Count == 0)
+                {
+                    stopwatch.Stop();
+                    AiPipelineLog.ChunkIndexingRunCompleted(logger, pendingChunks.Count, 0, stopwatch.ElapsedMilliseconds);
+                    return new ChunkIndexingRunResult(pendingChunks.Count, 0);
+                }
+
+                await qdrantClient.UpsertMemoryPointsAsync(points, cancellationToken);
+                await dbContext.SaveChangesAsync(cancellationToken);
+
+                stopwatch.Stop();
+                AiPipelineLog.ChunkIndexingRunCompleted(
+                    logger,
+                    pendingChunks.Count,
+                    points.Count,
+                    stopwatch.ElapsedMilliseconds);
+
+                return new ChunkIndexingRunResult(pendingChunks.Count, points.Count);
+            }
+            catch (Exception exception)
+            {
+                stopwatch.Stop();
+                AiPipelineLog.ChunkIndexingRunFailed(
+                    logger,
+                    pendingChunks.Count,
+                    stopwatch.ElapsedMilliseconds,
+                    exception);
+                throw;
+            }
         }
-
-        if (points.Count == 0)
-        {
-            return new ChunkIndexingRunResult(pendingChunks.Count, 0);
-        }
-
-        await qdrantClient.UpsertMemoryPointsAsync(points, cancellationToken);
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        return new ChunkIndexingRunResult(pendingChunks.Count, points.Count);
     }
 
     internal static string BuildPointId(MessageChunkEntity chunk)

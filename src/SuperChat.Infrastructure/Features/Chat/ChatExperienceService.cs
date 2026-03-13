@@ -1,8 +1,10 @@
 using System.Text.RegularExpressions;
+using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using SuperChat.Contracts.ViewModels;
 using SuperChat.Domain.Model;
 using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Infrastructure.Diagnostics;
 
 namespace SuperChat.Infrastructure.Services;
 
@@ -43,7 +45,7 @@ public sealed class ChatExperienceService : IChatExperienceService
         _logger = logger;
     }
 
-    public Task<ChatAnswerViewModel> AskAsync(Guid userId, ChatPromptRequest request, CancellationToken cancellationToken)
+    public async Task<ChatAnswerViewModel> AskAsync(Guid userId, ChatPromptRequest request, CancellationToken cancellationToken)
     {
         var templateId = ChatPromptTemplate.Normalize(request.TemplateId);
         if (!_templateCatalog.TryGetTemplate(templateId, out _))
@@ -62,9 +64,39 @@ public sealed class ChatExperienceService : IChatExperienceService
             throw new ArgumentException($"Question must be {ChatPromptRequest.MaxQuestionLength} characters or fewer.", nameof(request.Question));
         }
 
-        return ChatPromptTemplate.IsCustom(templateId)
-            ? BuildCustomAnswerAsync(userId, question, cancellationToken)
-            : BuildTemplateAnswerAsync(userId, templateId, question, cancellationToken);
+        var stopwatch = Stopwatch.StartNew();
+
+        using (_logger.BeginScope(new Dictionary<string, object?>
+               {
+                   ["user_id"] = userId,
+                   ["template_id"] = templateId
+               }))
+        {
+            AiPipelineLog.ChatPipelineStarted(_logger, templateId, question.Length);
+
+            try
+            {
+                var answer = await (ChatPromptTemplate.IsCustom(templateId)
+                    ? BuildCustomAnswerAsync(userId, question, cancellationToken)
+                    : BuildTemplateAnswerAsync(userId, templateId, question, cancellationToken));
+
+                stopwatch.Stop();
+                AiPipelineLog.ChatPipelineCompleted(
+                    _logger,
+                    templateId,
+                    stopwatch.ElapsedMilliseconds,
+                    answer.Items.Count,
+                    answer.AssistantText?.Length ?? 0);
+
+                return answer;
+            }
+            catch (Exception exception)
+            {
+                stopwatch.Stop();
+                AiPipelineLog.ChatPipelineFailed(_logger, templateId, stopwatch.ElapsedMilliseconds, exception);
+                throw;
+            }
+        }
     }
 
     private Task<ChatAnswerViewModel> DispatchToTemplateAsync(Guid userId, string templateId, string question, CancellationToken cancellationToken)
@@ -89,10 +121,12 @@ public sealed class ChatExperienceService : IChatExperienceService
         var routedTemplate = DetectTemplateFromQuestion(question);
         if (routedTemplate is not null)
         {
+            AiPipelineLog.CustomQuestionRoutedToTemplate(_logger, routedTemplate);
             return await DispatchToTemplateAsync(userId, routedTemplate, question, cancellationToken);
         }
 
         var retrievalResults = await RetrieveSmartAsync(userId, question, cancellationToken);
+        AiPipelineLog.CustomRetrievalCompleted(_logger, retrievalResults.Count);
         if (retrievalResults.Count > 0)
         {
             var generatedAnswer = await _chatAnswerGenerationService.TryGenerateAsync(
@@ -146,6 +180,7 @@ public sealed class ChatExperienceService : IChatExperienceService
         }
 
         var results = await SearchSmartAsync(userId, question, cancellationToken);
+        AiPipelineLog.CustomSearchFallbackCompleted(_logger, results.Count);
         return new ChatAnswerViewModel(
             ChatPromptTemplate.Custom,
             question,
@@ -186,6 +221,9 @@ public sealed class ChatExperienceService : IChatExperienceService
             return null;
         }
 
+        var stopwatch = Stopwatch.StartNew();
+        AiPipelineLog.TemplateAnswerEnhancementStarted(_logger, baseAnswer.Mode, contextItems.Count);
+
         var generatedAnswer = await _chatAnswerGenerationService.TryGenerateAsync(
             baseAnswer.Question,
             contextItems.Select(item => item.ContextItem).ToList(),
@@ -193,6 +231,8 @@ public sealed class ChatExperienceService : IChatExperienceService
 
         if (generatedAnswer is null)
         {
+            stopwatch.Stop();
+            AiPipelineLog.TemplateAnswerEnhancementCompleted(_logger, baseAnswer.Mode, contextItems.Count, 0, 0, stopwatch.ElapsedMilliseconds);
             return null;
         }
 
@@ -217,8 +257,19 @@ public sealed class ChatExperienceService : IChatExperienceService
 
         if (string.IsNullOrWhiteSpace(generatedAnswer.AssistantText) && generatedItems.Count == 0)
         {
+            stopwatch.Stop();
+            AiPipelineLog.TemplateAnswerEnhancementCompleted(_logger, baseAnswer.Mode, contextItems.Count, 0, 0, stopwatch.ElapsedMilliseconds);
             return null;
         }
+
+        stopwatch.Stop();
+        AiPipelineLog.TemplateAnswerEnhancementCompleted(
+            _logger,
+            baseAnswer.Mode,
+            contextItems.Count,
+            generatedItems.Count,
+            generatedAnswer.AssistantText?.Length ?? 0,
+            stopwatch.ElapsedMilliseconds);
 
         return new ChatAnswerViewModel(
             baseAnswer.Mode,

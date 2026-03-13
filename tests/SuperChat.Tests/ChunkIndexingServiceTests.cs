@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SuperChat.Contracts.Configuration;
 using SuperChat.Infrastructure.Abstractions;
@@ -184,7 +185,8 @@ public sealed class ChunkIndexingServiceTests
             embeddingService,
             qdrantClient,
             Options.Create(options),
-            timeProvider);
+            timeProvider,
+            NullLogger<ChunkIndexingService>.Instance);
     }
 
     private static async Task<IDbContextFactory<SuperChatDbContext>> CreateFactoryAsync(CancellationToken cancellationToken)

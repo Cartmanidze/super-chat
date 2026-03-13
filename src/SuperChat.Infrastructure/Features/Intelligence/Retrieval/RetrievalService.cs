@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SuperChat.Contracts.Configuration;
 using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Infrastructure.Diagnostics;
 using SuperChat.Infrastructure.Persistence;
 
 namespace SuperChat.Infrastructure.Services;
@@ -33,90 +34,123 @@ public sealed class RetrievalService(
         }
 
         var stopwatch = Stopwatch.StartNew();
-        var embedding = await embeddingService.EmbedAsync(normalizedQuery, EmbeddingPurpose.Query, cancellationToken);
-        var query = new QdrantHybridQuery(
-            embedding.DenseVector,
-            embedding.SparseVector,
-            request.UserId.ToString("D"),
-            request.ChatId,
-            request.PeerId,
-            request.Kind,
-            Math.Max(1, options.PrefetchLimit),
-            Math.Max(1, request.Limit ?? options.ResultLimit));
+        var resultLimit = Math.Max(1, request.Limit ?? options.ResultLimit);
+        var prefetchLimit = Math.Max(1, options.PrefetchLimit);
 
-        var matches = await qdrantClient.QueryMemoryPointsAsync(query, cancellationToken);
-        var chunkIds = matches
-            .Select(TryExtractChunkId)
-            .Where(static item => item.HasValue)
-            .Select(static item => item!.Value)
-            .Distinct()
-            .ToList();
-
-        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-
-        var chunksById = await dbContext.MessageChunks
-            .AsNoTracking()
-            .Where(item => chunkIds.Contains(item.Id))
-            .ToDictionaryAsync(item => item.Id, cancellationToken);
-
-        var retrievedChunks = matches
-            .Select(match => new
-            {
-                ChunkId = TryExtractChunkId(match),
-                Match = match
-            })
-            .Where(item => item.ChunkId.HasValue)
-            .Select(item => new
-            {
-                Chunk = chunksById.GetValueOrDefault(item.ChunkId!.Value),
-                item.Match
-            })
-            .Where(item => item.Chunk is not null)
-            .Select(item => new RetrievedChunk(
-                item.Chunk!.Id,
-                item.Chunk.ChatId,
-                item.Chunk.PeerId,
-                item.Chunk.Kind,
-                item.Chunk.Text,
-                item.Chunk.TsFrom,
-                item.Chunk.TsTo,
-                item.Match.Score))
-            .Take(Math.Max(1, request.Limit ?? options.ResultLimit))
-            .ToList();
-
-        stopwatch.Stop();
+        AiPipelineLog.RetrievalStarted(
+            logger,
+            request.QueryKind,
+            normalizedQuery.Length,
+            resultLimit,
+            prefetchLimit);
 
         try
         {
-            dbContext.RetrievalLogs.Add(new RetrievalLogEntity
-            {
-                Id = Guid.NewGuid(),
-                UserId = request.UserId,
-                QueryText = normalizedQuery,
-                QueryKind = request.QueryKind,
-                FiltersJson = SerializeFilters(request),
-                CandidateCount = matches.Count,
-                SelectedChunkIdsJson = JsonSerializer.Serialize(retrievedChunks.Select(item => item.ChunkId)),
-                LatencyMs = (int)Math.Min(int.MaxValue, stopwatch.ElapsedMilliseconds),
-                ModelVersionsJson = JsonSerializer.Serialize(new Dictionary<string, object?>
-                {
-                    ["embedding_provider"] = embedding.Provider,
-                    ["embedding_model"] = embedding.Model,
-                    ["embedding_version"] = string.IsNullOrWhiteSpace(embedding.EmbeddingVersion) ? null : embedding.EmbeddingVersion,
-                    ["qdrant_collection"] = qdrantOptions.Value.MemoryCollectionName,
-                    ["retrieval_mode"] = "hybrid_rrf_v1"
-                }),
-                CreatedAt = timeProvider.GetUtcNow()
-            });
+            var embedding = await embeddingService.EmbedAsync(normalizedQuery, EmbeddingPurpose.Query, cancellationToken);
+            var query = new QdrantHybridQuery(
+                embedding.DenseVector,
+                embedding.SparseVector,
+                request.UserId.ToString("D"),
+                request.ChatId,
+                request.PeerId,
+                request.Kind,
+                prefetchLimit,
+                resultLimit);
 
-            await dbContext.SaveChangesAsync(cancellationToken);
+            var matches = await qdrantClient.QueryMemoryPointsAsync(query, cancellationToken);
+            var chunkIds = matches
+                .Select(TryExtractChunkId)
+                .Where(static item => item.HasValue)
+                .Select(static item => item!.Value)
+                .Distinct()
+                .ToList();
+
+            await using (var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken))
+            {
+                var chunksById = await dbContext.MessageChunks
+                    .AsNoTracking()
+                    .Where(item => chunkIds.Contains(item.Id))
+                    .ToDictionaryAsync(item => item.Id, cancellationToken);
+
+                var retrievedChunks = matches
+                    .Select(match => new
+                    {
+                        ChunkId = TryExtractChunkId(match),
+                        Match = match
+                    })
+                    .Where(item => item.ChunkId.HasValue)
+                    .Select(item => new
+                    {
+                        Chunk = chunksById.GetValueOrDefault(item.ChunkId!.Value),
+                        item.Match
+                    })
+                    .Where(item => item.Chunk is not null)
+                    .Select(item => new RetrievedChunk(
+                        item.Chunk!.Id,
+                        item.Chunk.ChatId,
+                        item.Chunk.PeerId,
+                        item.Chunk.Kind,
+                        item.Chunk.Text,
+                        item.Chunk.TsFrom,
+                        item.Chunk.TsTo,
+                        item.Match.Score))
+                    .Take(resultLimit)
+                    .ToList();
+
+                stopwatch.Stop();
+                AiPipelineLog.RetrievalCompleted(
+                    logger,
+                    request.QueryKind,
+                    normalizedQuery.Length,
+                    matches.Count,
+                    chunkIds.Count,
+                    retrievedChunks.Count,
+                    stopwatch.ElapsedMilliseconds);
+
+                try
+                {
+                    dbContext.RetrievalLogs.Add(new RetrievalLogEntity
+                    {
+                        Id = Guid.NewGuid(),
+                        UserId = request.UserId,
+                        QueryText = normalizedQuery,
+                        QueryKind = request.QueryKind,
+                        FiltersJson = SerializeFilters(request),
+                        CandidateCount = matches.Count,
+                        SelectedChunkIdsJson = JsonSerializer.Serialize(retrievedChunks.Select(item => item.ChunkId)),
+                        LatencyMs = (int)Math.Min(int.MaxValue, stopwatch.ElapsedMilliseconds),
+                        ModelVersionsJson = JsonSerializer.Serialize(new Dictionary<string, object?>
+                        {
+                            ["embedding_provider"] = embedding.Provider,
+                            ["embedding_model"] = embedding.Model,
+                            ["embedding_version"] = string.IsNullOrWhiteSpace(embedding.EmbeddingVersion) ? null : embedding.EmbeddingVersion,
+                            ["qdrant_collection"] = qdrantOptions.Value.MemoryCollectionName,
+                            ["retrieval_mode"] = "hybrid_rrf_v1"
+                        }),
+                        CreatedAt = timeProvider.GetUtcNow()
+                    });
+
+                    await dbContext.SaveChangesAsync(cancellationToken);
+                }
+                catch (Exception exception)
+                {
+                    logger.LogWarning(exception, "Failed to persist retrieval log for user {UserId}.", request.UserId);
+                }
+
+                return retrievedChunks;
+            }
         }
         catch (Exception exception)
         {
-            logger.LogWarning(exception, "Failed to persist retrieval log for user {UserId}.", request.UserId);
+            stopwatch.Stop();
+            AiPipelineLog.RetrievalFailed(
+                logger,
+                request.QueryKind,
+                normalizedQuery.Length,
+                stopwatch.ElapsedMilliseconds,
+                exception);
+            throw;
         }
-
-        return retrievedChunks;
     }
 
     private static Guid? TryExtractChunkId(QdrantQueryPoint match)

@@ -2,10 +2,12 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SuperChat.Contracts.Configuration;
 using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Infrastructure.Diagnostics;
 
 namespace SuperChat.Infrastructure.Services;
 
@@ -62,6 +64,9 @@ public sealed class QdrantClient(
             throw new InvalidOperationException("Qdrant memory collection name is not configured.");
         }
 
+        var stopwatch = Stopwatch.StartNew();
+        AiPipelineLog.QdrantUpsertStarted(logger, collectionName, points.Count);
+
         var payload = new
         {
             points = points.Select(point => new
@@ -80,12 +85,25 @@ public sealed class QdrantClient(
             })
         };
 
-        using var response = await httpClient.PutAsJsonAsync(
-            $"/collections/{Uri.EscapeDataString(collectionName)}/points?wait=true",
-            payload,
-            cancellationToken);
+        try
+        {
+            using (var response = await httpClient.PutAsJsonAsync(
+                       $"/collections/{Uri.EscapeDataString(collectionName)}/points?wait=true",
+                       payload,
+                       cancellationToken))
+            {
+                response.EnsureSuccessStatusCode();
+            }
 
-        response.EnsureSuccessStatusCode();
+            stopwatch.Stop();
+            AiPipelineLog.QdrantUpsertCompleted(logger, collectionName, points.Count, stopwatch.ElapsedMilliseconds);
+        }
+        catch (Exception exception)
+        {
+            stopwatch.Stop();
+            AiPipelineLog.QdrantUpsertFailed(logger, collectionName, points.Count, stopwatch.ElapsedMilliseconds, exception);
+            throw;
+        }
     }
 
     public async Task<IReadOnlyList<QdrantQueryPoint>> QueryMemoryPointsAsync(QdrantHybridQuery request, CancellationToken cancellationToken)
@@ -97,6 +115,9 @@ public sealed class QdrantClient(
         {
             throw new InvalidOperationException("Qdrant memory collection name is not configured.");
         }
+
+        var stopwatch = Stopwatch.StartNew();
+        AiPipelineLog.QdrantQueryStarted(logger, collectionName, request.Limit, request.PrefetchLimit);
 
         var filter = BuildFilter(request);
         var payload = new HybridQueryRequestDto(
@@ -118,60 +139,86 @@ public sealed class QdrantClient(
             false);
 
         var jsonPayload = JsonSerializer.Serialize(payload);
-        using var content = new StringContent(jsonPayload);
-        content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
-
-        using var response = await httpClient.PostAsync(
-            $"/collections/{Uri.EscapeDataString(collectionName)}/points/query",
-            content,
-            cancellationToken);
-
-        response.EnsureSuccessStatusCode();
-
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
-
-        var pointsElement = ResolvePointsElement(document.RootElement);
-        if (pointsElement.ValueKind != JsonValueKind.Array)
+        try
         {
-            return [];
-        }
+            using (var content = new StringContent(jsonPayload))
+            {
+                content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
 
-        var points = new List<QdrantQueryPoint>();
-        foreach (var pointElement in pointsElement.EnumerateArray())
+                using (var response = await httpClient.PostAsync(
+                           $"/collections/{Uri.EscapeDataString(collectionName)}/points/query",
+                           content,
+                           cancellationToken))
+                {
+                    response.EnsureSuccessStatusCode();
+
+                    await using (var stream = await response.Content.ReadAsStreamAsync(cancellationToken))
+                    {
+                        using (var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken))
+                        {
+                            var pointsElement = ResolvePointsElement(document.RootElement);
+                            if (pointsElement.ValueKind != JsonValueKind.Array)
+                            {
+                                stopwatch.Stop();
+                                AiPipelineLog.QdrantQueryCompleted(logger, collectionName, 0, stopwatch.ElapsedMilliseconds);
+                                return [];
+                            }
+
+                            var points = new List<QdrantQueryPoint>();
+                            foreach (var pointElement in pointsElement.EnumerateArray())
+                            {
+                                var pointId = pointElement.TryGetProperty("id", out var idElement)
+                                    ? idElement.ValueKind == JsonValueKind.String
+                                        ? idElement.GetString() ?? string.Empty
+                                        : idElement.GetRawText()
+                                    : string.Empty;
+
+                                var score = pointElement.TryGetProperty("score", out var scoreElement) &&
+                                            scoreElement.ValueKind is JsonValueKind.Number
+                                    ? scoreElement.GetDouble()
+                                    : 0d;
+
+                                var parsedPayload = pointElement.TryGetProperty("payload", out var payloadElement)
+                                    ? ConvertPayloadObject(payloadElement)
+                                    : new Dictionary<string, object?>(StringComparer.Ordinal);
+
+                                points.Add(new QdrantQueryPoint(pointId, score, parsedPayload));
+                            }
+
+                            stopwatch.Stop();
+                            AiPipelineLog.QdrantQueryCompleted(logger, collectionName, points.Count, stopwatch.ElapsedMilliseconds);
+                            return points;
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception exception)
         {
-            var pointId = pointElement.TryGetProperty("id", out var idElement)
-                ? idElement.ValueKind == JsonValueKind.String
-                    ? idElement.GetString() ?? string.Empty
-                    : idElement.GetRawText()
-                : string.Empty;
-
-            var score = pointElement.TryGetProperty("score", out var scoreElement) &&
-                        scoreElement.ValueKind is JsonValueKind.Number
-                ? scoreElement.GetDouble()
-                : 0d;
-
-            var parsedPayload = pointElement.TryGetProperty("payload", out var payloadElement)
-                ? ConvertPayloadObject(payloadElement)
-                : new Dictionary<string, object?>(StringComparer.Ordinal);
-
-            points.Add(new QdrantQueryPoint(pointId, score, parsedPayload));
+            stopwatch.Stop();
+            AiPipelineLog.QdrantQueryFailed(
+                logger,
+                collectionName,
+                request.Limit,
+                request.PrefetchLimit,
+                stopwatch.ElapsedMilliseconds,
+                exception);
+            throw;
         }
-
-        return points;
     }
 
     private async Task<bool> CollectionExistsAsync(string collectionName, CancellationToken cancellationToken)
     {
-        using var response = await httpClient.GetAsync($"/collections/{Uri.EscapeDataString(collectionName)}", cancellationToken);
-
-        if (response.StatusCode == HttpStatusCode.NotFound)
+        using (var response = await httpClient.GetAsync($"/collections/{Uri.EscapeDataString(collectionName)}", cancellationToken))
         {
-            return false;
-        }
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                return false;
+            }
 
-        response.EnsureSuccessStatusCode();
-        return true;
+            response.EnsureSuccessStatusCode();
+            return true;
+        }
     }
 
     private async Task CreateMemoryCollectionAsync(
@@ -199,19 +246,20 @@ public sealed class QdrantClient(
             sparse_vectors = sparseVectors
         };
 
-        using var response = await httpClient.PutAsJsonAsync(
-            $"/collections/{Uri.EscapeDataString(collectionName)}",
-            payload,
-            cancellationToken);
-
-        if (response.StatusCode == HttpStatusCode.Conflict)
+        using (var response = await httpClient.PutAsJsonAsync(
+                   $"/collections/{Uri.EscapeDataString(collectionName)}",
+                   payload,
+                   cancellationToken))
         {
-            logger.LogInformation("Qdrant collection {CollectionName} already exists.", collectionName);
-            return;
-        }
+            if (response.StatusCode == HttpStatusCode.Conflict)
+            {
+                logger.LogInformation("Qdrant collection {CollectionName} already exists.", collectionName);
+                return;
+            }
 
-        response.EnsureSuccessStatusCode();
-        logger.LogInformation("Created Qdrant collection {CollectionName}.", collectionName);
+            response.EnsureSuccessStatusCode();
+            logger.LogInformation("Created Qdrant collection {CollectionName}.", collectionName);
+        }
     }
 
     private async Task EnsurePayloadIndexAsync(
@@ -226,17 +274,18 @@ public sealed class QdrantClient(
             field_schema = fieldSchema
         };
 
-        using var response = await httpClient.PutAsJsonAsync(
-            $"/collections/{Uri.EscapeDataString(collectionName)}/index",
-            payload,
-            cancellationToken);
-
-        if (response.StatusCode == HttpStatusCode.Conflict)
+        using (var response = await httpClient.PutAsJsonAsync(
+                   $"/collections/{Uri.EscapeDataString(collectionName)}/index",
+                   payload,
+                   cancellationToken))
         {
-            return;
-        }
+            if (response.StatusCode == HttpStatusCode.Conflict)
+            {
+                return;
+            }
 
-        response.EnsureSuccessStatusCode();
+            response.EnsureSuccessStatusCode();
+        }
     }
 
     private static FilterDto BuildFilter(QdrantHybridQuery request)

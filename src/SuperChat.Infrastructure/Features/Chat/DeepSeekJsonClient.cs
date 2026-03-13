@@ -1,10 +1,12 @@
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SuperChat.Contracts;
 using SuperChat.Contracts.Configuration;
 using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Infrastructure.Diagnostics;
 
 namespace SuperChat.Infrastructure.Services;
 
@@ -37,35 +39,77 @@ public sealed class DeepSeekJsonClient(
             new DeepSeekResponseFormat("json_object"),
             Math.Max(1, maxTokens),
             0.1);
+        var promptCharacters = messages.Sum(item => item.Content.Length);
+        var normalizedMaxTokens = Math.Max(1, maxTokens);
+        var stopwatch = Stopwatch.StartNew();
 
-        using var response = await httpClient.PostAsJsonAsync(
-            "/chat/completions",
-            request,
-            JsonOptions,
-            cancellationToken);
-
-        response.EnsureSuccessStatusCode();
-
-        var completion = await response.Content.ReadFromJsonAsync<DeepSeekChatCompletionResponse>(JsonOptions, cancellationToken);
-        var content = completion?.Choices?
-            .FirstOrDefault()?
-            .Message?
-            .Content?
-            .Trim();
-
-        if (string.IsNullOrWhiteSpace(content))
-        {
-            logger.LogWarning("DeepSeek returned an empty JSON response.");
-            return null;
-        }
+        AiPipelineLog.DeepSeekRequestStarted(
+            logger,
+            configuredOptions.Model,
+            messages.Count,
+            promptCharacters,
+            normalizedMaxTokens);
 
         try
         {
-            return JsonSerializer.Deserialize<TResponse>(ExtractJsonObject(content), JsonOptions);
+            using (var response = await httpClient.PostAsJsonAsync(
+                       "/chat/completions",
+                       request,
+                       JsonOptions,
+                       cancellationToken))
+            {
+                response.EnsureSuccessStatusCode();
+
+                var completion = await response.Content.ReadFromJsonAsync<DeepSeekChatCompletionResponse>(JsonOptions, cancellationToken);
+                var content = completion?.Choices?
+                    .FirstOrDefault()?
+                    .Message?
+                    .Content?
+                    .Trim();
+
+                stopwatch.Stop();
+                AiPipelineLog.DeepSeekRequestCompleted(
+                    logger,
+                    configuredOptions.Model,
+                    messages.Count,
+                    completion?.Choices?.Count ?? 0,
+                    content?.Length ?? 0,
+                    stopwatch.ElapsedMilliseconds);
+
+                if (string.IsNullOrWhiteSpace(content))
+                {
+                    logger.LogWarning("DeepSeek returned an empty JSON response.");
+                    return null;
+                }
+
+                try
+                {
+                    return JsonSerializer.Deserialize<TResponse>(ExtractJsonObject(content), JsonOptions);
+                }
+                catch (JsonException exception)
+                {
+                    logger.LogWarning(exception, "DeepSeek returned invalid JSON content: {Content}", content);
+                    throw;
+                }
+            }
         }
-        catch (JsonException exception)
+        catch (Exception exception)
         {
-            logger.LogWarning(exception, "DeepSeek returned invalid JSON content: {Content}", content);
+            stopwatch.Stop();
+            var statusCode = exception is HttpRequestException httpRequestException
+                ? httpRequestException.StatusCode?.ToString() ?? string.Empty
+                : string.Empty;
+
+            AiPipelineLog.DeepSeekRequestFailed(
+                logger,
+                configuredOptions.Model,
+                messages.Count,
+                promptCharacters,
+                normalizedMaxTokens,
+                stopwatch.ElapsedMilliseconds,
+                statusCode,
+                exception);
+
             throw;
         }
     }

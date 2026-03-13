@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SuperChat.Contracts.Configuration;
 using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Infrastructure.Diagnostics;
 
 namespace SuperChat.Infrastructure.Services;
 
@@ -27,12 +28,51 @@ public sealed class EmbeddingServiceClient(
         }
 
         var configuredProvider = NormalizeProvider(options.Value.Backend);
-        return configuredProvider switch
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        var purposeName = purpose.ToString();
+
+        AiPipelineLog.EmbeddingRequestStarted(logger, configuredProvider, purposeName, text.Length);
+
+        try
         {
-            "localservice" => await EmbedViaLocalServiceAsync(text, cancellationToken),
-            "yandexcloud" => await EmbedViaYandexCloudAsync(text, purpose, cancellationToken),
-            _ => throw new InvalidOperationException($"Unsupported embedding backend: {options.Value.Backend}")
-        };
+            var embedding = configuredProvider switch
+            {
+                "localservice" => await EmbedViaLocalServiceAsync(text, cancellationToken),
+                "yandexcloud" => await EmbedViaYandexCloudAsync(text, purpose, cancellationToken),
+                _ => throw new InvalidOperationException($"Unsupported embedding backend: {options.Value.Backend}")
+            };
+
+            stopwatch.Stop();
+            AiPipelineLog.EmbeddingRequestCompleted(
+                logger,
+                configuredProvider,
+                purposeName,
+                text.Length,
+                embedding.DenseVector.Count,
+                embedding.SparseVector.Values.Count,
+                string.IsNullOrWhiteSpace(embedding.Model) ? "unknown" : embedding.Model,
+                stopwatch.ElapsedMilliseconds);
+
+            return embedding;
+        }
+        catch (Exception exception)
+        {
+            stopwatch.Stop();
+            var statusCode = exception is HttpRequestException httpRequestException
+                ? httpRequestException.StatusCode?.ToString() ?? string.Empty
+                : string.Empty;
+
+            AiPipelineLog.EmbeddingRequestFailed(
+                logger,
+                configuredProvider,
+                purposeName,
+                text.Length,
+                stopwatch.ElapsedMilliseconds,
+                statusCode,
+                exception);
+
+            throw;
+        }
     }
 
     private async Task<TextEmbedding> EmbedViaLocalServiceAsync(string text, CancellationToken cancellationToken)
