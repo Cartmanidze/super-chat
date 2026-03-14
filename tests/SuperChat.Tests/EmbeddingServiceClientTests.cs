@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SuperChat.Contracts.Configuration;
@@ -124,8 +125,15 @@ public sealed class EmbeddingServiceClientTests
         Assert.Equal("emb://b1g-folder/text-search-query/latest:2026-03-01", result.EmbeddingVersion);
         Assert.Equal("/foundationModels/v1/textEmbedding", handler.LastRequest!.RequestUri!.AbsolutePath);
         Assert.Equal("Api-Key yc-secret", handler.LastRequest.Headers.Authorization!.ToString());
-        Assert.Contains("\"modelUri\":\"emb://b1g-folder/text-search-query/latest\"", handler.LastRequestBody, StringComparison.Ordinal);
-        Assert.Contains("\"text\":\"\\u0427\\u0442\\u043e \\u044f \\u043e\\u0431\\u0435\\u0449\\u0430\\u043b \\u0418\\u0432\\u0430\\u043d\\u0443?\"", handler.LastRequestBody, StringComparison.Ordinal);
+
+        using var requestDocument = JsonDocument.Parse(handler.LastRequestBody);
+        Assert.Equal(
+            "emb://b1g-folder/text-search-query/latest",
+            requestDocument.RootElement.GetProperty("modelUri").GetString());
+        Assert.Equal(
+            "Что я обещал Ивану?",
+            requestDocument.RootElement.GetProperty("text").GetString());
+
         Assert.NotEmpty(result.SparseVector.Indices);
         Assert.Equal(result.SparseVector.Indices.Count, result.SparseVector.Values.Count);
     }
