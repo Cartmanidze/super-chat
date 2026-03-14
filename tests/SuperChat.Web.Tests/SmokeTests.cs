@@ -25,8 +25,8 @@ public sealed class SmokeTests : IClassFixture<WebTestApplicationFactory>
         var content = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("Задавайте короткие вопросы", content, StringComparison.Ordinal);
-        Assert.Contains("class=\"auth-card\"", content, StringComparison.Ordinal);
+        Assert.Contains("Не теряйте важное в Telegram", content, StringComparison.Ordinal);
+        Assert.Contains("class=\"landing-grid\"", content, StringComparison.Ordinal);
         Assert.Contains("lang=\"ru\"", content, StringComparison.Ordinal);
     }
 
@@ -37,19 +37,19 @@ public sealed class SmokeTests : IClassFixture<WebTestApplicationFactory>
         var content = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("Ask short questions about your conversations", content, StringComparison.Ordinal);
+        Assert.Contains("Stop losing important work in Telegram", content, StringComparison.Ordinal);
         Assert.Contains("lang=\"en\"", content, StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task HomePage_RemovesOldNavigationChrome()
+    public async Task HomePage_UsesNewProductLandingChrome()
     {
         var response = await _client.GetAsync("/");
         var content = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.DoesNotContain("class=\"topbar\"", content, StringComparison.Ordinal);
-        Assert.DoesNotContain("theme-switcher", content, StringComparison.Ordinal);
+        Assert.Contains("class=\"public-topbar\"", content, StringComparison.Ordinal);
+        Assert.Contains("class=\"login-card premium-card\"", content, StringComparison.Ordinal);
     }
 
     [Fact]

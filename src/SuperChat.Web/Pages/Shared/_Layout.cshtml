@@ -1,20 +1,132 @@
 <!DOCTYPE html>
-<html lang="@CultureInfo.CurrentUICulture.TwoLetterISOLanguageName">
+@{
+  var path = Context.Request.Path.Value ?? "/";
+  var isSignedIn = User.Identity?.IsAuthenticated ?? false;
+  var currentLanguage = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+  var returnUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
+  var switchCulture = string.Equals(currentLanguage, "ru", StringComparison.OrdinalIgnoreCase) ? "en" : "ru";
+  var switchLabel = string.Equals(currentLanguage, "ru", StringComparison.OrdinalIgnoreCase) ? "EN" : "RU";
+
+  bool IsActive(params string[] prefixes)
+  {
+    foreach (var prefix in prefixes)
+    {
+      if (string.Equals(prefix, "/", StringComparison.Ordinal))
+      {
+        if (string.Equals(path, "/", StringComparison.Ordinal))
+        {
+          return true;
+        }
+
+        continue;
+      }
+
+      if (path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+      {
+        return true;
+      }
+    }
+
+    return false;
+  }
+}
+<html lang="@currentLanguage">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>@ViewData["Title"] - super-chat</title>
+  <title>@ViewData["Title"] - SuperChat</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
   <link rel="stylesheet" href="~/SuperChat.Web.styles.css" asp-append-version="true" />
 </head>
 <body>
-  <main class="app-shell">
-    @RenderBody()
-  </main>
+  @if (isSignedIn)
+  {
+    <div class="app-layout">
+      <aside class="app-sidebar">
+        <div class="brand-block">
+          <a class="brand-mark" asp-page="/Index">SC</a>
+          <div>
+            <a class="brand-title" asp-page="/Index">SuperChat</a>
+            <p class="brand-copy">Work memory layer for Telegram</p>
+          </div>
+        </div>
 
+        <nav class="sidebar-nav" aria-label="Primary">
+          <a class="sidebar-link@(IsActive("/today") ? " is-active" : string.Empty)" asp-page="/Dashboard/Today">
+            <span>@T["Nav.Today"]</span>
+            <small>Рабочая панель дня</small>
+          </a>
+          <a class="sidebar-link@(IsActive("/") ? " is-active" : string.Empty)" asp-page="/Index">
+            <span>@T["Nav.Search"] / Ask</span>
+            <small>Синтезированный ответ и evidence</small>
+          </a>
+          <a class="sidebar-link@(IsActive("/search") ? " is-active" : string.Empty)" asp-page="/Search/Index">
+            <span>@T["Nav.Search"]</span>
+            <small>Где это обсуждали</small>
+          </a>
+          <a class="sidebar-link@(IsActive("/connect") ? " is-active" : string.Empty)" asp-page="/Connect/Telegram">
+            <span>@T["Nav.Connect"]</span>
+            <small>Подключение Telegram</small>
+          </a>
+          <a class="sidebar-link@(IsActive("/settings") ? " is-active" : string.Empty)" asp-page="/Settings/Connections">
+            <span>@T["Nav.Settings"]</span>
+            <small>Профиль и подключения</small>
+          </a>
+          <a class="sidebar-link@(IsActive("/feedback") ? " is-active" : string.Empty)" asp-page="/Feedback/Index">
+            <span>@T["Nav.Feedback"]</span>
+            <small>Что полезно, а что шумно</small>
+          </a>
+        </nav>
+
+        <div class="sidebar-footer-card">
+          <span class="status-badge status-neutral">Pilot</span>
+          <p>Спокойный рабочий интерфейс поверх Telegram без лишнего продуктового шума.</p>
+        </div>
+      </aside>
+
+      <div class="app-main">
+        <header class="app-topbar">
+          <div class="topbar-copy">
+            <p class="section-kicker">SuperChat</p>
+            <h1>@ViewData["Title"]</h1>
+          </div>
+
+          <div class="topbar-actions">
+            <a class="topbar-link" href="/localization/set-language?culture=@switchCulture&amp;returnUrl=@Uri.EscapeDataString(returnUrl)">@switchLabel</a>
+            <a class="topbar-link" asp-page="/Auth/SignOut">@T["Nav.SignOut"]</a>
+          </div>
+        </header>
+
+        <main class="page-shell">
+          @RenderBody()
+        </main>
+      </div>
+
+      <nav class="mobile-nav" aria-label="Mobile navigation">
+        <a class="mobile-nav-link@(IsActive("/today") ? " is-active" : string.Empty)" asp-page="/Dashboard/Today">@T["Nav.Today"]</a>
+        <a class="mobile-nav-link@(IsActive("/") ? " is-active" : string.Empty)" asp-page="/Index">@T["Nav.Search"]</a>
+        <a class="mobile-nav-link@(IsActive("/settings", "/connect") ? " is-active" : string.Empty)" asp-page="/Settings/Connections">Профиль</a>
+      </nav>
+    </div>
+  }
+  else
+  {
+    <div class="public-shell">
+      <header class="public-topbar">
+        <a class="brand-title" asp-page="/Index">SuperChat</a>
+        <a class="topbar-link" href="/localization/set-language?culture=@switchCulture&amp;returnUrl=@Uri.EscapeDataString(returnUrl)">@switchLabel</a>
+      </header>
+
+      <main class="public-page-shell">
+        @RenderBody()
+      </main>
+    </div>
+  }
+
+  <script src="~/js/site.js" asp-append-version="true"></script>
   @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

@@ -2,33 +2,118 @@
 @model SuperChat.Web.Pages.Dashboard.TodayModel
 @{
   ViewData["Title"] = T["Today.PageTitle"];
+  var lanes = new[]
+  {
+    Model.WaitingSection,
+    Model.CommitmentsSection,
+    Model.MeetingsSection,
+    Model.TodaySection
+  };
 }
 
-<section class="stack">
-  <div class="section-head">
-    <p class="eyebrow">@T["Today.Eyebrow"]</p>
-    <h1>@T["Today.Title"]</h1>
+<section class="page-stack">
+  <div class="page-hero dashboard-hero">
+    <div class="page-hero-copy">
+      <p class="section-kicker">@T["Today.Eyebrow"]</p>
+      <h1>@T["Today.Title"]</h1>
+      <p class="page-intro">
+        В этой панели за 20 секунд должно быть понятно, где нужен ответ, что уже обещано, какие встречи приближаются
+        и какие сигналы реально важны сегодня.
+      </p>
+    </div>
+
+    <div class="metric-grid">
+      <article class="metric-card">
+        <span class="metric-label">Нужно ответить</span>
+        <strong>@Model.Summary.WaitingCount</strong>
+        <small>живых точек внимания</small>
+      </article>
+      <article class="metric-card">
+        <span class="metric-label">Ты пообещал</span>
+        <strong>@Model.Summary.CommitmentCount</strong>
+        <small>зафиксированных обещаний</small>
+      </article>
+      <article class="metric-card">
+        <span class="metric-label">Скоро встречи</span>
+        <strong>@Model.Summary.MeetingCount</strong>
+        <small>временных договорённостей</small>
+      </article>
+      <article class="metric-card">
+        <span class="metric-label">Важно сегодня</span>
+        <strong>@Model.Summary.TodayCount</strong>
+        <small>сигналов в фокусе</small>
+      </article>
+    </div>
   </div>
 
-  @if (Model.Cards.Count == 0)
+  @if (!Model.TelegramConnected)
   {
-    <div class="empty-state">
-      <p>@T["Today.Empty"]</p>
-      <a class="button primary" asp-page="/Connect/Telegram">@T["Today.OpenTelegramConnection"]</a>
-    </div>
+    <section class="empty-shell">
+      <div class="empty-card">
+        <span class="status-badge status-warning">Telegram не подключён</span>
+        <h2>Сначала подключите Telegram</h2>
+        <p>
+          SuperChat начинает работать только после подключения Telegram. После этого появятся сигналы по обещаниям,
+          follow-up'ам, встречам и важным темам дня.
+        </p>
+        <div class="inline-actions">
+          <a class="app-button app-button-primary" asp-page="/Connect/Telegram">Подключить Telegram</a>
+          <a class="app-button app-button-secondary" asp-page="/Search/Index">Открыть поиск</a>
+        </div>
+      </div>
+    </section>
   }
   else
   {
-    <div class="card-grid">
-      @foreach (var card in Model.Cards)
+    <section class="dashboard-grid">
+      @foreach (var lane in lanes)
       {
-        <article class="section-card">
-          <span class="pill">@UiText.Kind(card.Kind)</span>
-          <h2>@UiText.CardTitle(card.Title)</h2>
-          <p>@card.Summary</p>
-          <small>@UiText.SourceRoom(card.SourceRoom)</small>
+        <article class="dashboard-lane">
+          <header class="lane-header">
+            <div>
+              <h2>@lane.Title</h2>
+              <p>@lane.Description</p>
+            </div>
+            <span class="count-pill">@lane.Items.Count</span>
+          </header>
+
+          @if (lane.Items.Count == 0)
+          {
+            <div class="lane-empty">
+              <p>@lane.EmptyText</p>
+            </div>
+          }
+          else
+          {
+            <div class="signal-list">
+              @foreach (var card in lane.Items)
+              {
+                <article class="signal-card">
+                  <div class="signal-head">
+                    <span class="signal-kind">@lane.Title</span>
+                    <span class="signal-hint">@card.Hint</span>
+                  </div>
+
+                  <h3>@UiText.CardTitle(card.Title)</h3>
+                  <p class="signal-summary">@card.Summary</p>
+
+                  <div class="signal-meta">
+                    <span>@UiText.SourceRoom(card.ChatLabel)</span>
+                    <span>@card.Timestamp.ToLocalTime().ToString("dd.MM, HH:mm")</span>
+                  </div>
+
+                  <div class="signal-actions">
+                    <a class="action-link" asp-page="/Search/Index" asp-route-query="@card.SearchQuery">Открыть</a>
+                    <a class="action-link" asp-page="/Feedback/Index">Готово</a>
+                    <a class="action-link" asp-page="/Feedback/Index">Скрыть</a>
+                    <a class="action-link action-link-muted" asp-page="/Feedback/Index">Не полезно</a>
+                  </div>
+                </article>
+              }
+            </div>
+          }
         </article>
       }
-    </div>
+    </section>
   }
 </section>

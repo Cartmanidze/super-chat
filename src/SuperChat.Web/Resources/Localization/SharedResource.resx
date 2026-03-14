@@ -519,4 +519,43 @@
   <data name="Chat.Error.Generic" xml:space="preserve">
     <value>Не удалось получить ответ. Попробуйте ещё раз.</value>
   </data>
+  <data name="Landing.Title" xml:space="preserve">
+    <value>Не теряйте важное в Telegram</value>
+  </data>
+  <data name="Landing.Lead" xml:space="preserve">
+    <value>SuperChat превращает шумные рабочие переписки в понятную панель действий: что важно сегодня, кто ждёт ответа, что вы пообещали и где именно это обсуждали.</value>
+  </data>
+  <data name="Landing.Point.Today.Title" xml:space="preserve">
+    <value>Что важно сегодня</value>
+  </data>
+  <data name="Landing.Point.Today.Copy" xml:space="preserve">
+    <value>Сразу видно, где нужен следующий шаг.</value>
+  </data>
+  <data name="Landing.Point.Waiting.Title" xml:space="preserve">
+    <value>Кто ждёт ответа</value>
+  </data>
+  <data name="Landing.Point.Waiting.Copy" xml:space="preserve">
+    <value>Follow-up'ы не теряются в потоке сообщений.</value>
+  </data>
+  <data name="Landing.Point.Commitment.Title" xml:space="preserve">
+    <value>Что вы пообещали</value>
+  </data>
+  <data name="Landing.Point.Commitment.Copy" xml:space="preserve">
+    <value>Система поднимает обещания и договорённости обратно на поверхность.</value>
+  </data>
+  <data name="Landing.Point.Search.Title" xml:space="preserve">
+    <value>Где это обсуждали</value>
+  </data>
+  <data name="Landing.Point.Search.Copy" xml:space="preserve">
+    <value>Каждый вывод привязан к конкретному чату и контексту.</value>
+  </data>
+  <data name="Landing.Login.Title" xml:space="preserve">
+    <value>Вход по приглашению</value>
+  </data>
+  <data name="Landing.Login.Copy" xml:space="preserve">
+    <value>Получите magic link и откройте SuperChat без лишних шагов. Доступ пока только для pilot-аккаунтов.</value>
+  </data>
+  <data name="Landing.InviteOnly" xml:space="preserve">
+    <value>Сервис работает поверх Telegram и не заменяет сам мессенджер. В центре — ясность, доверие и объяснимый контекст.</value>
+  </data>
 </root>

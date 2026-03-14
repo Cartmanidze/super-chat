@@ -1,36 +1,118 @@
 @page "/settings/connections"
+@using System.Globalization
+@using SuperChat.Domain.Model
 @model SuperChat.Web.Pages.Settings.ConnectionsModel
 @{
   ViewData["Title"] = T["Connections.PageTitle"];
+  var connected = Model.ConnectionState == IntegrationConnectionState.Connected;
+  var currentLanguage = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "ru" ? "Русский" : "English";
+  var returnUrl = $"{Request.Path}{Request.QueryString}";
 }
 
-<section class="stack">
-  <div class="section-card">
-    <p class="eyebrow">@T["Settings.Eyebrow"]</p>
-    <h1>@T["Connections.Title"]</h1>
+<section class="page-stack">
+  <div class="page-hero">
+    <div class="page-hero-copy">
+      <p class="section-kicker">@T["Settings.Eyebrow"]</p>
+      <h1>Подключения и профиль</h1>
+      <p class="page-intro">
+        Здесь собраны настройки подключения Telegram, язык интерфейса, текущая timezone и короткое объяснение,
+        как именно SuperChat работает поверх ваших переписок.
+      </p>
+    </div>
+  </div>
 
-    <dl class="definition-grid">
-      <div>
-        <dt>@T["Connections.ProductEmail"]</dt>
-        <dd>@Model.Email</dd>
+  <div class="settings-grid">
+    <section class="premium-card settings-card">
+      <div class="section-headline">
+        <div>
+          <p class="section-kicker">Telegram</p>
+          <h2>@(connected ? "Подключение активно" : "Telegram не подключён")</h2>
+        </div>
+        <span class="status-badge @(connected ? "status-success" : "status-warning")">
+          @UiText.ConnectionState(Model.ConnectionState.ToString())
+        </span>
       </div>
-      <div>
-        <dt>@T["Connections.MatrixUser"]</dt>
-        <dd>@(Model.MatrixUserId ?? T["Common.Pending"])</dd>
-      </div>
-      <div>
-        <dt>@T["Connections.TelegramState"]</dt>
-        <dd>@UiText.ConnectionState(Model.ConnectionState.ToString())</dd>
-      </div>
-      <div>
-        <dt>@T["Common.LastSync"]</dt>
-        <dd>@(Model.LastSyncedAt?.ToString("u") ?? T["Common.Waiting"])</dd>
-      </div>
-    </dl>
 
-    <form method="post" asp-page-handler="Disconnect" class="hero-actions">
-      <button type="submit" class="button primary">@T["Connections.DisconnectTelegram"]</button>
-      <a class="button secondary" asp-page="/Connect/Telegram">@T["Connections.BackToConnectFlow"]</a>
-    </form>
+      <dl class="detail-grid">
+        <div class="detail-row">
+          <dt>@T["Connections.ProductEmail"]</dt>
+          <dd>@Model.Email</dd>
+        </div>
+        <div class="detail-row">
+          <dt>@T["Connections.MatrixUser"]</dt>
+          <dd>@(Model.MatrixUserId ?? "Будет создан автоматически")</dd>
+        </div>
+        <div class="detail-row">
+          <dt>@T["Common.LastSync"]</dt>
+          <dd>@(Model.LastSyncedAt?.ToLocalTime().ToString("dd.MM.yyyy, HH:mm") ?? "Ещё не было синхронизации")</dd>
+        </div>
+      </dl>
+
+      <div class="inline-actions">
+        <a class="app-button app-button-secondary" asp-page="/Connect/Telegram">
+          @(connected ? "Переподключить Telegram" : "Подключить Telegram")
+        </a>
+
+        @if (connected)
+        {
+          <form method="post" asp-page-handler="Disconnect">
+            <button type="submit" class="app-button app-button-ghost">@T["Connections.DisconnectTelegram"]</button>
+          </form>
+        }
+      </div>
+    </section>
+
+    <section class="premium-card settings-card">
+      <div class="section-headline">
+        <div>
+          <p class="section-kicker">Интерфейс</p>
+          <h2>Язык и timezone</h2>
+        </div>
+      </div>
+
+      <dl class="detail-grid">
+        <div class="detail-row">
+          <dt>Язык</dt>
+          <dd>@currentLanguage</dd>
+        </div>
+        <div class="detail-row">
+          <dt>Timezone</dt>
+          <dd>Europe/Moscow</dd>
+        </div>
+        <div class="detail-row">
+          <dt>Хранение данных</dt>
+          <dd>Pilot-режим, рабочие данные остаются в продуктовой БД и используются для построения сигналов.</dd>
+        </div>
+      </dl>
+
+      <div class="inline-actions">
+        <a class="app-button app-button-secondary" href="/localization/set-language?culture=ru&amp;returnUrl=@Uri.EscapeDataString(returnUrl)">RU</a>
+        <a class="app-button app-button-secondary" href="/localization/set-language?culture=en&amp;returnUrl=@Uri.EscapeDataString(returnUrl)">EN</a>
+      </div>
+    </section>
+
+    <section class="premium-card settings-card settings-card-wide">
+      <div class="section-headline">
+        <div>
+          <p class="section-kicker">Privacy / How it works</p>
+          <h2>Как SuperChat работает</h2>
+        </div>
+      </div>
+
+      <div class="policy-grid">
+        <article class="policy-card">
+          <strong>Не заменяет Telegram</strong>
+          <p>SuperChat сидит поверх Telegram и поднимает рабочие сигналы, не заставляя менять привычку общения.</p>
+        </article>
+        <article class="policy-card">
+          <strong>Каждый вывод объясним</strong>
+          <p>Сигналы и ответы должны приводить обратно к чату, человеку и конкретному фрагменту обсуждения.</p>
+        </article>
+        <article class="policy-card">
+          <strong>Никакого Matrix-шумa в UI</strong>
+          <p>Внутри архитектуры есть Matrix bridge, но пользовательский интерфейс скрывает эту техническую сложность.</p>
+        </article>
+      </div>
+    </section>
   </div>
 </section>

@@ -2,7 +2,7 @@
 @using System.Text.Json
 @model IndexModel
 @{
-  ViewData["Title"] = T["Chat.PageTitle"];
+  ViewData["Title"] = T["Search.PageTitle"];
   var templates = Model.Templates;
   var defaultTemplate = Model.DefaultTemplate;
   var defaultQuestion = T[defaultTemplate.QuestionKey].Value;
@@ -10,102 +10,218 @@
   {
     genericError = T["Chat.Error.Generic"].Value,
     thinking = T["Chat.Thinking"].Value,
-    intros = templates.ToDictionary(
-      template => template.Id,
-      template => T[template.AnswerIntroKey].Value,
-      StringComparer.Ordinal),
-    empties = templates.ToDictionary(
-      template => template.Id,
-      template => T[template.AnswerEmptyKey].Value,
-      StringComparer.Ordinal),
-    sourceLabel = T["Chat.Answer.Source"].Value
+    answerPlaceholder = "Выберите рабочий шаблон и отправьте запрос. Ответ появится здесь вместе с объяснимыми опорными карточками.",
+    evidenceEmpty = "После ответа здесь появятся сигналы, связанные с конкретными чатами и сообщениями.",
+    contextTitle = "Откройте карточку справа",
+    contextBody = "Каждый AI-вывод в SuperChat должен быть привязан к конкретному чату, фрагменту переписки и времени.",
+    sourceLabel = T["Chat.Answer.Source"].Value,
+    openLabel = "Открыть контекст",
+    feedbackLabel = "Не полезно"
   });
 }
 
 @if (!Model.IsSignedIn)
 {
-  <section class="auth-screen">
-    <div class="auth-card">
-      <p class="auth-kicker">@T["Chat.Auth.Kicker"]</p>
-      <h1>@T["Chat.Auth.Title"]</h1>
-      <p class="auth-copy">@T["Chat.Auth.Description"]</p>
+  <section class="landing-grid">
+    <div class="landing-copy">
+      <p class="section-kicker">SuperChat</p>
+      <h1>@T["Landing.Title"]</h1>
+      <p class="landing-lead">@T["Landing.Lead"]</p>
 
-      <form method="post" asp-page-handler="RequestLink" class="auth-form">
-        <label asp-for="Email" class="visually-hidden">@T["Common.Email"]</label>
-        <input asp-for="Email" type="email" placeholder="@T["Home.PilotEmailPlaceholder"]" autocomplete="email" />
-        <button type="submit" class="send-button wide">@T["Auth.RequestLink.Send"]</button>
-      </form>
+      <div class="landing-points">
+        <article class="landing-point">
+          <strong>@T["Landing.Point.Today.Title"]</strong>
+          <span>@T["Landing.Point.Today.Copy"]</span>
+        </article>
+        <article class="landing-point">
+          <strong>@T["Landing.Point.Waiting.Title"]</strong>
+          <span>@T["Landing.Point.Waiting.Copy"]</span>
+        </article>
+        <article class="landing-point">
+          <strong>@T["Landing.Point.Commitment.Title"]</strong>
+          <span>@T["Landing.Point.Commitment.Copy"]</span>
+        </article>
+        <article class="landing-point">
+          <strong>@T["Landing.Point.Search.Title"]</strong>
+          <span>@T["Landing.Point.Search.Copy"]</span>
+        </article>
+      </div>
+    </div>
 
-      @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
-      {
-        <p class="status-note">@Model.StatusMessage</p>
-      }
+    <div class="login-panel">
+      <div class="login-card premium-card">
+        <p class="section-kicker">@T["Chat.Auth.Kicker"]</p>
+        <h2>@T["Landing.Login.Title"]</h2>
+        <p class="support-copy">@T["Landing.Login.Copy"]</p>
 
-      @if (Model.DevelopmentLink is not null)
-      {
-        <p class="status-note">
-          @T["Auth.RequestLink.DevelopmentShortcut"]
-          <a class="inline-link" href="@Model.DevelopmentLink">@Model.DevelopmentLink</a>
-        </p>
-      }
+        <form method="post" asp-page-handler="RequestLink" class="auth-form">
+          <label asp-for="Email" class="visually-hidden">@T["Common.Email"]</label>
+          <input asp-for="Email" type="email" placeholder="@T["Home.PilotEmailPlaceholder"]" autocomplete="email" />
+          <button type="submit" class="app-button app-button-primary app-button-block">@T["Auth.RequestLink.Send"]</button>
+        </form>
+
+        @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+        {
+          <div class="inline-alert inline-alert-info">
+            @Model.StatusMessage
+          </div>
+        }
+
+        @if (Model.DevelopmentLink is not null)
+        {
+          <div class="inline-alert">
+            <strong>Development shortcut.</strong>
+            <a class="inline-link" href="@Model.DevelopmentLink">@Model.DevelopmentLink</a>
+          </div>
+        }
+
+        <div class="support-note">
+          <span class="status-badge status-neutral">Invite-only</span>
+          <p>@T["Landing.InviteOnly"]</p>
+        </div>
+      </div>
     </div>
   </section>
 }
 else
 {
-  <section class="chat-page">
-    <div class="chat-frame">
-      <div id="chat-feed" class="chat-feed">
-        <article class="chat-bubble assistant">
-          <p class="bubble-copy">@T["Chat.Greeting"]</p>
-
-          @if (!Model.CanAskQuestions)
-          {
-            <p class="bubble-copy">@T["Chat.Greeting.NoConnection"]</p>
-            <a class="inline-link" asp-page="/Connect/Telegram">@T["Chat.ConnectTelegram"]</a>
-          }
-        </article>
+  <section class="page-stack">
+    <div class="page-hero search-hero">
+      <div class="page-hero-copy">
+        <p class="section-kicker">@T["Search.Eyebrow"]</p>
+        <h1>Поиск по рабочей памяти</h1>
+        <p class="page-intro">
+          Это не чат-игрушка и не новый мессенджер. Здесь вы быстро достаёте рабочий смысл из Telegram:
+          важное на сегодня, ожидания ответа, встречи и конкретные места обсуждений.
+        </p>
       </div>
 
-      @if (Model.CanAskQuestions)
-      {
-        <div class="template-picker" role="radiogroup" aria-label="@T["Chat.Templates.Label"]">
-          @foreach (var template in templates)
-          {
-            var isDefaultTemplate = string.Equals(template.Id, defaultTemplate.Id, StringComparison.OrdinalIgnoreCase);
-            <button type="button"
-                    class="template-card@(isDefaultTemplate ? " is-selected" : string.Empty)"
-                    data-template-id="@template.Id"
-                    data-template-question="@T[template.QuestionKey]"
-                    data-template-description="@T[template.DescriptionKey]"
-                    aria-pressed="@(isDefaultTemplate ? "true" : "false")">
-              <strong>@T[template.TitleKey]</strong>
-              <span>@T[template.DescriptionKey]</span>
-            </button>
-          }
-        </div>
-
-        <form id="chat-form" method="post" asp-page-handler="Ask" class="chat-composer">
-          @Html.AntiForgeryToken()
-          <input asp-for="TemplateId" type="hidden" value="@defaultTemplate.Id" />
-
-          <label asp-for="Question" class="visually-hidden">@T["Chat.Input.Label"]</label>
-          <textarea asp-for="Question"
-                    id="chat-question"
-                    rows="2"
-                    maxlength="@Model.MaxQuestionLength"
-                    readonly>@defaultQuestion</textarea>
-
-          <div class="composer-footer">
-            <p id="composer-hint" class="composer-hint">@T[defaultTemplate.DescriptionKey]</p>
-            <div class="composer-actions">
-              <span class="composer-counter"><span id="char-count">@defaultQuestion.Length</span>/@Model.MaxQuestionLength</span>
-              <button id="chat-send" type="submit" class="send-button">@T["Chat.Send"]</button>
-            </div>
-          </div>
-        </form>
-      }
+      <div class="hero-action-stack">
+        <a class="app-button app-button-secondary" asp-page="/Dashboard/Today">Открыть Today</a>
+        <a class="app-button app-button-ghost" asp-page="/Search/Index">Где это обсуждали?</a>
+      </div>
     </div>
+
+    @if (!Model.CanAskQuestions)
+    {
+      <section class="empty-shell">
+        <div class="empty-card">
+          <span class="status-badge status-warning">Telegram ещё не подключён</span>
+          <h2>Подключите Telegram изнутри продукта</h2>
+          <p>
+            После подключения SuperChat начнёт поднимать обещания, follow-up'ы, встречи и важные сигналы
+            прямо из рабочих переписок.
+          </p>
+          <div class="inline-actions">
+            <a class="app-button app-button-primary" asp-page="/Connect/Telegram">@T["Chat.ConnectTelegram"]</a>
+            <a class="app-button app-button-secondary" asp-page="/Settings/Connections">Открыть настройки</a>
+          </div>
+        </div>
+      </section>
+    }
+    else
+    {
+      <section class="ask-layout">
+        <div class="ask-main">
+          <div class="premium-card query-studio">
+            <div class="query-header">
+              <div>
+                <p class="section-kicker">Search / Ask</p>
+                <h2>Быстрые рабочие вопросы</h2>
+              </div>
+              <span class="status-badge status-success">Telegram подключён</span>
+            </div>
+
+            <div class="chip-grid" role="radiogroup" aria-label="@T["Chat.Templates.Label"]">
+              @foreach (var template in templates)
+              {
+                var isDefaultTemplate = string.Equals(template.Id, defaultTemplate.Id, StringComparison.OrdinalIgnoreCase);
+                <button type="button"
+                        class="prompt-chip@(isDefaultTemplate ? " is-selected" : string.Empty)"
+                        data-template-id="@template.Id"
+                        data-template-question="@T[template.QuestionKey]"
+                        data-template-title="@T[template.TitleKey]"
+                        data-template-description="@T[template.DescriptionKey]"
+                        aria-pressed="@(isDefaultTemplate ? "true" : "false")">
+                  <strong>@T[template.TitleKey]</strong>
+                  <span>@T[template.DescriptionKey]</span>
+                </button>
+              }
+            </div>
+
+            <form id="chat-form" method="post" asp-page-handler="Ask" class="query-form">
+              @Html.AntiForgeryToken()
+              <input asp-for="TemplateId" type="hidden" value="@defaultTemplate.Id" />
+
+              <label asp-for="Question" class="form-label">@T["Chat.Input.Label"]</label>
+              <div class="query-input-shell">
+                <textarea asp-for="Question"
+                          id="chat-question"
+                          rows="3"
+                          maxlength="@Model.MaxQuestionLength"
+                          readonly>@defaultQuestion</textarea>
+                <div class="query-meta">
+                  <p id="composer-hint" class="query-hint">@T[defaultTemplate.DescriptionKey]</p>
+                  <div class="query-actions">
+                    <span class="character-counter"><span id="char-count">@defaultQuestion.Length</span>/@Model.MaxQuestionLength</span>
+                    <button id="chat-send" type="submit" class="app-button app-button-primary">@T["Chat.Send"]</button>
+                  </div>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          <div class="answer-layout">
+            <section class="answer-column">
+              <article id="answer-summary" class="premium-card answer-card is-empty">
+                <p class="section-kicker">Synthesized answer</p>
+                <h2>Ответ появится здесь</h2>
+                <p id="answer-copy">@Html.Raw("Выберите рабочий шаблон и отправьте запрос. Ответ появится здесь вместе с объяснимыми опорными карточками.")</p>
+              </article>
+
+              <section class="premium-card evidence-section">
+                <div class="section-headline">
+                  <div>
+                    <p class="section-kicker">Evidence</p>
+                    <h2>Контекст из Telegram</h2>
+                  </div>
+                  <a class="inline-link" asp-page="/Search/Index">Открыть полный поиск</a>
+                </div>
+
+                <div id="evidence-list" class="evidence-list">
+                  <article class="evidence-card evidence-card-placeholder">
+                    <strong>Пока без результатов</strong>
+                    <p>После ответа здесь появятся карточки с чатом, фрагментом переписки и временем.</p>
+                  </article>
+                </div>
+              </section>
+            </section>
+
+            <aside id="context-panel" class="premium-card context-panel">
+              <p class="section-kicker">Explainability</p>
+              <h2 id="context-title">Откройте карточку справа</h2>
+              <p id="context-copy">
+                Каждый AI-вывод в SuperChat должен быть привязан к конкретному чату, фрагменту переписки и времени.
+              </p>
+              <dl class="context-meta">
+                <div>
+                  <dt>@T["Chat.Answer.Source"]</dt>
+                  <dd id="context-source">—</dd>
+                </div>
+                <div>
+                  <dt>Время</dt>
+                  <dd id="context-time">—</dd>
+                </div>
+              </dl>
+              <div class="context-actions">
+                <a id="context-open" class="app-button app-button-secondary" asp-page="/Search/Index">Открыть контекст</a>
+                <a class="app-button app-button-ghost" asp-page="/Feedback/Index">Не полезно</a>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </section>
+    }
   </section>
 
   @section Scripts
@@ -118,13 +234,20 @@ else
           return;
         }
 
-        var buttons = Array.prototype.slice.call(document.querySelectorAll(".template-card"));
+        var buttons = Array.prototype.slice.call(document.querySelectorAll(".prompt-chip"));
         var templateInput = document.getElementById("TemplateId");
         var questionInput = document.getElementById("chat-question");
         var charCount = document.getElementById("char-count");
         var hint = document.getElementById("composer-hint");
         var sendButton = document.getElementById("chat-send");
-        var feed = document.getElementById("chat-feed");
+        var answerSummary = document.getElementById("answer-summary");
+        var answerCopy = document.getElementById("answer-copy");
+        var evidenceList = document.getElementById("evidence-list");
+        var contextTitle = document.getElementById("context-title");
+        var contextCopy = document.getElementById("context-copy");
+        var contextSource = document.getElementById("context-source");
+        var contextTime = document.getElementById("context-time");
+        var contextOpen = document.getElementById("context-open");
         var maxLength = @Model.MaxQuestionLength;
         var defaultTemplateId = "@defaultTemplate.Id";
 
@@ -145,75 +268,100 @@ else
 
           templateInput.value = button.dataset.templateId || defaultTemplateId;
           hint.textContent = button.dataset.templateDescription || "";
-          questionInput.readOnly = true;
           questionInput.value = button.dataset.templateQuestion || "";
-
           updateCounter();
           updateSubmitState();
         }
 
-        function appendBubble(role, content, items) {
-          var bubble = document.createElement("article");
-          bubble.className = "chat-bubble " + role;
-
-          var text = document.createElement("p");
-          text.className = "bubble-copy";
-          text.textContent = content;
-          bubble.appendChild(text);
-
-          if (role === "assistant" && items && items.length > 0) {
-            var list = document.createElement("div");
-            list.className = "chat-results";
-
-            items.forEach(function (item) {
-              var card = document.createElement("div");
-              card.className = "chat-result";
-
-              var title = document.createElement("strong");
-              title.textContent = item.title;
-              card.appendChild(title);
-
-              if (item.summary) {
-                var summary = document.createElement("p");
-                summary.textContent = item.summary;
-                card.appendChild(summary);
-              }
-
-              var meta = [];
-              if (item.sourceRoom) {
-                meta.push(strings.sourceLabel + ": " + item.sourceRoom);
-              }
-              if (item.timestamp) {
-                meta.push(new Date(item.timestamp).toLocaleString(document.documentElement.lang || undefined));
-              }
-
-              if (meta.length > 0) {
-                var metaLine = document.createElement("small");
-                metaLine.textContent = meta.join(" • ");
-                card.appendChild(metaLine);
-              }
-
-              list.appendChild(card);
-            });
-
-            bubble.appendChild(list);
-          }
-
-          feed.appendChild(bubble);
-          feed.scrollTop = feed.scrollHeight;
-          return bubble;
+        function resetContextPanel() {
+          contextTitle.textContent = strings.contextTitle;
+          contextCopy.textContent = strings.contextBody;
+          contextSource.textContent = "—";
+          contextTime.textContent = "—";
+          contextOpen.setAttribute("href", "/search");
         }
 
-        function buildAssistantText(payload) {
-          if (payload.assistantText && payload.assistantText.trim().length > 0) {
-            return payload.assistantText;
+        function selectEvidence(card) {
+          var cards = evidenceList.querySelectorAll(".evidence-card");
+          cards.forEach(function (item) { item.classList.remove("is-selected"); });
+          card.classList.add("is-selected");
+
+          contextTitle.textContent = card.dataset.title || "";
+          contextCopy.textContent = card.dataset.summary || "";
+          contextSource.textContent = card.dataset.source || "—";
+          contextTime.textContent = card.dataset.time || "—";
+          contextOpen.setAttribute("href", card.dataset.href || "/search");
+        }
+
+        function renderEvidence(items) {
+          evidenceList.innerHTML = "";
+
+          if (!items || items.length === 0) {
+            var emptyCard = document.createElement("article");
+            emptyCard.className = "evidence-card evidence-card-placeholder";
+            emptyCard.innerHTML = "<strong>Пока без результатов</strong><p>" + strings.evidenceEmpty + "</p>";
+            evidenceList.appendChild(emptyCard);
+            resetContextPanel();
+            return;
           }
 
-          if (!payload.items || payload.items.length === 0) {
-            return strings.empties[payload.mode] || strings.empties[defaultTemplateId];
-          }
+          items.forEach(function (item, index) {
+            var card = document.createElement("article");
+            card.className = "evidence-card";
+            card.tabIndex = 0;
 
-          return strings.intros[payload.mode] || strings.intros[defaultTemplateId];
+            var timestampLabel = item.timestamp
+              ? new Date(item.timestamp).toLocaleString(document.documentElement.lang || undefined)
+              : "—";
+
+            var searchSeed = encodeURIComponent(item.title || item.summary || item.sourceRoom || "");
+            card.dataset.title = item.title || "";
+            card.dataset.summary = item.summary || "";
+            card.dataset.source = item.sourceRoom || "—";
+            card.dataset.time = timestampLabel;
+            card.dataset.href = "/search?query=" + searchSeed;
+
+            card.innerHTML =
+              "<div class=\"evidence-head\">" +
+                "<strong>" + (item.title || "Signal") + "</strong>" +
+                "<span>" + timestampLabel + "</span>" +
+              "</div>" +
+              (item.summary ? "<p>" + item.summary + "</p>" : "") +
+              "<small>" + strings.sourceLabel + ": " + (item.sourceRoom || "—") + "</small>";
+
+            card.addEventListener("click", function () { selectEvidence(card); });
+            card.addEventListener("keypress", function (event) {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                selectEvidence(card);
+              }
+            });
+
+            evidenceList.appendChild(card);
+
+            if (index === 0) {
+              selectEvidence(card);
+            }
+          });
+        }
+
+        function renderLoadingState() {
+          answerSummary.classList.remove("is-empty");
+          answerSummary.classList.add("is-loading");
+          answerCopy.textContent = strings.thinking;
+          evidenceList.innerHTML =
+            "<article class=\"evidence-card skeleton-card\"></article>" +
+            "<article class=\"evidence-card skeleton-card\"></article>";
+          resetContextPanel();
+        }
+
+        function renderAnswer(payload) {
+          answerSummary.classList.remove("is-empty", "is-loading");
+          answerCopy.textContent = payload.assistantText && payload.assistantText.trim().length > 0
+            ? payload.assistantText
+            : "Сигналы ниже — это ближайший объяснимый контекст по выбранному рабочему вопросу.";
+
+          renderEvidence(payload.items || []);
         }
 
         buttons.forEach(function (button) {
@@ -229,9 +377,7 @@ else
             return;
           }
 
-          var question = questionInput.value.trim();
-          appendBubble("user", question);
-          var typingBubble = appendBubble("assistant", strings.thinking);
+          renderLoadingState();
           sendButton.disabled = true;
 
           try {
@@ -241,21 +387,23 @@ else
               credentials: "same-origin"
             });
 
-            typingBubble.remove();
-
             if (!response.ok) {
               var errorPayload = await response.json().catch(function () { return null; });
-              var errorMessage = errorPayload && errorPayload.error ? errorPayload.error : strings.genericError;
-              appendBubble("assistant", errorMessage);
+              answerSummary.classList.remove("is-loading");
+              answerCopy.textContent = errorPayload && errorPayload.error ? errorPayload.error : strings.genericError;
+              evidenceList.innerHTML = "<article class=\"evidence-card evidence-card-placeholder\"><strong>Ошибка</strong><p>" + strings.genericError + "</p></article>";
+              resetContextPanel();
               updateSubmitState();
               return;
             }
 
             var payload = await response.json();
-            appendBubble("assistant", buildAssistantText(payload), payload.items || []);
+            renderAnswer(payload);
           } catch (error) {
-            typingBubble.remove();
-            appendBubble("assistant", strings.genericError);
+            answerSummary.classList.remove("is-loading");
+            answerCopy.textContent = strings.genericError;
+            evidenceList.innerHTML = "<article class=\"evidence-card evidence-card-placeholder\"><strong>Ошибка</strong><p>" + strings.genericError + "</p></article>";
+            resetContextPanel();
           }
 
           updateCounter();
@@ -264,6 +412,7 @@ else
 
         updateCounter();
         updateSubmitState();
+        resetContextPanel();
       })();
     </script>
   }

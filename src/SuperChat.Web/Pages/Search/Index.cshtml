@@ -1,38 +1,171 @@
-﻿@page "/search"
+@page "/search"
 @model SuperChat.Web.Pages.Search.IndexModel
 @{
   ViewData["Title"] = T["Search.PageTitle"];
+  var examples = new[]
+  {
+    "Что я обещал?",
+    "Кто ждёт ответа?",
+    "Какие встречи скоро?",
+    "Где обсуждали цену?"
+  };
 }
 
-<section class="stack">
-  <div class="section-head">
-    <p class="eyebrow">@T["Search.Eyebrow"]</p>
-    <h1>@T["Search.Title"]</h1>
+<section class="page-stack">
+  <div class="page-hero search-page-hero">
+    <div class="page-hero-copy">
+      <p class="section-kicker">@T["Search.Eyebrow"]</p>
+      <h1>Где это обсуждали?</h1>
+      <p class="page-intro">
+        Ищите не по безликим дампам, а по рабочей памяти: по извлечённым сигналам, chat evidence и свежему контексту
+        из Telegram.
+      </p>
+    </div>
+
+    <div class="hero-action-stack">
+      <a class="app-button app-button-secondary" asp-page="/Dashboard/Today">Открыть Today</a>
+      <a class="app-button app-button-ghost" asp-page="/Index">Открыть Search / Ask</a>
+    </div>
   </div>
 
-  <form method="get" class="search-form">
-    <input asp-for="Query" placeholder="@T["Search.Placeholder"]" />
-    <button type="submit" class="button primary">@T["Search.Button"]</button>
-  </form>
+  <div class="premium-card search-workbench">
+    <form method="get" class="search-toolbar">
+      <label asp-for="Query" class="visually-hidden">@T["Search.Button"]</label>
+      <div class="search-field-shell">
+        <input asp-for="Query" placeholder="Например: договор, цена, Марина, Friday..." />
+        <button type="submit" class="app-button app-button-primary">@T["Search.Button"]</button>
+      </div>
+    </form>
 
-  @if (Model.Results.Count == 0 && !string.IsNullOrWhiteSpace(Model.Query))
-  {
-    <div class="empty-state">
-      <p>@T["Search.NoMatches", Model.Query]</p>
-    </div>
-  }
-  else if (Model.Results.Count > 0)
-  {
-    <div class="stack">
-      @foreach (var result in Model.Results)
+    <div class="quick-query-row">
+      @foreach (var example in examples)
       {
-        <article class="section-card">
-          <span class="pill">@UiText.Kind(result.Kind)</span>
-          <h2>@UiText.CardTitle(result.Title)</h2>
-          <p>@result.Summary</p>
-          <small>@UiText.SourceRoom(result.SourceRoom) | @result.ObservedAt.ToString("u")</small>
-        </article>
+        <a class="quick-query-pill" asp-page="/Search/Index" asp-route-query="@example">@example</a>
       }
     </div>
-  }
+  </div>
+
+  <div class="search-results-layout">
+    <section class="search-results-column">
+      @if (string.IsNullOrWhiteSpace(Model.Query))
+      {
+        <div class="empty-card">
+          <span class="status-badge status-neutral">Пустой запрос</span>
+          <h2>Введите тему, человека или фрагмент договорённости</h2>
+          <p>
+            Поиск сначала поднимает рабочие сигналы, а если их нет — показывает релевантные недавние сообщения.
+          </p>
+        </div>
+      }
+      else if (Model.Results.Count == 0)
+      {
+        <div class="empty-card">
+          <span class="status-badge status-warning">Ничего не найдено</span>
+          <h2>@T["Search.NoMatches", Model.Query]</h2>
+          <p>Попробуйте короче, по имени человека, по теме или по словам из самого сообщения.</p>
+        </div>
+      }
+      else
+      {
+        <div id="search-results" class="evidence-list search-results-list">
+          @for (var i = 0; i < Model.Results.Count; i++)
+          {
+            var result = Model.Results[i];
+            <article class="evidence-card search-result-card@(i == 0 ? " is-selected" : string.Empty)"
+                     tabindex="0"
+                     data-title="@UiText.CardTitle(result.Title)"
+                     data-summary="@result.Summary"
+                     data-kind="@UiText.Kind(result.Kind)"
+                     data-source="@UiText.SourceRoom(result.SourceRoom)"
+                     data-time="@result.ObservedAt.ToLocalTime().ToString("dd.MM.yyyy, HH:mm")">
+              <div class="evidence-head">
+                <strong>@UiText.CardTitle(result.Title)</strong>
+                <span>@result.ObservedAt.ToLocalTime().ToString("dd.MM, HH:mm")</span>
+              </div>
+              <p>@result.Summary</p>
+              <div class="evidence-footer">
+                <span class="signal-kind">@UiText.Kind(result.Kind)</span>
+                <small>@UiText.SourceRoom(result.SourceRoom)</small>
+              </div>
+            </article>
+          }
+        </div>
+      }
+    </section>
+
+    <aside class="premium-card context-panel search-context-panel">
+      @if (Model.Results.Count == 0)
+      {
+        <p class="section-kicker">Explainability</p>
+        <h2>Контекст появится справа</h2>
+        <p>Когда результаты есть, здесь можно быстро понять, почему конкретный сигнал попал в выдачу.</p>
+      }
+      else
+      {
+        var first = Model.Results[0];
+        <p class="section-kicker">Detail</p>
+        <h2 id="search-context-title">@UiText.CardTitle(first.Title)</h2>
+        <p id="search-context-copy">@first.Summary</p>
+        <dl class="context-meta">
+          <div>
+            <dt>Тип</dt>
+            <dd id="search-context-kind">@UiText.Kind(first.Kind)</dd>
+          </div>
+          <div>
+            <dt>@T["Chat.Answer.Source"]</dt>
+            <dd id="search-context-source">@UiText.SourceRoom(first.SourceRoom)</dd>
+          </div>
+          <div>
+            <dt>Время</dt>
+            <dd id="search-context-time">@first.ObservedAt.ToLocalTime().ToString("dd.MM.yyyy, HH:mm")</dd>
+          </div>
+        </dl>
+        <div class="context-actions">
+          <a class="app-button app-button-secondary" asp-page="/Feedback/Index">Не полезно</a>
+          <a class="app-button app-button-ghost" asp-page="/Dashboard/Today">Открыть Today</a>
+        </div>
+      }
+    </aside>
+  </div>
 </section>
+
+@section Scripts
+{
+  @if (Model.Results.Count > 0)
+  {
+    <script>
+      (function () {
+        var cards = Array.prototype.slice.call(document.querySelectorAll(".search-result-card"));
+        if (cards.length === 0) {
+          return;
+        }
+
+        var title = document.getElementById("search-context-title");
+        var copy = document.getElementById("search-context-copy");
+        var kind = document.getElementById("search-context-kind");
+        var source = document.getElementById("search-context-source");
+        var time = document.getElementById("search-context-time");
+
+        function selectCard(card) {
+          cards.forEach(function (item) { item.classList.remove("is-selected"); });
+          card.classList.add("is-selected");
+          title.textContent = card.dataset.title || "";
+          copy.textContent = card.dataset.summary || "";
+          kind.textContent = card.dataset.kind || "";
+          source.textContent = card.dataset.source || "";
+          time.textContent = card.dataset.time || "";
+        }
+
+        cards.forEach(function (card) {
+          card.addEventListener("click", function () { selectCard(card); });
+          card.addEventListener("keypress", function (event) {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              selectCard(card);
+            }
+          });
+        });
+      })();
+    </script>
+  }
+}

@@ -1,48 +1,174 @@
 @page "/connect/telegram"
+@using SuperChat.Domain.Model
 @model SuperChat.Web.Pages.Connect.TelegramModel
 @{
   ViewData["Title"] = T["ConnectTelegram.PageTitle"];
+  var connected = Model.Connection.State == IntegrationConnectionState.Connected;
+  var pending = Model.Connection.State == IntegrationConnectionState.Pending;
 }
 
-<section class="stack">
-  <div class="section-card">
-    <p class="eyebrow">@T["ConnectTelegram.Eyebrow"]</p>
-    <h1>@T["ConnectTelegram.Title"]</h1>
-    <p>@T["ConnectTelegram.Description"]</p>
-
-    <dl class="definition-grid">
-      <div>
-        <dt>@T["ConnectTelegram.MatrixUser"]</dt>
-        <dd>@(Model.MatrixUserId ?? T["Common.Pending"])</dd>
-      </div>
-      <div>
-        <dt>@T["Common.Status"]</dt>
-        <dd>@UiText.ConnectionState(Model.Connection.State.ToString())</dd>
-      </div>
-      <div>
-        <dt>@T["Common.LastSync"]</dt>
-        <dd>@(Model.Connection.LastSyncedAt?.ToString("u") ?? T["Common.Waiting"])</dd>
-      </div>
-    </dl>
-
-    <form method="post">
-      <button type="submit" class="button primary">@T["ConnectTelegram.StartButton"]</button>
-    </form>
-
-    @if (Model.Connection.ActionUrl is not null)
-    {
-      <p class="notice">@T["ConnectTelegram.BridgeWebLogin"] <a href="@Model.Connection.ActionUrl">@Model.Connection.ActionUrl</a></p>
-    }
-    else if (Model.Connection.State == SuperChat.Domain.Model.IntegrationConnectionState.Pending)
-    {
-      <p class="notice">@T["ConnectTelegram.BridgePendingNotice"]</p>
-    }
-
-    <div class="hero-actions">
-      <a class="button secondary" asp-page="/Dashboard/Today">@T["ConnectTelegram.OpenToday"]</a>
-      <a class="button secondary" asp-page="/Settings/Connections">@T["ConnectTelegram.InspectDetails"]</a>
+<section class="page-stack">
+  <div class="page-hero">
+    <div class="page-hero-copy">
+      <p class="section-kicker">@T["ConnectTelegram.Eyebrow"]</p>
+      <h1>Подключение Telegram</h1>
+      <p class="page-intro">
+        Подключение происходит изнутри SuperChat. После этого продукт начнёт собирать обещания, follow-up'ы,
+        встречи и важные сигналы прямо из ваших рабочих переписок.
+      </p>
     </div>
+    <span class="status-badge @(connected ? "status-success" : pending ? "status-warning" : "status-neutral")">
+      @UiText.ConnectionState(Model.Connection.State.ToString())
+    </span>
+  </div>
 
-    <p class="hint">@T["ConnectTelegram.DevModeHint"]</p>
+  <div class="split-panel">
+    <section class="premium-card connection-panel">
+      <div class="section-headline">
+        <div>
+          <p class="section-kicker">Статус подключения</p>
+          <h2>@(connected ? "Telegram подключён" : "Подключите Telegram")</h2>
+        </div>
+      </div>
+
+      <dl class="detail-grid">
+        <div class="detail-row">
+          <dt>@T["ConnectTelegram.MatrixUser"]</dt>
+          <dd>@(Model.MatrixUserId ?? "Будет создан автоматически")</dd>
+        </div>
+        <div class="detail-row">
+          <dt>@T["Common.Status"]</dt>
+          <dd>@UiText.ConnectionState(Model.Connection.State.ToString())</dd>
+        </div>
+        <div class="detail-row">
+          <dt>@T["Common.LastSync"]</dt>
+          <dd>@(Model.Connection.LastSyncedAt?.ToLocalTime().ToString("dd.MM.yyyy, HH:mm") ?? "Ещё не синхронизировано")</dd>
+        </div>
+      </dl>
+
+      <div class="feature-stack">
+        <article class="feature-chip-card">
+          <strong>Обещания</strong>
+          <span>Кому и что вы пообещали в переписках.</span>
+        </article>
+        <article class="feature-chip-card">
+          <strong>Follow-ups</strong>
+          <span>Где от вас ждут ответ или следующий шаг.</span>
+        </article>
+        <article class="feature-chip-card">
+          <strong>Встречи</strong>
+          <span>Временные договорённости и ближайшие созвоны.</span>
+        </article>
+        <article class="feature-chip-card">
+          <strong>Важные сигналы</strong>
+          <span>Смысловые куски, которые стоит поднять на поверхность.</span>
+        </article>
+      </div>
+
+      <div class="inline-actions">
+        <button type="button" class="app-button app-button-primary" data-open-connect-modal>
+          @(connected ? "Переподключить Telegram" : "Подключить Telegram")
+        </button>
+        <a class="app-button app-button-secondary" asp-page="/Dashboard/Today">Открыть Today</a>
+      </div>
+
+      @if (Model.Connection.ActionUrl is not null)
+      {
+        <div class="inline-alert inline-alert-info">
+          <strong>Следующий шаг.</strong>
+          <span>Откройте безопасный bridge-login:</span>
+          <a class="inline-link" href="@Model.Connection.ActionUrl">@Model.Connection.ActionUrl</a>
+        </div>
+      }
+      else if (pending)
+      {
+        <div class="inline-alert inline-alert-info">
+          Bridge готовит следующий шаг подключения. Обновите страницу через несколько секунд.
+        </div>
+      }
+    </section>
+
+    <aside class="premium-card connection-aside">
+      <p class="section-kicker">Как это выглядит</p>
+      <h2>Спокойный onboarding без Matrix-шума</h2>
+      <ol class="timeline-list">
+        <li>
+          <strong>1. Номер телефона</strong>
+          <span>Запускается безопасный Telegram login flow.</span>
+        </li>
+        <li>
+          <strong>2. Код подтверждения</strong>
+          <span>Подтверждаете доступ к Telegram-аккаунту.</span>
+        </li>
+        <li>
+          <strong>3. 2FA при необходимости</strong>
+          <span>Если у аккаунта включён пароль, bridge попросит ещё один шаг.</span>
+        </li>
+      </ol>
+
+      <div class="privacy-note">
+        <strong>Важно.</strong>
+        <p>SuperChat не заменяет Telegram. Он строит поверх него слой рабочей памяти и объяснимых сигналов.</p>
+      </div>
+    </aside>
   </div>
 </section>
+
+<dialog id="connect-flow-dialog" class="app-dialog">
+  <div class="dialog-shell">
+    <div class="dialog-head">
+      <div>
+        <p class="section-kicker">Secure connect</p>
+        <h2>Подключение Telegram</h2>
+      </div>
+      <button type="button" class="dialog-close" data-close-connect-modal aria-label="Закрыть">x</button>
+    </div>
+
+    <div class="dialog-body">
+      <div class="dialog-field">
+        <label>Номер телефона</label>
+        <input type="tel" placeholder="+7 999 123-45-67" readonly />
+      </div>
+      <div class="dialog-field">
+        <label>Код подтверждения</label>
+        <input type="text" placeholder="12345" readonly />
+      </div>
+      <div class="dialog-field">
+        <label>Пароль 2FA</label>
+        <input type="password" placeholder="Если включён" readonly />
+      </div>
+      <p class="support-copy">
+        Реальный login flow запускается через настроенный bridge. Этот экран показывает пользователю, какие шаги его ждут.
+      </p>
+    </div>
+
+    <form method="post" class="dialog-actions">
+      <button type="submit" class="app-button app-button-primary">Запустить подключение</button>
+    </form>
+  </div>
+</dialog>
+
+@section Scripts
+{
+  <script>
+    (function () {
+      var dialog = document.getElementById("connect-flow-dialog");
+      var openButton = document.querySelector("[data-open-connect-modal]");
+      if (!dialog || !openButton || !dialog.showModal) {
+        return;
+      }
+
+      var closeButton = document.querySelector("[data-close-connect-modal]");
+
+      openButton.addEventListener("click", function () {
+        dialog.showModal();
+      });
+
+      if (closeButton) {
+        closeButton.addEventListener("click", function () {
+          dialog.close();
+        });
+      }
+    })();
+  </script>
+}

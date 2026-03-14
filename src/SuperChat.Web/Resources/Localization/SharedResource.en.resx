@@ -519,4 +519,43 @@
   <data name="Chat.Error.Generic" xml:space="preserve">
     <value>I could not get an answer. Please try again.</value>
   </data>
+  <data name="Landing.Title" xml:space="preserve">
+    <value>Stop losing important work in Telegram</value>
+  </data>
+  <data name="Landing.Lead" xml:space="preserve">
+    <value>SuperChat turns noisy work conversations into a clear action layer: what matters today, who is waiting for your reply, what you promised, and where exactly it was discussed.</value>
+  </data>
+  <data name="Landing.Point.Today.Title" xml:space="preserve">
+    <value>What matters today</value>
+  </data>
+  <data name="Landing.Point.Today.Copy" xml:space="preserve">
+    <value>See immediately where the next step is needed.</value>
+  </data>
+  <data name="Landing.Point.Waiting.Title" xml:space="preserve">
+    <value>Who is waiting</value>
+  </data>
+  <data name="Landing.Point.Waiting.Copy" xml:space="preserve">
+    <value>Follow-ups do not disappear inside the message stream.</value>
+  </data>
+  <data name="Landing.Point.Commitment.Title" xml:space="preserve">
+    <value>What you promised</value>
+  </data>
+  <data name="Landing.Point.Commitment.Copy" xml:space="preserve">
+    <value>The system pulls commitments and agreements back to the surface.</value>
+  </data>
+  <data name="Landing.Point.Search.Title" xml:space="preserve">
+    <value>Where it was discussed</value>
+  </data>
+  <data name="Landing.Point.Search.Copy" xml:space="preserve">
+    <value>Every surfaced insight stays grounded in a specific chat and context.</value>
+  </data>
+  <data name="Landing.Login.Title" xml:space="preserve">
+    <value>Invite-only sign in</value>
+  </data>
+  <data name="Landing.Login.Copy" xml:space="preserve">
+    <value>Request a magic link and open SuperChat without extra steps. Access is currently limited to pilot accounts.</value>
+  </data>
+  <data name="Landing.InviteOnly" xml:space="preserve">
+    <value>The product sits on top of Telegram and does not replace it. The goal is clarity, trust, and explainable context.</value>
+  </data>
 </root>
