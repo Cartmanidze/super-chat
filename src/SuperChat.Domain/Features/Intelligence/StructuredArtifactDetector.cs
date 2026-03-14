@@ -13,6 +13,11 @@ public static class StructuredArtifactDetector
         "color direction",
         "design system / components",
         "example prompts / quick chips",
+        "context for llm",
+        "контекст для llm",
+        "контекст из чата",
+        "--- диалог #",
+        "--- dialogue #",
         "примерный дизайн экранов",
         "дизайн-система",
         "информационная архитектура"
