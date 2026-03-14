@@ -514,7 +514,7 @@
     <value>По этому вопросу пока ничего не нашлось.</value>
   </data>
   <data name="Chat.Answer.Source" xml:space="preserve">
-    <value>Источник</value>
+    <value>Чат</value>
   </data>
   <data name="Chat.Error.Generic" xml:space="preserve">
     <value>Не удалось получить ответ. Попробуйте ещё раз.</value>

@@ -20,7 +20,7 @@ public sealed class DigestService(
         var items = await extractedItemService.GetForUserAsync(userId, cancellationToken);
         var now = TimeZoneInfo.ConvertTime(timeProvider.GetUtcNow(), ResolveTodayTimeZone(logger, pilotOptions.TodayTimeZoneId));
         var cards = DigestComposer.BuildToday(items, now)
-            .Select(item => new DashboardCardViewModel(item.Title, item.Summary, item.Kind.ToString(), item.DueAt, item.SourceRoom))
+            .Select(item => new DashboardCardViewModel(item.Title, item.Summary, item.Kind.ToString(), item.ObservedAt, item.DueAt, item.SourceRoom))
             .ToList();
 
         return await ResolveRoomNamesAsync(userId, cards, cancellationToken);
@@ -30,7 +30,7 @@ public sealed class DigestService(
     {
         var items = await extractedItemService.GetForUserAsync(userId, cancellationToken);
         var cards = DigestComposer.BuildWaiting(items)
-            .Select(item => new DashboardCardViewModel(item.Title, item.Summary, item.Kind.ToString(), item.DueAt, item.SourceRoom))
+            .Select(item => new DashboardCardViewModel(item.Title, item.Summary, item.Kind.ToString(), item.ObservedAt, item.DueAt, item.SourceRoom))
             .ToList();
 
         return await ResolveRoomNamesAsync(userId, cards, cancellationToken);
@@ -41,7 +41,7 @@ public sealed class DigestService(
         var now = TimeZoneInfo.ConvertTime(timeProvider.GetUtcNow(), ResolveTodayTimeZone(logger, pilotOptions.TodayTimeZoneId));
         var meetings = await meetingService.GetUpcomingAsync(userId, now.AddHours(-1), 20, cancellationToken);
         var cards = DigestComposer.BuildMeetings(meetings, now)
-            .Select(item => new DashboardCardViewModel(item.Title, item.Summary, ExtractedItemKind.Meeting.ToString(), item.ScheduledFor, item.SourceRoom))
+            .Select(item => new DashboardCardViewModel(item.Title, item.Summary, ExtractedItemKind.Meeting.ToString(), item.ObservedAt, item.ScheduledFor, item.SourceRoom))
             .ToList();
 
         return await ResolveRoomNamesAsync(userId, cards, cancellationToken);

@@ -1,6 +1,7 @@
 using SuperChat.Contracts.Configuration;
 using SuperChat.Domain.Model;
 using SuperChat.Domain.Services;
+using SuperChat.Infrastructure.Persistence;
 using SuperChat.Infrastructure.Services;
 
 namespace SuperChat.Tests;
@@ -40,6 +41,47 @@ public sealed class ExtractionAndDigestTests
             "$event-plain",
             "Alex",
             "video.mp4",
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow,
+            false);
+
+        var service = CreateHeuristicService();
+        var items = await service.ExtractAsync(message, CancellationToken.None);
+
+        Assert.Empty(items);
+    }
+
+    [Fact]
+    public async Task HeuristicExtraction_IgnoresLongStructuredProductSpec()
+    {
+        var text = """
+            Design a high-fidelity, modern B2B SaaS web app called "SuperChat".
+            PRODUCT GOAL
+            SuperChat is a business productivity tool that sits on top of Telegram.
+            TARGET USERS
+            - founders
+            - operators
+            - sales / bizdev
+            MAIN INFORMATION ARCHITECTURE
+            1. Login / Invite-only Authentication
+            2. Onboarding / Connect Telegram
+            3. Main Dashboard: Today
+            4. Search / Ask
+            8. Примерный дизайн экранов
+            ┌────────────────────────────────────────────┐
+            │ SuperChat                                 │
+            │ [ Email ]                                │
+            └────────────────────────────────────────────┘
+            """;
+
+        var message = new NormalizedMessage(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "telegram",
+            "!room:matrix.localhost",
+            "$event-spec",
+            "Alex",
+            text,
             DateTimeOffset.UtcNow,
             DateTimeOffset.UtcNow,
             false);
@@ -115,6 +157,34 @@ public sealed class ExtractionAndDigestTests
         Assert.NotNull(signal);
         Assert.Equal("итого, у нас будет встреча в 20:00 по мск времени сегодня, подтверждаю это", signal!.Summary);
         Assert.Equal(new DateTimeOffset(2026, 03, 13, 17, 00, 00, TimeSpan.Zero), signal.ScheduledFor);
+    }
+
+    [Fact]
+    public void MeetingService_ToMeetingCandidate_IgnoresStructuredArtifactChunk()
+    {
+        var chunk = new MessageChunkEntity
+        {
+            Id = Guid.NewGuid(),
+            UserId = Guid.NewGuid(),
+            ChatId = "!room:matrix.localhost",
+            ContentHash = "spec-hash",
+            Text = """
+                8. Примерный дизайн экранов
+                Экран 3 — Today (главный)
+                ┌────────────────────────────────────────────────────────────┐
+                │ Созвон с Сергеем — сегодня 15:00                          │
+                │ [ Открыть ] [ В календарь позже ]                         │
+                └────────────────────────────────────────────────────────────┘
+                """,
+            TsFrom = new DateTimeOffset(2026, 03, 14, 09, 00, 00, TimeSpan.Zero),
+            TsTo = new DateTimeOffset(2026, 03, 14, 09, 00, 00, TimeSpan.Zero)
+        };
+
+        var candidate = MeetingService.ToMeetingCandidate(
+            chunk,
+            TimeZoneInfo.FindSystemTimeZoneById("Europe/Moscow"));
+
+        Assert.Null(candidate);
     }
 
     [Fact]

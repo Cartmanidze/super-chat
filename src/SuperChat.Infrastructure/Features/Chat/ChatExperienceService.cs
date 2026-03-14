@@ -262,6 +262,25 @@ public sealed class ChatExperienceService : IChatExperienceService
             return null;
         }
 
+        if (generatedItems.Count == 0 &&
+            LooksLikeNoContextAnswer(generatedAnswer.AssistantText))
+        {
+            stopwatch.Stop();
+            AiPipelineLog.TemplateAnswerEnhancementCompleted(
+                _logger,
+                baseAnswer.Mode,
+                contextItems.Count,
+                0,
+                generatedAnswer.AssistantText?.Length ?? 0,
+                stopwatch.ElapsedMilliseconds);
+
+            return new ChatAnswerViewModel(
+                baseAnswer.Mode,
+                baseAnswer.Question,
+                [],
+                generatedAnswer.AssistantText);
+        }
+
         stopwatch.Stop();
         AiPipelineLog.TemplateAnswerEnhancementCompleted(
             _logger,
@@ -278,6 +297,32 @@ public sealed class ChatExperienceService : IChatExperienceService
             string.IsNullOrWhiteSpace(generatedAnswer.AssistantText)
                 ? baseAnswer.AssistantText
                 : generatedAnswer.AssistantText);
+    }
+
+    private static bool LooksLikeNoContextAnswer(string? assistantText)
+    {
+        if (string.IsNullOrWhiteSpace(assistantText))
+        {
+            return false;
+        }
+
+        var normalized = assistantText.Trim().ToLowerInvariant();
+        return ContainsAny(
+            normalized,
+            "контекст не содержит",
+            "не содержит информации",
+            "недостаточно информации",
+            "нет информации",
+            "не удалось найти",
+            "не могу определить",
+            "предоставленные данные описывают",
+            "no relevant context",
+            "context does not contain",
+            "does not contain information",
+            "not enough information",
+            "insufficient information",
+            "cannot determine",
+            "provided data describes");
     }
 
     private async Task<IReadOnlyList<RetrievedChatContext>> RetrieveSmartAsync(

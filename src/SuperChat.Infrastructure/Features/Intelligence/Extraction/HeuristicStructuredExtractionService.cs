@@ -19,6 +19,11 @@ public sealed class HeuristicStructuredExtractionService(PilotOptions pilotOptio
     {
         var items = new List<ExtractedItem>();
         var text = message.Text.Trim();
+        if (StructuredArtifactDetector.LooksLikeStructuredArtifact(text))
+        {
+            return Task.FromResult<IReadOnlyCollection<ExtractedItem>>(Array.Empty<ExtractedItem>());
+        }
+
         var lowered = text.ToLowerInvariant();
 
         var meetingSignal = MeetingSignalDetector.TryFromMessage(message, referenceTimeZone);

@@ -16,7 +16,7 @@ public sealed class ChatExperienceServiceTests
             digestService: new StubDigestService(
                 today:
                 [
-                    new DashboardCardViewModel("Нужно отправить договор", "Свериться с Валерией", "Task", null, "Личные")
+                    new DashboardCardViewModel("Нужно отправить договор", "Свериться с Валерией", "Task", DateTimeOffset.UtcNow, null, "Личные")
                 ]));
 
         var answer = await service.AskAsync(
@@ -36,7 +36,7 @@ public sealed class ChatExperienceServiceTests
             digestService: new StubDigestService(
                 today:
                 [
-                    new DashboardCardViewModel("Нужно отправить договор", "Свериться с Валерией", "Task", null, "Личные")
+                    new DashboardCardViewModel("Нужно отправить договор", "Свериться с Валерией", "Task", DateTimeOffset.UtcNow, null, "Личные")
                 ]),
             answerGenerationService: new StubChatAnswerGenerationService(
                 new GeneratedChatAnswer(
@@ -65,7 +65,7 @@ public sealed class ChatExperienceServiceTests
             digestService: new StubDigestService(
                 meetings:
                 [
-                    new DashboardCardViewModel("Upcoming meeting", "Мб заехать за тобой в 11?", "Meeting", null, "Stanislav Klyukhin (Telegram)")
+                    new DashboardCardViewModel("Upcoming meeting", "Мб заехать за тобой в 11?", "Meeting", DateTimeOffset.UtcNow, null, "Stanislav Klyukhin (Telegram)")
                 ]),
             answerGenerationService: new StubChatAnswerGenerationService(
                 new GeneratedChatAnswer(
@@ -81,6 +81,36 @@ public sealed class ChatExperienceServiceTests
         var item = Assert.Single(answer.Items);
         Assert.Equal("Мб заехать за тобой в 11?", item.Title);
         Assert.Equal("Stanislav Klyukhin (Telegram)", item.SourceRoom);
+    }
+
+    [Fact]
+    public async Task AskAsync_TemplateSuppressesBaseItems_WhenAiReportsNoRelevantContext()
+    {
+        var observedAt = new DateTimeOffset(2026, 03, 14, 09, 39, 51, TimeSpan.Zero);
+        var service = CreateService(
+            digestService: new StubDigestService(
+                today:
+                [
+                    new DashboardCardViewModel(
+                        "Action needed",
+                        "Design a high-fidelity, modern B2B SaaS web app called SuperChat.",
+                        "Task",
+                        observedAt,
+                        null,
+                        "Stanislav Klyukhin (Telegram)")
+                ]),
+            answerGenerationService: new StubChatAnswerGenerationService(
+                new GeneratedChatAnswer(
+                    "Контекст не содержит информации о вашей текущей ситуации.",
+                    [])));
+
+        var answer = await service.AskAsync(
+            Guid.NewGuid(),
+            new ChatPromptRequest(ChatPromptTemplate.Today, "Что для меня важно сегодня?"),
+            CancellationToken.None);
+
+        Assert.Equal("Контекст не содержит информации о вашей текущей ситуации.", answer.AssistantText);
+        Assert.Empty(answer.Items);
     }
 
     [Fact]
@@ -104,7 +134,7 @@ public sealed class ChatExperienceServiceTests
             digestService: new StubDigestService(
                 meetings:
                 [
-                    new DashboardCardViewModel("Upcoming meeting", "Мб заехать за тобой в 11?", "Meeting", scheduledFor, "Stanislav Klyukhin (Telegram)")
+                    new DashboardCardViewModel("Upcoming meeting", "Мб заехать за тобой в 11?", "Meeting", scheduledFor.AddHours(-1), scheduledFor, "Stanislav Klyukhin (Telegram)")
                 ]));
 
         var answer = await service.AskAsync(
@@ -126,7 +156,7 @@ public sealed class ChatExperienceServiceTests
             digestService: new StubDigestService(
                 waiting:
                 [
-                    new DashboardCardViewModel("Awaiting response", "Нужен ответ от Валерии по договору", "WaitingOn", null, "Валерия (Telegram)")
+                    new DashboardCardViewModel("Awaiting response", "Нужен ответ от Валерии по договору", "WaitingOn", DateTimeOffset.UtcNow, null, "Валерия (Telegram)")
                 ]));
 
         var answer = await service.AskAsync(

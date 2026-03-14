@@ -13,6 +13,7 @@ public sealed class MeetingService(
     {
         var meetingItems = items
             .Where(item => item.Kind == ExtractedItemKind.Meeting && item.DueAt is not null)
+            .Where(item => !StructuredArtifactDetector.LooksLikeStructuredArtifact(item.Summary))
             .GroupBy(item => (item.UserId, item.SourceEventId))
             .Select(group => group
                 .OrderByDescending(item => item.Confidence)
@@ -122,6 +123,11 @@ public sealed class MeetingService(
 
     internal static MeetingRecord? ToMeetingCandidate(MessageChunkEntity chunk, TimeZoneInfo referenceTimeZone)
     {
+        if (StructuredArtifactDetector.LooksLikeStructuredArtifact(chunk.Text))
+        {
+            return null;
+        }
+
         var signal = MeetingSignalDetector.TryFromChunk(
             chunk.Text,
             chunk.TsTo,

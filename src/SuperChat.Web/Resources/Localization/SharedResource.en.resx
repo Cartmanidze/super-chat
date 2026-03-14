@@ -514,7 +514,7 @@
     <value>I could not find anything for that question yet.</value>
   </data>
   <data name="Chat.Answer.Source" xml:space="preserve">
-    <value>Source</value>
+    <value>Chat</value>
   </data>
   <data name="Chat.Error.Generic" xml:space="preserve">
     <value>I could not get an answer. Please try again.</value>
