@@ -140,7 +140,7 @@ public static class StructuredArtifactDetector
             .Select(line => line.Trim())
             .Count(line =>
                 line.Length is >= 4 and <= 48 &&
-                line.EndsWith(':', StringComparison.Ordinal) &&
+                line.EndsWith(":", StringComparison.Ordinal) &&
                 line.Count(char.IsWhiteSpace) <= 6);
 
         return headingCandidates >= 3;
