@@ -30,8 +30,8 @@ public sealed class ExtractionAndDigestTests
         var service = CreateHeuristicService();
         var items = await service.ExtractAsync(CreateWindow(message), CancellationToken.None);
 
-        Assert.Contains(items, item => item.Kind == ExtractedItemKind.Task);
-        Assert.Contains(items, item => item.Kind == ExtractedItemKind.WaitingOn);
+        Assert.Contains(items, item => item.Kind == ExtractedItemKind.Task && item.Title == "Нужен следующий шаг");
+        Assert.Contains(items, item => item.Kind == ExtractedItemKind.WaitingOn && item.Title == "Нужно ответить: Alex");
     }
 
     [Fact]
@@ -185,9 +185,43 @@ public sealed class ExtractionAndDigestTests
         var service = CreateDeepSeekService(new FakeDeepSeekJsonClient(new InvalidOperationException("boom")));
         var items = await service.ExtractAsync(CreateWindow(message), CancellationToken.None);
 
-        Assert.Contains(items, item => item.Kind == ExtractedItemKind.Task);
-        Assert.Contains(items, item => item.Kind == ExtractedItemKind.WaitingOn);
-        Assert.All(items, item => Assert.Equal(0.82, item.Confidence));
+        var task = Assert.Single(items, item => item.Kind == ExtractedItemKind.Task);
+        var waiting = Assert.Single(items, item => item.Kind == ExtractedItemKind.WaitingOn);
+
+        Assert.Equal("Нужен следующий шаг", task.Title);
+        Assert.Equal("Нужно ответить: Alex", waiting.Title);
+        Assert.NotEqual(task.Confidence, waiting.Confidence);
+        Assert.DoesNotContain(items, item => item.Confidence == 0.82);
+    }
+
+    [Fact]
+    public async Task DeepSeekExtraction_DoesNotFallBackToHeuristics_WhenAiReturnsEmptyItems()
+    {
+        var message = new NormalizedMessage(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "telegram",
+            "!sales:matrix.localhost",
+            "$event-ai-empty-1",
+            "Alex",
+            "Please send the proposal tomorrow. Still waiting for reply from Marina.",
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow,
+            false);
+
+        var logger = new RecordingLogger<DeepSeekStructuredExtractionService>();
+        var service = CreateDeepSeekService(
+            new FakeDeepSeekJsonClient(new DeepSeekStructuredResponse([])),
+            logger);
+
+        var items = await service.ExtractAsync(CreateWindow(message), CancellationToken.None);
+
+        Assert.Empty(items);
+        Assert.Contains(
+            logger.Messages,
+            entry => entry.Contains("Structured extraction completed", StringComparison.Ordinal) &&
+                     entry.Contains("ItemCount=0", StringComparison.Ordinal) &&
+                     entry.Contains("UsedFallback=False", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -426,6 +460,66 @@ public sealed class ExtractionAndDigestTests
     }
 
     [Fact]
+    public async Task HeuristicExtraction_RecognizesOwnCommitmentWithRussianTitle()
+    {
+        var message = new NormalizedMessage(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "telegram",
+            "!sales:matrix.localhost",
+            "$event-commitment-1",
+            "You",
+            "Да, отвечу сегодня после обеда и пришлю финальную версию.",
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow,
+            false);
+
+        var service = CreateHeuristicService();
+        var items = await service.ExtractAsync(CreateWindow(message), CancellationToken.None);
+        var commitment = Assert.Single(items, item => item.Kind == ExtractedItemKind.Commitment);
+
+        Assert.Equal("Ты пообещал", commitment.Title);
+        Assert.True(commitment.Confidence > 0.60);
+    }
+
+    [Fact]
+    public async Task HeuristicExtraction_UsesTextEnrichmentForCounterpartyAndDueAt()
+    {
+        var sentAt = new DateTimeOffset(2026, 03, 16, 09, 13, 22, TimeSpan.Zero);
+        var message = new NormalizedMessage(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "telegram",
+            "!sales:matrix.localhost",
+            "$event-enriched-1",
+            "6143419153",
+            "Добрый день, Глеб! Меня зовут Мария, я представляю компанию Umbrella IT. Подскажите, актуально ли для Вас предложение о работе сегодня до 18:00?",
+            sentAt,
+            sentAt,
+            false);
+
+        var service = CreateHeuristicService(new FakeTextEnrichmentClient(
+            new TextEnrichmentResponse(
+                "Мария",
+                "Umbrella IT",
+                [
+                    new TextEnrichmentEntity("Глеб", "PERSON", "Глеб"),
+                    new TextEnrichmentEntity("Мария", "PERSON", "Мария"),
+                    new TextEnrichmentEntity("Umbrella IT", "ORG", "Umbrella IT")
+                ],
+                [
+                    new TextEnrichmentTemporalExpression("сегодня до 18:00", "2026-03-16T15:00:00Z", "datetime")
+                ])));
+
+        var items = await service.ExtractAsync(CreateWindow(message), CancellationToken.None);
+        var waiting = Assert.Single(items, item => item.Kind == ExtractedItemKind.WaitingOn);
+
+        Assert.Equal("Мария", waiting.Person);
+        Assert.Equal("Нужно ответить: Мария", waiting.Title);
+        Assert.Equal(new DateTimeOffset(2026, 03, 16, 15, 00, 00, TimeSpan.Zero), waiting.DueAt);
+    }
+
+    [Fact]
     public async Task HeuristicExtraction_RecognizesConfirmedMeetingForTodayInMoscowTime()
     {
         var sentAt = new DateTimeOffset(2026, 03, 13, 09, 15, 00, TimeSpan.Zero);
@@ -566,12 +660,14 @@ public sealed class ExtractionAndDigestTests
         Assert.Equal("Встреча завтра в 9", upcoming[1].Summary);
     }
 
-    private static HeuristicStructuredExtractionService CreateHeuristicService()
+    private static HeuristicStructuredExtractionService CreateHeuristicService(ITextEnrichmentClient? textEnrichmentClient = null)
     {
-        return new HeuristicStructuredExtractionService(new PilotOptions
-        {
-            TodayTimeZoneId = "Europe/Moscow"
-        });
+        return new HeuristicStructuredExtractionService(
+            new PilotOptions
+            {
+                TodayTimeZoneId = "Europe/Moscow"
+            },
+            textEnrichmentClient ?? new FakeTextEnrichmentClient(null));
     }
 
     private static DeepSeekStructuredExtractionService CreateDeepSeekService(
@@ -580,6 +676,7 @@ public sealed class ExtractionAndDigestTests
     {
         return new DeepSeekStructuredExtractionService(
             client,
+            CreateHeuristicService(),
             new PilotOptions
             {
                 TodayTimeZoneId = "Europe/Moscow"
@@ -635,6 +732,27 @@ public sealed class ExtractionAndDigestTests
             }
 
             return Task.FromResult(response as TResponse);
+        }
+    }
+
+    private sealed class FakeTextEnrichmentClient : ITextEnrichmentClient
+    {
+        private readonly TextEnrichmentResponse? response;
+
+        public FakeTextEnrichmentClient(TextEnrichmentResponse? response)
+        {
+            this.response = response;
+        }
+
+        public bool IsConfigured => response is not null;
+
+        public Task<TextEnrichmentResponse?> EnrichAsync(
+            string text,
+            DateTimeOffset referenceTimeUtc,
+            string timeZoneId,
+            CancellationToken cancellationToken)
+        {
+            return Task.FromResult(response);
         }
     }
 

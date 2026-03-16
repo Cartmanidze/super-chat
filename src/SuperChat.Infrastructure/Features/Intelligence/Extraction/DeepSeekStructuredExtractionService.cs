@@ -12,6 +12,7 @@ namespace SuperChat.Infrastructure.Services;
 
 public sealed class DeepSeekStructuredExtractionService(
     IDeepSeekJsonClient deepSeekJsonClient,
+    HeuristicStructuredExtractionService heuristicService,
     PilotOptions pilotOptions,
     ILogger<DeepSeekStructuredExtractionService> logger) : IAiStructuredExtractionService
 {
@@ -42,17 +43,17 @@ public sealed class DeepSeekStructuredExtractionService(
 
         try
         {
-            var aiItems = await TryExtractViaAiAsync(window, transcript, referenceTimeZone, cancellationToken);
-            if (aiItems.Count > 0)
+            var aiAttempt = await TryExtractViaAiAsync(window, transcript, referenceTimeZone, cancellationToken);
+            if (aiAttempt.IsAuthoritative)
             {
                 stopwatch.Stop();
                 AiPipelineLog.StructuredExtractionCompleted(
                     logger,
                     window.Source,
-                    aiItems.Count,
+                    aiAttempt.Items.Count,
                     usedFallback,
                     stopwatch.ElapsedMilliseconds);
-                return aiItems;
+                return aiAttempt.Items;
             }
         }
         catch (Exception exception)
@@ -66,7 +67,7 @@ public sealed class DeepSeekStructuredExtractionService(
         }
 
         usedFallback = true;
-        var fallbackItems = await BuildHeuristicFallbackAsync(window, referenceTimeZone, cancellationToken);
+        var fallbackItems = await BuildHeuristicFallbackAsync(window, cancellationToken);
 
         stopwatch.Stop();
         AiPipelineLog.StructuredExtractionCompleted(
@@ -79,7 +80,7 @@ public sealed class DeepSeekStructuredExtractionService(
         return fallbackItems;
     }
 
-    private async Task<IReadOnlyCollection<ExtractedItem>> TryExtractViaAiAsync(
+    private async Task<StructuredExtractionAiAttemptResult> TryExtractViaAiAsync(
         ConversationWindow window,
         string transcript,
         TimeZoneInfo referenceTimeZone,
@@ -87,7 +88,7 @@ public sealed class DeepSeekStructuredExtractionService(
     {
         if (!deepSeekJsonClient.IsConfigured)
         {
-            return Array.Empty<ExtractedItem>();
+            return new StructuredExtractionAiAttemptResult(Array.Empty<ExtractedItem>(), false);
         }
 
         var sentAtLocal = TimeZoneInfo.ConvertTime(window.TsTo, referenceTimeZone);
@@ -130,36 +131,14 @@ public sealed class DeepSeekStructuredExtractionService(
         }
 
         HeuristicStructuredExtractionService.ApplyWaitingOnWindowRules(window, extractedItems);
-        return extractedItems;
+        return new StructuredExtractionAiAttemptResult(extractedItems, true);
     }
 
-    private static async Task<IReadOnlyCollection<ExtractedItem>> BuildHeuristicFallbackAsync(
+    private async Task<IReadOnlyCollection<ExtractedItem>> BuildHeuristicFallbackAsync(
         ConversationWindow window,
-        TimeZoneInfo referenceTimeZone,
         CancellationToken cancellationToken)
     {
-        var items = new List<ExtractedItem>();
-
-        foreach (var message in window.Messages)
-        {
-            var extracted = await HeuristicStructuredExtractionService.ExtractCoreAsync(
-                message,
-                referenceTimeZone,
-                cancellationToken);
-
-            foreach (var item in extracted)
-            {
-                if (!items.Any(existing =>
-                        existing.Kind == item.Kind &&
-                        string.Equals(existing.SourceEventId, item.SourceEventId, StringComparison.Ordinal)))
-                {
-                    items.Add(item);
-                }
-            }
-        }
-
-        HeuristicStructuredExtractionService.ApplyWaitingOnWindowRules(window, items);
-        return items;
+        return await heuristicService.ExtractAsync(window, cancellationToken);
     }
 
     private static StructuredItemMappingResult MapStructuredItems(
@@ -418,4 +397,8 @@ public sealed class DeepSeekStructuredExtractionService(
             ? "none"
             : string.Join(",", Items.Select(item => item.Kind.ToString()));
     }
+
+    private readonly record struct StructuredExtractionAiAttemptResult(
+        IReadOnlyCollection<ExtractedItem> Items,
+        bool IsAuthoritative);
 }

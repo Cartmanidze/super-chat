@@ -49,6 +49,18 @@
     volumes:
       - embedding-cache:/root/.cache/huggingface
 
+  text-enrichment-service:
+    build:
+      context: ./text-enrichment-service
+    restart: unless-stopped
+    environment:
+      TEXT_ENRICHMENT_PORT: ${TEXT_ENRICHMENT_PORT:-7391}
+      TEXT_ENRICHMENT_HEIDELTIME_LANGUAGE: ${TEXT_ENRICHMENT_HEIDELTIME_LANGUAGE:-Russian}
+      TEXT_ENRICHMENT_HEIDELTIME_DOCUMENT_TYPE: ${TEXT_ENRICHMENT_HEIDELTIME_DOCUMENT_TYPE:-colloquial}
+      TEXT_ENRICHMENT_LOG_LEVEL: ${TEXT_ENRICHMENT_LOG_LEVEL:-INFO}
+    ports:
+      - "${TEXT_ENRICHMENT_PORT:-7391}:${TEXT_ENRICHMENT_PORT:-7391}"
+
   synapse:
     image: ${SYNAPSE_IMAGE:-matrixdotorg/synapse:v1.128.0}
     restart: unless-stopped

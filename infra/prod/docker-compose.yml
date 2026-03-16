@@ -71,6 +71,16 @@ services:
     volumes:
       - embedding-cache:/root/.cache/huggingface
 
+  text-enrichment-service:
+    build:
+      context: ../text-enrichment-service
+    restart: unless-stopped
+    environment:
+      TEXT_ENRICHMENT_PORT: ${TEXT_ENRICHMENT_PORT:-7391}
+      TEXT_ENRICHMENT_HEIDELTIME_LANGUAGE: ${TEXT_ENRICHMENT_HEIDELTIME_LANGUAGE:-Russian}
+      TEXT_ENRICHMENT_HEIDELTIME_DOCUMENT_TYPE: ${TEXT_ENRICHMENT_HEIDELTIME_DOCUMENT_TYPE:-colloquial}
+      TEXT_ENRICHMENT_LOG_LEVEL: ${TEXT_ENRICHMENT_LOG_LEVEL:-INFO}
+
   superchat-web:
     image: ${SUPERCHAT_WEB_IMAGE:-ghcr.io/cartmanidze/superchat-web:main}
     restart: unless-stopped
@@ -124,6 +134,9 @@ services:
       Email__SmtpPort: ${EMAIL_SMTP_PORT}
       DeepSeek__ApiKey: ${DEEPSEEK_API_KEY}
       DeepSeek__Model: ${DEEPSEEK_MODEL}
+      TextEnrichment__Enabled: ${TEXT_ENRICHMENT_ENABLED:-false}
+      TextEnrichment__BaseUrl: ${TEXT_ENRICHMENT_BASE_URL:-http://text-enrichment-service:7391}
+      TextEnrichment__TimeoutSeconds: ${TEXT_ENRICHMENT_TIMEOUT_SECONDS:-20}
       Qdrant__BaseUrl: ${QDRANT_BASE_URL:-http://qdrant:6333}
       Qdrant__ApiKey: ${QDRANT_API_KEY}
       Qdrant__AutoInitialize: ${QDRANT_AUTO_INITIALIZE:-true}
@@ -197,6 +210,9 @@ services:
       Email__SmtpPort: ${EMAIL_SMTP_PORT}
       DeepSeek__ApiKey: ${DEEPSEEK_API_KEY}
       DeepSeek__Model: ${DEEPSEEK_MODEL}
+      TextEnrichment__Enabled: ${TEXT_ENRICHMENT_ENABLED:-false}
+      TextEnrichment__BaseUrl: ${TEXT_ENRICHMENT_BASE_URL:-http://text-enrichment-service:7391}
+      TextEnrichment__TimeoutSeconds: ${TEXT_ENRICHMENT_TIMEOUT_SECONDS:-20}
       Qdrant__BaseUrl: ${QDRANT_BASE_URL:-http://qdrant:6333}
       Qdrant__ApiKey: ${QDRANT_API_KEY}
       Qdrant__AutoInitialize: ${QDRANT_AUTO_INITIALIZE:-true}

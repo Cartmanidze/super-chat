@@ -32,6 +32,9 @@ public static class ServiceCollectionExtensions
             .AddOptions<DeepSeekOptions>()
             .Bind(configuration.GetSection(DeepSeekOptions.SectionName));
         services
+            .AddOptions<TextEnrichmentOptions>()
+            .Bind(configuration.GetSection(TextEnrichmentOptions.SectionName));
+        services
             .AddOptions<EmbeddingOptions>()
             .Bind(configuration.GetSection(EmbeddingOptions.SectionName));
         services
@@ -116,6 +119,16 @@ public static class ServiceCollectionExtensions
             }
 
             client.Timeout = TimeSpan.FromSeconds(60);
+        });
+        services.AddHttpClient<ITextEnrichmentClient, TextEnrichmentClient>((serviceProvider, client) =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<TextEnrichmentOptions>>().Value;
+            if (Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var baseUri))
+            {
+                client.BaseAddress = baseUri;
+            }
+
+            client.Timeout = TimeSpan.FromSeconds(Math.Max(1, options.TimeoutSeconds));
         });
         services.AddDbContextFactory<SuperChatDbContext>((serviceProvider, optionsBuilder) =>
         {

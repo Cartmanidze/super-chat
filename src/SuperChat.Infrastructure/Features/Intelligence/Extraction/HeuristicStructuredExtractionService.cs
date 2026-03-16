@@ -1,38 +1,37 @@
-using System.Text.RegularExpressions;
 using SuperChat.Contracts.Configuration;
 using SuperChat.Domain.Model;
 using SuperChat.Domain.Services;
+using SuperChat.Infrastructure.Abstractions;
 
 namespace SuperChat.Infrastructure.Services;
 
-public sealed class HeuristicStructuredExtractionService(PilotOptions pilotOptions)
+public sealed class HeuristicStructuredExtractionService(
+    PilotOptions pilotOptions,
+    ITextEnrichmentClient textEnrichmentClient)
 {
     public async Task<IReadOnlyCollection<ExtractedItem>> ExtractAsync(ConversationWindow window, CancellationToken cancellationToken)
     {
         var referenceTimeZone = ResolveReferenceTimeZone(pilotOptions.TodayTimeZoneId);
-        var items = new List<ExtractedItem>();
-
-        foreach (var message in window.Messages)
+        var items = HeuristicSignalDetector.Detect(window, referenceTimeZone).ToList();
+        if (items.Count == 0)
         {
-            var extracted = await ExtractCoreAsync(message, referenceTimeZone, cancellationToken);
-            foreach (var item in extracted)
-            {
-                if (!items.Any(existing =>
-                        existing.Kind == item.Kind &&
-                        string.Equals(existing.SourceEventId, item.SourceEventId, StringComparison.Ordinal)))
-                {
-                    items.Add(item);
-                }
-            }
+            return items;
         }
 
+        await EnrichItemsAsync(window, items, referenceTimeZone, cancellationToken);
         ApplyWaitingOnWindowRules(window, items);
         return items;
     }
 
     public Task<IReadOnlyCollection<ExtractedItem>> ExtractAsync(NormalizedMessage message, CancellationToken cancellationToken)
     {
-        return ExtractCoreAsync(message, ResolveReferenceTimeZone(pilotOptions.TodayTimeZoneId), cancellationToken);
+        var window = new ConversationWindow(
+            message.UserId,
+            message.Source,
+            message.MatrixRoomId,
+            [message]);
+
+        return ExtractAsync(window, cancellationToken);
     }
 
     public static Task<IReadOnlyCollection<ExtractedItem>> ExtractCoreAsync(
@@ -40,49 +39,79 @@ public sealed class HeuristicStructuredExtractionService(PilotOptions pilotOptio
         TimeZoneInfo referenceTimeZone,
         CancellationToken cancellationToken)
     {
-        var items = new List<ExtractedItem>();
-        var text = message.Text.Trim();
-        if (StructuredArtifactDetector.LooksLikeStructuredArtifact(text))
+        var window = new ConversationWindow(
+            message.UserId,
+            message.Source,
+            message.MatrixRoomId,
+            [message]);
+
+        return Task.FromResult(HeuristicSignalDetector.Detect(window, referenceTimeZone));
+    }
+
+    private async Task EnrichItemsAsync(
+        ConversationWindow window,
+        List<ExtractedItem> items,
+        TimeZoneInfo referenceTimeZone,
+        CancellationToken cancellationToken)
+    {
+        if (!textEnrichmentClient.IsConfigured)
         {
-            return Task.FromResult<IReadOnlyCollection<ExtractedItem>>(Array.Empty<ExtractedItem>());
+            return;
         }
 
-        var lowered = text.ToLowerInvariant();
+        var messagesByEventId = window.Messages
+            .GroupBy(message => message.MatrixEventId, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal);
 
-        var meetingSignal = MeetingSignalDetector.TryFromMessage(message, referenceTimeZone);
-        if (meetingSignal is not null)
+        var enrichmentByEventId = new Dictionary<string, TextEnrichmentResponse?>(StringComparer.Ordinal);
+
+        foreach (var sourceEventId in items
+                     .Select(item => item.SourceEventId)
+                     .Where(eventId => !string.IsNullOrWhiteSpace(eventId))
+                     .Distinct(StringComparer.Ordinal))
         {
-            items.Add(new ExtractedItem(
-                Guid.NewGuid(),
-                message.UserId,
-                ExtractedItemKind.Meeting,
-                meetingSignal.Title,
-                meetingSignal.Summary,
-                message.MatrixRoomId,
-                message.MatrixEventId,
-                meetingSignal.Person,
+            if (!messagesByEventId.TryGetValue(sourceEventId, out var message))
+            {
+                continue;
+            }
+
+            var enrichment = await textEnrichmentClient.EnrichAsync(
+                message.Text,
                 message.SentAt,
-                meetingSignal.ScheduledFor,
-                meetingSignal.Confidence));
+                referenceTimeZone.Id,
+                cancellationToken);
+
+            enrichmentByEventId[sourceEventId] = enrichment;
         }
 
-        var dueAt = meetingSignal?.ScheduledFor;
-        if (ContainsAny(lowered, "please send", "need to", "todo", "отправ", "нужно"))
+        for (var index = 0; index < items.Count; index++)
         {
-            items.Add(CreateItem(message, ExtractedItemKind.Task, "Action needed", text, dueAt));
-        }
+            var item = items[index];
+            if (!enrichmentByEventId.TryGetValue(item.SourceEventId, out var enrichment) || enrichment is null)
+            {
+                continue;
+            }
 
-        if (ContainsAny(lowered, "i will", "i'll", "promise", "сделаю", "обещаю"))
-        {
-            items.Add(CreateItem(message, ExtractedItemKind.Commitment, "Commitment made", text, dueAt));
-        }
+            var person = item.Person;
+            if (string.IsNullOrWhiteSpace(person))
+            {
+                person = ResolveCounterpartyName(enrichment);
+            }
 
-        if (ContainsAny(lowered, "waiting for reply", "waiting on", "respond", "жд", "ответ"))
-        {
-            items.Add(CreateItem(message, ExtractedItemKind.WaitingOn, "Awaiting response", text, dueAt));
-        }
+            var title = item.Kind == ExtractedItemKind.WaitingOn &&
+                        string.Equals(item.Title, "Нужно ответить", StringComparison.Ordinal) &&
+                        !string.IsNullOrWhiteSpace(person)
+                ? $"Нужно ответить: {person}"
+                : item.Title;
 
-        return Task.FromResult<IReadOnlyCollection<ExtractedItem>>(items);
+            var dueAt = item.DueAt ?? ResolveDueAt(enrichment);
+            items[index] = item with
+            {
+                Title = title,
+                Person = person,
+                DueAt = dueAt
+            };
+        }
     }
 
     internal static void ApplyWaitingOnWindowRules(ConversationWindow window, List<ExtractedItem> items)
@@ -121,40 +150,55 @@ public sealed class HeuristicStructuredExtractionService(PilotOptions pilotOptio
         }
     }
 
-    private static ExtractedItem CreateItem(
-        NormalizedMessage message,
-        ExtractedItemKind kind,
-        string title,
-        string summary,
-        DateTimeOffset? dueAt,
-        double confidence = 0.82)
-    {
-        var person = Regex.Match(summary, @"\b[A-Z][a-z]+\b").Value;
-
-        return new ExtractedItem(
-            Guid.NewGuid(),
-            message.UserId,
-            kind,
-            title,
-            summary,
-            message.MatrixRoomId,
-            message.MatrixEventId,
-            string.IsNullOrWhiteSpace(person) ? null : person,
-            message.SentAt,
-            dueAt,
-            confidence);
-    }
-
-    private static bool ContainsAny(string text, params string[] values)
-    {
-        return values.Any(value => text.Contains(value, StringComparison.Ordinal));
-    }
-
     private static bool CanUseCounterpartyName(string senderName)
     {
         return !string.IsNullOrWhiteSpace(senderName) &&
                !string.Equals(senderName.Trim(), "Unknown", StringComparison.OrdinalIgnoreCase) &&
                !string.Equals(senderName.Trim(), "You", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string? ResolveCounterpartyName(TextEnrichmentResponse enrichment)
+    {
+        if (!string.IsNullOrWhiteSpace(enrichment.CounterpartyName))
+        {
+            return enrichment.CounterpartyName;
+        }
+
+        if (!string.IsNullOrWhiteSpace(enrichment.OrganizationName))
+        {
+            return enrichment.OrganizationName;
+        }
+
+        return enrichment.Entities
+            .FirstOrDefault(entity => string.Equals(entity.Type, "PERSON", StringComparison.OrdinalIgnoreCase))?.NormalizedText
+            ?? enrichment.Entities
+                .FirstOrDefault(entity => string.Equals(entity.Type, "PERSON", StringComparison.OrdinalIgnoreCase))?.Text
+            ?? enrichment.Entities
+                .FirstOrDefault(entity => string.Equals(entity.Type, "ORG", StringComparison.OrdinalIgnoreCase))?.NormalizedText
+            ?? enrichment.Entities
+                .FirstOrDefault(entity => string.Equals(entity.Type, "ORG", StringComparison.OrdinalIgnoreCase))?.Text;
+    }
+
+    private static DateTimeOffset? ResolveDueAt(TextEnrichmentResponse enrichment)
+    {
+        foreach (var temporalExpression in enrichment.TemporalExpressions)
+        {
+            if (string.IsNullOrWhiteSpace(temporalExpression.Value))
+            {
+                continue;
+            }
+
+            if (DateTimeOffset.TryParse(
+                    temporalExpression.Value,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal,
+                    out var parsed))
+            {
+                return parsed.ToUniversalTime();
+            }
+        }
+
+        return null;
     }
 
     private static TimeZoneInfo ResolveReferenceTimeZone(string configuredTimeZoneId)
