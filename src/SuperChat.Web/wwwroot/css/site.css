@@ -172,6 +172,13 @@ textarea {
   gap: 0.5rem;
 }
 
+/* Hide the legacy search entries from shell navigation while keeping the
+   underlying routes available by direct URL. */
+.sidebar-nav > .sidebar-link:nth-child(2),
+.sidebar-nav > .sidebar-link:nth-child(3) {
+  display: none;
+}
+
 .sidebar-link {
   display: grid;
   gap: 0.16rem;
@@ -1128,12 +1135,16 @@ select {
     transform: translateX(-50%);
     padding: 0.45rem;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.4rem;
     border: 1px solid var(--border);
     border-radius: 999px;
     background: var(--surface);
     box-shadow: var(--shadow-lg);
+  }
+
+  .mobile-nav-link:nth-child(2) {
+    display: none;
   }
 
   .mobile-nav-link {
