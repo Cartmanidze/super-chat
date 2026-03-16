@@ -310,4 +310,36 @@ internal static partial class AiPipelineLog
         int selectedChunkCount,
         long elapsedMs,
         Exception exception);
+
+    [LoggerMessage(
+        EventId = 2800,
+        Level = LogLevel.Information,
+        Message = "Structured extraction started. Source={Source}, TextLength={TextLength}, SenderNameLength={SenderNameLength}.")]
+    internal static partial void StructuredExtractionStarted(
+        ILogger logger,
+        string source,
+        int textLength,
+        int senderNameLength);
+
+    [LoggerMessage(
+        EventId = 2801,
+        Level = LogLevel.Information,
+        Message = "Structured extraction completed. Source={Source}, ItemCount={ItemCount}, UsedFallback={UsedFallback}, ElapsedMs={ElapsedMs}.")]
+    internal static partial void StructuredExtractionCompleted(
+        ILogger logger,
+        string source,
+        int itemCount,
+        bool usedFallback,
+        long elapsedMs);
+
+    [LoggerMessage(
+        EventId = 2802,
+        Level = LogLevel.Warning,
+        Message = "Structured extraction failed. Source={Source}, TextLength={TextLength}, ElapsedMs={ElapsedMs}.")]
+    internal static partial void StructuredExtractionFailed(
+        ILogger logger,
+        string source,
+        int textLength,
+        long elapsedMs,
+        Exception exception);
 }

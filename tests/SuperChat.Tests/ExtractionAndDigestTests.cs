@@ -1,6 +1,9 @@
 using SuperChat.Contracts.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
+using SuperChat.Contracts;
 using SuperChat.Domain.Model;
 using SuperChat.Domain.Services;
+using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Infrastructure.Persistence;
 using SuperChat.Infrastructure.Services;
 
@@ -113,6 +116,77 @@ public sealed class ExtractionAndDigestTests
         var meeting = Assert.Single(items, item => item.Kind == ExtractedItemKind.Meeting);
 
         Assert.Equal(new DateTimeOffset(2026, 03, 13, 08, 00, 00, TimeSpan.Zero), meeting.DueAt);
+    }
+
+    [Fact]
+    public async Task DeepSeekExtraction_UsesAiStructuredItemsWithVaryingConfidence()
+    {
+        var sentAt = new DateTimeOffset(2026, 03, 16, 08, 00, 00, TimeSpan.Zero);
+        var message = new NormalizedMessage(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "telegram",
+            "!sales:matrix.localhost",
+            "$event-ai-1",
+            "Marina",
+            "Напомни, пожалуйста, по договору. Жду финальный ответ сегодня до 18:00 мск.",
+            sentAt,
+            sentAt,
+            false);
+
+        var service = CreateDeepSeekService(new FakeDeepSeekJsonClient(
+            new DeepSeekStructuredResponse(
+            [
+                new DeepSeekStructuredItem(
+                    "waiting_on",
+                    "Нужно ответить Марине",
+                    "Marina",
+                    "2026-03-16T15:00:00Z",
+                    null,
+                    0.94,
+                    "Марина ждёт финальный ответ по договору сегодня."),
+                new DeepSeekStructuredItem(
+                    "task",
+                    "Финализировать ответ по договору",
+                    "Marina",
+                    "2026-03-16T15:00:00Z",
+                    null,
+                    0.73,
+                    "Нужно подготовить и отправить финальный ответ по договору.")
+            ])));
+
+        var items = await service.ExtractAsync(message, CancellationToken.None);
+
+        var waiting = Assert.Single(items, item => item.Kind == ExtractedItemKind.WaitingOn);
+        var task = Assert.Single(items, item => item.Kind == ExtractedItemKind.Task);
+
+        Assert.Equal(0.94, waiting.Confidence);
+        Assert.Equal(0.73, task.Confidence);
+        Assert.Equal(new DateTimeOffset(2026, 03, 16, 15, 00, 00, TimeSpan.Zero), waiting.DueAt);
+        Assert.Equal("Нужно ответить Марине", waiting.Title);
+    }
+
+    [Fact]
+    public async Task DeepSeekExtraction_FallsBackToHeuristics_WhenAiFails()
+    {
+        var message = new NormalizedMessage(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "telegram",
+            "!sales:matrix.localhost",
+            "$event-ai-2",
+            "Alex",
+            "Please send the proposal tomorrow. Still waiting for reply from Marina.",
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow,
+            false);
+
+        var service = CreateDeepSeekService(new FakeDeepSeekJsonClient(new InvalidOperationException("boom")));
+        var items = await service.ExtractAsync(message, CancellationToken.None);
+
+        Assert.Contains(items, item => item.Kind == ExtractedItemKind.Task);
+        Assert.Contains(items, item => item.Kind == ExtractedItemKind.WaitingOn);
+        Assert.All(items, item => Assert.Equal(0.82, item.Confidence));
     }
 
     [Fact]
@@ -262,5 +336,47 @@ public sealed class ExtractionAndDigestTests
         {
             TodayTimeZoneId = "Europe/Moscow"
         });
+    }
+
+    private static DeepSeekStructuredExtractionService CreateDeepSeekService(IDeepSeekJsonClient client)
+    {
+        return new DeepSeekStructuredExtractionService(
+            client,
+            new PilotOptions
+            {
+                TodayTimeZoneId = "Europe/Moscow"
+            },
+            NullLogger<DeepSeekStructuredExtractionService>.Instance);
+    }
+
+    private sealed class FakeDeepSeekJsonClient : IDeepSeekJsonClient
+    {
+        private readonly DeepSeekStructuredResponse? response;
+        private readonly Exception? exception;
+
+        public FakeDeepSeekJsonClient(DeepSeekStructuredResponse response)
+        {
+            this.response = response;
+        }
+
+        public FakeDeepSeekJsonClient(Exception exception)
+        {
+            this.exception = exception;
+        }
+
+        public bool IsConfigured => true;
+
+        public Task<TResponse?> CompleteJsonAsync<TResponse>(
+            IReadOnlyList<DeepSeekMessage> messages,
+            int maxTokens,
+            CancellationToken cancellationToken) where TResponse : class
+        {
+            if (exception is not null)
+            {
+                throw exception;
+            }
+
+            return Task.FromResult(response as TResponse);
+        }
     }
 }
