@@ -149,6 +149,46 @@ internal static partial class AiPipelineLog
         Exception exception);
 
     [LoggerMessage(
+        EventId = 2303,
+        Level = LogLevel.Information,
+        Message = "DeepSeek structured response returned zero items. Model={Model}, ResponseCharacters={ResponseCharacters}, Content={Content}.")]
+    internal static partial void DeepSeekStructuredResponseEmpty(
+        ILogger logger,
+        string model,
+        int responseCharacters,
+        string content);
+
+    [LoggerMessage(
+        EventId = 2304,
+        Level = LogLevel.Information,
+        Message = "DeepSeek raw response received. Model={Model}, ResponseCharacters={ResponseCharacters}, Content={Content}.")]
+    internal static partial void DeepSeekRawResponseReceived(
+        ILogger logger,
+        string model,
+        int responseCharacters,
+        string content);
+
+    [LoggerMessage(
+        EventId = 2305,
+        Level = LogLevel.Information,
+        Message = "DeepSeek JSON payload extracted. Model={Model}, JsonCharacters={JsonCharacters}, Json={Json}.")]
+    internal static partial void DeepSeekJsonPayloadExtracted(
+        ILogger logger,
+        string model,
+        int jsonCharacters,
+        string json);
+
+    [LoggerMessage(
+        EventId = 2306,
+        Level = LogLevel.Information,
+        Message = "DeepSeek JSON parsed. Model={Model}, ResponseType={ResponseType}, Summary={Summary}.")]
+    internal static partial void DeepSeekJsonParsed(
+        ILogger logger,
+        string model,
+        string responseType,
+        string summary);
+
+    [LoggerMessage(
         EventId = 2400,
         Level = LogLevel.Information,
         Message = "Embedding request started. Backend={Backend}, Purpose={Purpose}, TextLength={TextLength}.")]
@@ -342,4 +382,26 @@ internal static partial class AiPipelineLog
         int textLength,
         long elapsedMs,
         Exception exception);
+
+    [LoggerMessage(
+        EventId = 2803,
+        Level = LogLevel.Information,
+        Message = "Structured extraction AI response received. Source={Source}, RawItemCount={RawItemCount}.")]
+    internal static partial void StructuredExtractionAiResponseReceived(
+        ILogger logger,
+        string source,
+        int rawItemCount);
+
+    [LoggerMessage(
+        EventId = 2804,
+        Level = LogLevel.Information,
+        Message = "Structured extraction item mapping completed. Source={Source}, RawItemCount={RawItemCount}, MappedItemCount={MappedItemCount}, UnknownKindCount={UnknownKindCount}, InvalidContentCount={InvalidContentCount}, MappedKinds={MappedKinds}.")]
+    internal static partial void StructuredExtractionItemMappingCompleted(
+        ILogger logger,
+        string source,
+        int rawItemCount,
+        int mappedItemCount,
+        int unknownKindCount,
+        int invalidContentCount,
+        string mappedKinds);
 }

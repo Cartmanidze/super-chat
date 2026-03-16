@@ -8,5 +8,5 @@ public sealed class DeepSeekOptions
 
     public string ApiKey { get; set; } = string.Empty;
 
-    public string Model { get; set; } = "deepseek-chat";
+    public string Model { get; set; } = "deepseek-reasoner";
 }

@@ -4,6 +4,7 @@ using SuperChat.Contracts;
 using SuperChat.Domain.Model;
 using SuperChat.Domain.Services;
 using SuperChat.Infrastructure.Abstractions;
+using Microsoft.Extensions.Logging;
 using SuperChat.Infrastructure.Persistence;
 using SuperChat.Infrastructure.Services;
 
@@ -341,6 +342,90 @@ public sealed class ExtractionAndDigestTests
     }
 
     [Fact]
+    public async Task DeepSeekExtraction_PromptMarksUnansweredOutreachQuestionsAsWaitingOnCandidates()
+    {
+        var message = new NormalizedMessage(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "telegram",
+            "!sales:matrix.localhost",
+            "$event-ai-6",
+            "Maria",
+            "Ð”Ð¾Ð±Ñ€Ñ‹Ð¹ Ð´ÐµÐ½ÑŒ, Ð“Ð»ÐµÐ±! ÐŸÐ¾Ð´ÑÐºÐ°Ð¶Ð¸Ñ‚Ðµ, Ð°ÐºÑ‚ÑƒÐ°Ð»ÑŒÐ½Ð¾ Ð»Ð¸ Ð´Ð»Ñ Ð’Ð°Ñ ÑÐµÐ¹Ñ‡Ð°Ñ Ð¿Ñ€ÐµÐ´Ð»Ð¾Ð¶ÐµÐ½Ð¸Ðµ Ð¾ Ñ€Ð°Ð±Ð¾Ñ‚Ðµ?",
+            new DateTimeOffset(2026, 03, 16, 09, 13, 22, TimeSpan.Zero),
+            new DateTimeOffset(2026, 03, 16, 09, 13, 22, TimeSpan.Zero),
+            false);
+
+        var fakeClient = new FakeDeepSeekJsonClient(new DeepSeekStructuredResponse([]));
+        var service = CreateDeepSeekService(fakeClient);
+
+        await service.ExtractAsync(CreateWindow(message), CancellationToken.None);
+
+        var systemPrompt = Assert.Single(fakeClient.LastMessages!, item => item.Role == "system").Content;
+        var userPrompt = Assert.Single(fakeClient.LastMessages!, item => item.Role == "user").Content;
+
+        Assert.Contains("Introductory recruiter, sales, vendor, or partnership outreach still counts as \"waiting_on\"", systemPrompt, StringComparison.Ordinal);
+        Assert.Contains("An explicit inbound question to the user usually counts as \"waiting_on\"", systemPrompt, StringComparison.Ordinal);
+        Assert.Contains("latest_meaningful_sender: Maria", userPrompt, StringComparison.Ordinal);
+        Assert.Contains("unanswered_external_turn: true", userPrompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task DeepSeekExtraction_LogsHowStructuredItemsAreMapped()
+    {
+        var message = new NormalizedMessage(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "telegram",
+            "!sales:matrix.localhost",
+            "$event-ai-7",
+            "Marina",
+            "Напомни, пожалуйста, по договору.",
+            new DateTimeOffset(2026, 03, 16, 08, 00, 00, TimeSpan.Zero),
+            new DateTimeOffset(2026, 03, 16, 08, 00, 00, TimeSpan.Zero),
+            false);
+
+        var logger = new RecordingLogger<DeepSeekStructuredExtractionService>();
+        var service = CreateDeepSeekService(
+            new FakeDeepSeekJsonClient(
+                new DeepSeekStructuredResponse(
+                [
+                    new DeepSeekStructuredItem(
+                        "waiting_on",
+                        "Нужно ответить Марине",
+                        "Marina",
+                        null,
+                        null,
+                        0.91,
+                        "Марина ждёт ответ по договору."),
+                    new DeepSeekStructuredItem(
+                        "nonsense_kind",
+                        "Шум",
+                        null,
+                        null,
+                        null,
+                        0.11,
+                        "Шум")
+                ])),
+            logger);
+
+        var items = await service.ExtractAsync(CreateWindow(message), CancellationToken.None);
+
+        Assert.Single(items);
+        Assert.Contains(
+            logger.Messages,
+            entry => entry.Contains("Structured extraction AI response received", StringComparison.Ordinal) &&
+                     entry.Contains("RawItemCount=2", StringComparison.Ordinal));
+        Assert.Contains(
+            logger.Messages,
+            entry => entry.Contains("Structured extraction item mapping completed", StringComparison.Ordinal) &&
+                     entry.Contains("RawItemCount=2", StringComparison.Ordinal) &&
+                     entry.Contains("MappedItemCount=1", StringComparison.Ordinal) &&
+                     entry.Contains("UnknownKindCount=1", StringComparison.Ordinal) &&
+                     entry.Contains("MappedKinds=WaitingOn", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task HeuristicExtraction_RecognizesConfirmedMeetingForTodayInMoscowTime()
     {
         var sentAt = new DateTimeOffset(2026, 03, 13, 09, 15, 00, TimeSpan.Zero);
@@ -489,7 +574,9 @@ public sealed class ExtractionAndDigestTests
         });
     }
 
-    private static DeepSeekStructuredExtractionService CreateDeepSeekService(IDeepSeekJsonClient client)
+    private static DeepSeekStructuredExtractionService CreateDeepSeekService(
+        IDeepSeekJsonClient client,
+        ILogger<DeepSeekStructuredExtractionService>? logger = null)
     {
         return new DeepSeekStructuredExtractionService(
             client,
@@ -497,7 +584,7 @@ public sealed class ExtractionAndDigestTests
             {
                 TodayTimeZoneId = "Europe/Moscow"
             },
-            NullLogger<DeepSeekStructuredExtractionService>.Instance);
+            logger ?? NullLogger<DeepSeekStructuredExtractionService>.Instance);
     }
 
     private static ConversationWindow CreateWindow(params NormalizedMessage[] messages)
@@ -548,6 +635,40 @@ public sealed class ExtractionAndDigestTests
             }
 
             return Task.FromResult(response as TResponse);
+        }
+    }
+
+    private sealed class RecordingLogger<T> : ILogger<T>
+    {
+        public List<string> Messages { get; } = [];
+
+        public IDisposable BeginScope<TState>(TState state) where TState : notnull
+        {
+            return NullScope.Instance;
+        }
+
+        public bool IsEnabled(LogLevel logLevel)
+        {
+            return true;
+        }
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            Messages.Add(formatter(state, exception));
+        }
+
+        private sealed class NullScope : IDisposable
+        {
+            public static readonly NullScope Instance = new();
+
+            public void Dispose()
+            {
+            }
         }
     }
 }

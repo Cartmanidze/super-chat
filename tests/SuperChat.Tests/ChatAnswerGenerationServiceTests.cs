@@ -107,7 +107,7 @@ public sealed class ChatAnswerGenerationServiceTests
             {
                 BaseUrl = "https://api.deepseek.com",
                 ApiKey = "test-key",
-                Model = "deepseek-chat"
+                Model = "deepseek-reasoner"
             }),
             NullLogger<DeepSeekJsonClient>.Instance);
 

@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -17,7 +18,8 @@ public sealed class DeepSeekJsonClient(
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
-        PropertyNameCaseInsensitive = true
+        PropertyNameCaseInsensitive = true,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
     public bool IsConfigured => !string.IsNullOrWhiteSpace(options.Value.ApiKey);
@@ -33,12 +35,13 @@ public sealed class DeepSeekJsonClient(
         }
 
         var configuredOptions = options.Value;
+        double? normalizedTemperature = UsesReasoningModel(configuredOptions.Model) ? null : 0.1;
         var request = new DeepSeekChatCompletionRequest(
             configuredOptions.Model,
             messages,
             new DeepSeekResponseFormat("json_object"),
             Math.Max(1, maxTokens),
-            0.1);
+            normalizedTemperature);
         var promptCharacters = messages.Sum(item => item.Content.Length);
         var normalizedMaxTokens = Math.Max(1, maxTokens);
         var stopwatch = Stopwatch.StartNew();
@@ -84,7 +87,38 @@ public sealed class DeepSeekJsonClient(
 
                 try
                 {
-                    return JsonSerializer.Deserialize<TResponse>(ExtractJsonObject(content), JsonOptions);
+                    var normalizedContent = NormalizeContentForLog(content);
+                    AiPipelineLog.DeepSeekRawResponseReceived(
+                        logger,
+                        configuredOptions.Model,
+                        content.Length,
+                        normalizedContent);
+
+                    var extractedJson = ExtractJsonObject(content);
+                    AiPipelineLog.DeepSeekJsonPayloadExtracted(
+                        logger,
+                        configuredOptions.Model,
+                        extractedJson.Length,
+                        NormalizeContentForLog(extractedJson));
+
+                    var parsed = JsonSerializer.Deserialize<TResponse>(extractedJson, JsonOptions);
+                    AiPipelineLog.DeepSeekJsonParsed(
+                        logger,
+                        configuredOptions.Model,
+                        typeof(TResponse).Name,
+                        BuildParsedSummary(parsed));
+
+                    if (parsed is DeepSeekStructuredResponse structuredResponse &&
+                        (structuredResponse.Items?.Count ?? 0) == 0)
+                    {
+                        AiPipelineLog.DeepSeekStructuredResponseEmpty(
+                            logger,
+                            configuredOptions.Model,
+                            content.Length,
+                            content);
+                    }
+
+                    return parsed;
                 }
                 catch (JsonException exception)
                 {
@@ -128,5 +162,49 @@ public sealed class DeepSeekJsonClient(
         }
 
         return trimmed;
+    }
+
+    internal static bool UsesReasoningModel(string model)
+    {
+        return !string.IsNullOrWhiteSpace(model) &&
+               model.Contains("reasoner", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeContentForLog(string content)
+    {
+        const int maxLength = 4_000;
+
+        var trimmed = content.Trim();
+        if (trimmed.Length <= maxLength)
+        {
+            return trimmed;
+        }
+
+        return $"{trimmed[..maxLength]}... [truncated]";
+    }
+
+    private static string BuildParsedSummary<TResponse>(TResponse? parsed) where TResponse : class
+    {
+        if (parsed is null)
+        {
+            return "null";
+        }
+
+        if (parsed is DeepSeekStructuredResponse structuredResponse)
+        {
+            var itemCount = structuredResponse.Items?.Count ?? 0;
+            var kinds = structuredResponse.Items is null
+                ? "none"
+                : string.Join(
+                    ",",
+                    structuredResponse.Items
+                        .Select(item => item.Kind?.Trim())
+                        .Where(kind => !string.IsNullOrWhiteSpace(kind))
+                        .DefaultIfEmpty("none"));
+
+            return $"items={itemCount}; kinds={kinds}";
+        }
+
+        return JsonSerializer.Serialize(parsed, JsonOptions);
     }
 }

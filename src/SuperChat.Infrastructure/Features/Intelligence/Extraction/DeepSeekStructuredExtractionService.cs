@@ -15,7 +15,7 @@ public sealed class DeepSeekStructuredExtractionService(
     PilotOptions pilotOptions,
     ILogger<DeepSeekStructuredExtractionService> logger) : IAiStructuredExtractionService
 {
-    private const int MaxOutputTokens = 550;
+    private const int MaxOutputTokens = 900;
 
     public async Task<IReadOnlyCollection<ExtractedItem>> ExtractAsync(ConversationWindow window, CancellationToken cancellationToken)
     {
@@ -91,15 +91,33 @@ public sealed class DeepSeekStructuredExtractionService(
         }
 
         var sentAtLocal = TimeZoneInfo.ConvertTime(window.TsTo, referenceTimeZone);
+        var latestMeaningfulMessage = WaitingOnTurnDetector.GetLatestMeaningfulMessage(window);
+        var unresolvedExternalMessage = WaitingOnTurnDetector.GetUnansweredExternalMessage(window);
         var response = await deepSeekJsonClient.CompleteJsonAsync<DeepSeekStructuredResponse>(
             [
                 new DeepSeekMessage("system", BuildSystemPrompt(referenceTimeZone.Id)),
-                new DeepSeekMessage("user", BuildUserPrompt(window, sentAtLocal, transcript))
+                new DeepSeekMessage("user", BuildUserPrompt(window, sentAtLocal, transcript, latestMeaningfulMessage, unresolvedExternalMessage))
             ],
             MaxOutputTokens,
             cancellationToken);
 
-        var extractedItems = MapStructuredItems(window, response?.Items, sentAtLocal, referenceTimeZone);
+        var rawItemCount = response?.Items?.Count ?? 0;
+        AiPipelineLog.StructuredExtractionAiResponseReceived(
+            logger,
+            window.Source,
+            rawItemCount);
+
+        var mappingResult = MapStructuredItems(window, response?.Items, sentAtLocal, referenceTimeZone);
+        AiPipelineLog.StructuredExtractionItemMappingCompleted(
+            logger,
+            window.Source,
+            rawItemCount,
+            mappingResult.Items.Count,
+            mappingResult.UnknownKindCount,
+            mappingResult.InvalidContentCount,
+            mappingResult.MappedKinds);
+
+        var extractedItems = mappingResult.Items;
         var deterministicMeeting = MeetingSignalDetector.TryFromChunk(
             transcript,
             window.TsFrom,
@@ -144,22 +162,25 @@ public sealed class DeepSeekStructuredExtractionService(
         return items;
     }
 
-    private static List<ExtractedItem> MapStructuredItems(
+    private static StructuredItemMappingResult MapStructuredItems(
         ConversationWindow window,
         IReadOnlyList<DeepSeekStructuredItem>? items,
         DateTimeOffset sentAtLocal,
         TimeZoneInfo referenceTimeZone)
     {
         var result = new List<ExtractedItem>();
+        var unknownKindCount = 0;
+        var invalidContentCount = 0;
         if (items is null || items.Count == 0)
         {
-            return result;
+            return new StructuredItemMappingResult(result, unknownKindCount, invalidContentCount);
         }
 
         foreach (var item in items)
         {
             if (!TryMapKind(item.Kind, out var kind))
             {
+                unknownKindCount++;
                 continue;
             }
 
@@ -173,6 +194,7 @@ public sealed class DeepSeekStructuredExtractionService(
 
             if (string.IsNullOrWhiteSpace(summary) || string.IsNullOrWhiteSpace(title))
             {
+                invalidContentCount++;
                 continue;
             }
 
@@ -194,7 +216,7 @@ public sealed class DeepSeekStructuredExtractionService(
                 confidence));
         }
 
-        return result;
+        return new StructuredItemMappingResult(result, unknownKindCount, invalidContentCount);
     }
 
     private static void MergeDeterministicMeeting(
@@ -251,6 +273,8 @@ public sealed class DeepSeekStructuredExtractionService(
             - Do not invent people, deadlines, promises, or meetings.
             - "waiting_on" means the user likely owes someone a reply or next step now.
             - Prefer "waiting_on" only when the latest meaningful dialogue turn still belongs to someone other than the user.
+            - An explicit inbound question to the user usually counts as "waiting_on" when unanswered_external_turn is true.
+            - Introductory recruiter, sales, vendor, or partnership outreach still counts as "waiting_on" when it ends with a direct question and the user has not replied in the same window.
             - "commitment" means the user promised to do something.
             - "task" means the dialogue contains a concrete requested action or deliverable.
             - "meeting" means the dialogue proposes, confirms, or schedules a meeting/call.
@@ -268,8 +292,16 @@ public sealed class DeepSeekStructuredExtractionService(
     private static string BuildUserPrompt(
         ConversationWindow window,
         DateTimeOffset sentAtLocal,
-        string transcript)
+        string transcript,
+        NormalizedMessage? latestMeaningfulMessage,
+        NormalizedMessage? unresolvedExternalMessage)
     {
+        var latestMeaningfulSender = latestMeaningfulMessage?.SenderName?.Trim();
+        if (string.IsNullOrWhiteSpace(latestMeaningfulSender))
+        {
+            latestMeaningfulSender = "unknown";
+        }
+
         return $$"""
             Dialogue metadata:
             - source: {{window.Source}}
@@ -278,6 +310,8 @@ public sealed class DeepSeekStructuredExtractionService(
             - ts_from_utc: {{window.TsFrom.UtcDateTime.ToString("O", CultureInfo.InvariantCulture)}}
             - ts_to_utc: {{window.TsTo.UtcDateTime.ToString("O", CultureInfo.InvariantCulture)}}
             - ts_to_local: {{sentAtLocal.ToString("O", CultureInfo.InvariantCulture)}}
+            - latest_meaningful_sender: {{latestMeaningfulSender}}
+            - unanswered_external_turn: {{(unresolvedExternalMessage is not null).ToString().ToLowerInvariant()}}
 
             Dialogue transcript:
             {{transcript}}
@@ -373,5 +407,15 @@ public sealed class DeepSeekStructuredExtractionService(
         }
 
         return TimeZoneInfo.Utc;
+    }
+
+    private sealed record StructuredItemMappingResult(
+        List<ExtractedItem> Items,
+        int UnknownKindCount,
+        int InvalidContentCount)
+    {
+        public string MappedKinds => Items.Count == 0
+            ? "none"
+            : string.Join(",", Items.Select(item => item.Kind.ToString()));
     }
 }

@@ -60,7 +60,7 @@ public sealed class SmokeTests : IClassFixture<WebTestApplicationFactory>
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("\"status\":\"ok\"", content, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("\"aiModel\":\"deepseek-chat\"", content, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("\"aiModel\":\"deepseek-reasoner\"", content, StringComparison.OrdinalIgnoreCase);
     }
 }
 
