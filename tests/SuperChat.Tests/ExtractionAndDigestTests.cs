@@ -27,7 +27,7 @@ public sealed class ExtractionAndDigestTests
             false);
 
         var service = CreateHeuristicService();
-        var items = await service.ExtractAsync(message, CancellationToken.None);
+        var items = await service.ExtractAsync(CreateWindow(message), CancellationToken.None);
 
         Assert.Contains(items, item => item.Kind == ExtractedItemKind.Task);
         Assert.Contains(items, item => item.Kind == ExtractedItemKind.WaitingOn);
@@ -49,7 +49,7 @@ public sealed class ExtractionAndDigestTests
             false);
 
         var service = CreateHeuristicService();
-        var items = await service.ExtractAsync(message, CancellationToken.None);
+        var items = await service.ExtractAsync(CreateWindow(message), CancellationToken.None);
 
         Assert.Empty(items);
     }
@@ -90,7 +90,7 @@ public sealed class ExtractionAndDigestTests
             false);
 
         var service = CreateHeuristicService();
-        var items = await service.ExtractAsync(message, CancellationToken.None);
+        var items = await service.ExtractAsync(CreateWindow(message), CancellationToken.None);
 
         Assert.Empty(items);
     }
@@ -112,7 +112,7 @@ public sealed class ExtractionAndDigestTests
             false);
 
         var service = CreateHeuristicService();
-        var items = await service.ExtractAsync(message, CancellationToken.None);
+        var items = await service.ExtractAsync(CreateWindow(message), CancellationToken.None);
         var meeting = Assert.Single(items, item => item.Kind == ExtractedItemKind.Meeting);
 
         Assert.Equal(new DateTimeOffset(2026, 03, 13, 08, 00, 00, TimeSpan.Zero), meeting.DueAt);
@@ -155,7 +155,7 @@ public sealed class ExtractionAndDigestTests
                     "Нужно подготовить и отправить финальный ответ по договору.")
             ])));
 
-        var items = await service.ExtractAsync(message, CancellationToken.None);
+        var items = await service.ExtractAsync(CreateWindow(message), CancellationToken.None);
 
         var waiting = Assert.Single(items, item => item.Kind == ExtractedItemKind.WaitingOn);
         var task = Assert.Single(items, item => item.Kind == ExtractedItemKind.Task);
@@ -182,11 +182,48 @@ public sealed class ExtractionAndDigestTests
             false);
 
         var service = CreateDeepSeekService(new FakeDeepSeekJsonClient(new InvalidOperationException("boom")));
-        var items = await service.ExtractAsync(message, CancellationToken.None);
+        var items = await service.ExtractAsync(CreateWindow(message), CancellationToken.None);
 
         Assert.Contains(items, item => item.Kind == ExtractedItemKind.Task);
         Assert.Contains(items, item => item.Kind == ExtractedItemKind.WaitingOn);
         Assert.All(items, item => Assert.Equal(0.82, item.Confidence));
+    }
+
+    [Fact]
+    public async Task DeepSeekExtraction_SendsWholeDialogueWindowToModel()
+    {
+        var userId = Guid.NewGuid();
+        var first = new NormalizedMessage(
+            Guid.NewGuid(),
+            userId,
+            "telegram",
+            "!sales:matrix.localhost",
+            "$event-ai-3",
+            "Marina",
+            "Напомни, пожалуйста, по договору.",
+            new DateTimeOffset(2026, 03, 16, 08, 00, 00, TimeSpan.Zero),
+            new DateTimeOffset(2026, 03, 16, 08, 00, 00, TimeSpan.Zero),
+            false);
+        var second = new NormalizedMessage(
+            Guid.NewGuid(),
+            userId,
+            "telegram",
+            "!sales:matrix.localhost",
+            "$event-ai-4",
+            "You",
+            "Да, посмотрю сегодня и вернусь с финальным ответом.",
+            new DateTimeOffset(2026, 03, 16, 08, 01, 00, TimeSpan.Zero),
+            new DateTimeOffset(2026, 03, 16, 08, 01, 00, TimeSpan.Zero),
+            false);
+
+        var fakeClient = new FakeDeepSeekJsonClient(new DeepSeekStructuredResponse([]));
+        var service = CreateDeepSeekService(fakeClient);
+
+        await service.ExtractAsync(CreateWindow(first, second), CancellationToken.None);
+
+        var prompt = Assert.Single(fakeClient.LastMessages!, message => message.Role == "user").Content;
+        Assert.Contains("Marina: Напомни, пожалуйста, по договору.", prompt, StringComparison.Ordinal);
+        Assert.Contains("You: Да, посмотрю сегодня и вернусь с финальным ответом.", prompt, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -349,10 +386,28 @@ public sealed class ExtractionAndDigestTests
             NullLogger<DeepSeekStructuredExtractionService>.Instance);
     }
 
+    private static ConversationWindow CreateWindow(params NormalizedMessage[] messages)
+    {
+        var orderedMessages = messages
+            .OrderBy(message => message.SentAt)
+            .ThenBy(message => message.IngestedAt)
+            .ThenBy(message => message.Id)
+            .ToList();
+
+        var first = orderedMessages[0];
+        return new ConversationWindow(
+            first.UserId,
+            first.Source,
+            first.MatrixRoomId,
+            orderedMessages);
+    }
+
     private sealed class FakeDeepSeekJsonClient : IDeepSeekJsonClient
     {
         private readonly DeepSeekStructuredResponse? response;
         private readonly Exception? exception;
+
+        public IReadOnlyList<DeepSeekMessage>? LastMessages { get; private set; }
 
         public FakeDeepSeekJsonClient(DeepSeekStructuredResponse response)
         {
@@ -371,6 +426,8 @@ public sealed class ExtractionAndDigestTests
             int maxTokens,
             CancellationToken cancellationToken) where TResponse : class
         {
+            LastMessages = messages.ToList();
+
             if (exception is not null)
             {
                 throw exception;

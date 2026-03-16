@@ -4,5 +4,5 @@ namespace SuperChat.Infrastructure.Abstractions;
 
 public interface IAiStructuredExtractionService
 {
-    Task<IReadOnlyCollection<ExtractedItem>> ExtractAsync(NormalizedMessage message, CancellationToken cancellationToken);
+    Task<IReadOnlyCollection<ExtractedItem>> ExtractAsync(ConversationWindow window, CancellationToken cancellationToken);
 }

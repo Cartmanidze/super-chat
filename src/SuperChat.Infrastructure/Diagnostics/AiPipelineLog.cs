@@ -314,12 +314,12 @@ internal static partial class AiPipelineLog
     [LoggerMessage(
         EventId = 2800,
         Level = LogLevel.Information,
-        Message = "Structured extraction started. Source={Source}, TextLength={TextLength}, SenderNameLength={SenderNameLength}.")]
+        Message = "Structured extraction started. Source={Source}, TextLength={TextLength}, WindowMessageCount={WindowMessageCount}.")]
     internal static partial void StructuredExtractionStarted(
         ILogger logger,
         string source,
         int textLength,
-        int senderNameLength);
+        int windowMessageCount);
 
     [LoggerMessage(
         EventId = 2801,

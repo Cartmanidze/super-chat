@@ -7,6 +7,28 @@ namespace SuperChat.Infrastructure.Services;
 
 public sealed class HeuristicStructuredExtractionService(PilotOptions pilotOptions)
 {
+    public async Task<IReadOnlyCollection<ExtractedItem>> ExtractAsync(ConversationWindow window, CancellationToken cancellationToken)
+    {
+        var referenceTimeZone = ResolveReferenceTimeZone(pilotOptions.TodayTimeZoneId);
+        var items = new List<ExtractedItem>();
+
+        foreach (var message in window.Messages)
+        {
+            var extracted = await ExtractCoreAsync(message, referenceTimeZone, cancellationToken);
+            foreach (var item in extracted)
+            {
+                if (!items.Any(existing =>
+                        existing.Kind == item.Kind &&
+                        string.Equals(existing.SourceEventId, item.SourceEventId, StringComparison.Ordinal)))
+                {
+                    items.Add(item);
+                }
+            }
+        }
+
+        return items;
+    }
+
     public Task<IReadOnlyCollection<ExtractedItem>> ExtractAsync(NormalizedMessage message, CancellationToken cancellationToken)
     {
         return ExtractCoreAsync(message, ResolveReferenceTimeZone(pilotOptions.TodayTimeZoneId), cancellationToken);

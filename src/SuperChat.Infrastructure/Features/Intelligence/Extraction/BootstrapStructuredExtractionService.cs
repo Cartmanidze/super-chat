@@ -10,10 +10,10 @@ public sealed class BootstrapStructuredExtractionService(
     DeepSeekStructuredExtractionService deepSeekService,
     IOptions<DeepSeekOptions> options) : IAiStructuredExtractionService
 {
-    public Task<IReadOnlyCollection<ExtractedItem>> ExtractAsync(NormalizedMessage message, CancellationToken cancellationToken)
+    public Task<IReadOnlyCollection<ExtractedItem>> ExtractAsync(ConversationWindow window, CancellationToken cancellationToken)
     {
         return string.IsNullOrWhiteSpace(options.Value.ApiKey)
-            ? heuristicService.ExtractAsync(message, cancellationToken)
-            : deepSeekService.ExtractAsync(message, cancellationToken);
+            ? heuristicService.ExtractAsync(window, cancellationToken)
+            : deepSeekService.ExtractAsync(window, cancellationToken);
     }
 }

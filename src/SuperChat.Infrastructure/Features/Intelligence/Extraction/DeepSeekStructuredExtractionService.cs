@@ -15,12 +15,17 @@ public sealed class DeepSeekStructuredExtractionService(
     PilotOptions pilotOptions,
     ILogger<DeepSeekStructuredExtractionService> logger) : IAiStructuredExtractionService
 {
-    private const int MaxOutputTokens = 450;
+    private const int MaxOutputTokens = 550;
 
-    public async Task<IReadOnlyCollection<ExtractedItem>> ExtractAsync(NormalizedMessage message, CancellationToken cancellationToken)
+    public async Task<IReadOnlyCollection<ExtractedItem>> ExtractAsync(ConversationWindow window, CancellationToken cancellationToken)
     {
-        var text = message.Text.Trim();
-        if (string.IsNullOrWhiteSpace(text) || StructuredArtifactDetector.LooksLikeStructuredArtifact(text))
+        if (window.Messages.Count == 0)
+        {
+            return Array.Empty<ExtractedItem>();
+        }
+
+        var transcript = window.Transcript.Trim();
+        if (string.IsNullOrWhiteSpace(transcript) || StructuredArtifactDetector.LooksLikeStructuredArtifact(transcript))
         {
             return Array.Empty<ExtractedItem>();
         }
@@ -29,21 +34,21 @@ public sealed class DeepSeekStructuredExtractionService(
         var stopwatch = Stopwatch.StartNew();
         AiPipelineLog.StructuredExtractionStarted(
             logger,
-            message.Source,
-            text.Length,
-            message.SenderName?.Length ?? 0);
+            window.Source,
+            transcript.Length,
+            window.Messages.Count);
 
         var usedFallback = false;
 
         try
         {
-            var aiItems = await TryExtractViaAiAsync(message, text, referenceTimeZone, cancellationToken);
+            var aiItems = await TryExtractViaAiAsync(window, transcript, referenceTimeZone, cancellationToken);
             if (aiItems.Count > 0)
             {
                 stopwatch.Stop();
                 AiPipelineLog.StructuredExtractionCompleted(
                     logger,
-                    message.Source,
+                    window.Source,
                     aiItems.Count,
                     usedFallback,
                     stopwatch.ElapsedMilliseconds);
@@ -54,22 +59,19 @@ public sealed class DeepSeekStructuredExtractionService(
         {
             AiPipelineLog.StructuredExtractionFailed(
                 logger,
-                message.Source,
-                text.Length,
+                window.Source,
+                transcript.Length,
                 stopwatch.ElapsedMilliseconds,
                 exception);
         }
 
         usedFallback = true;
-        var fallbackItems = await HeuristicStructuredExtractionService.ExtractCoreAsync(
-            message,
-            referenceTimeZone,
-            cancellationToken);
+        var fallbackItems = await BuildHeuristicFallbackAsync(window, referenceTimeZone, cancellationToken);
 
         stopwatch.Stop();
         AiPipelineLog.StructuredExtractionCompleted(
             logger,
-            message.Source,
+            window.Source,
             fallbackItems.Count,
             usedFallback,
             stopwatch.ElapsedMilliseconds);
@@ -78,8 +80,8 @@ public sealed class DeepSeekStructuredExtractionService(
     }
 
     private async Task<IReadOnlyCollection<ExtractedItem>> TryExtractViaAiAsync(
-        NormalizedMessage message,
-        string text,
+        ConversationWindow window,
+        string transcript,
         TimeZoneInfo referenceTimeZone,
         CancellationToken cancellationToken)
     {
@@ -88,28 +90,60 @@ public sealed class DeepSeekStructuredExtractionService(
             return Array.Empty<ExtractedItem>();
         }
 
-        var sentAtLocal = TimeZoneInfo.ConvertTime(message.SentAt, referenceTimeZone);
+        var sentAtLocal = TimeZoneInfo.ConvertTime(window.TsTo, referenceTimeZone);
         var response = await deepSeekJsonClient.CompleteJsonAsync<DeepSeekStructuredResponse>(
             [
                 new DeepSeekMessage("system", BuildSystemPrompt(referenceTimeZone.Id)),
-                new DeepSeekMessage("user", BuildUserPrompt(message, text, sentAtLocal))
+                new DeepSeekMessage("user", BuildUserPrompt(window, sentAtLocal, transcript))
             ],
             MaxOutputTokens,
             cancellationToken);
 
-        var extractedItems = MapStructuredItems(message, response?.Items, sentAtLocal, referenceTimeZone);
-        var deterministicMeeting = MeetingSignalDetector.TryFromMessage(message, referenceTimeZone);
+        var extractedItems = MapStructuredItems(window, response?.Items, sentAtLocal, referenceTimeZone);
+        var deterministicMeeting = MeetingSignalDetector.TryFromChunk(
+            transcript,
+            window.TsFrom,
+            window.TsTo,
+            referenceTimeZone);
 
         if (deterministicMeeting is not null)
         {
-            MergeDeterministicMeeting(message, extractedItems, deterministicMeeting);
+            MergeDeterministicMeeting(window, extractedItems, deterministicMeeting);
         }
 
         return extractedItems;
     }
 
+    private static async Task<IReadOnlyCollection<ExtractedItem>> BuildHeuristicFallbackAsync(
+        ConversationWindow window,
+        TimeZoneInfo referenceTimeZone,
+        CancellationToken cancellationToken)
+    {
+        var items = new List<ExtractedItem>();
+
+        foreach (var message in window.Messages)
+        {
+            var extracted = await HeuristicStructuredExtractionService.ExtractCoreAsync(
+                message,
+                referenceTimeZone,
+                cancellationToken);
+
+            foreach (var item in extracted)
+            {
+                if (!items.Any(existing =>
+                        existing.Kind == item.Kind &&
+                        string.Equals(existing.SourceEventId, item.SourceEventId, StringComparison.Ordinal)))
+                {
+                    items.Add(item);
+                }
+            }
+        }
+
+        return items;
+    }
+
     private static List<ExtractedItem> MapStructuredItems(
-        NormalizedMessage message,
+        ConversationWindow window,
         IReadOnlyList<DeepSeekStructuredItem>? items,
         DateTimeOffset sentAtLocal,
         TimeZoneInfo referenceTimeZone)
@@ -128,7 +162,7 @@ public sealed class DeepSeekStructuredExtractionService(
             }
 
             var summary = string.IsNullOrWhiteSpace(item.Summary)
-                ? message.Text.Trim()
+                ? window.Transcript
                 : item.Summary.Trim();
 
             var title = string.IsNullOrWhiteSpace(item.Title)
@@ -146,14 +180,14 @@ public sealed class DeepSeekStructuredExtractionService(
 
             result.Add(new ExtractedItem(
                 Guid.NewGuid(),
-                message.UserId,
+                window.UserId,
                 kind,
                 title,
                 summary,
-                message.MatrixRoomId,
-                message.MatrixEventId,
+                window.MatrixRoomId,
+                window.LastMessage.MatrixEventId,
                 person,
-                message.SentAt,
+                window.TsTo,
                 dueAt,
                 confidence));
         }
@@ -162,7 +196,7 @@ public sealed class DeepSeekStructuredExtractionService(
     }
 
     private static void MergeDeterministicMeeting(
-        NormalizedMessage message,
+        ConversationWindow window,
         List<ExtractedItem> extractedItems,
         MeetingSignal deterministicMeeting)
     {
@@ -171,14 +205,14 @@ public sealed class DeepSeekStructuredExtractionService(
         {
             extractedItems.Add(new ExtractedItem(
                 Guid.NewGuid(),
-                message.UserId,
+                window.UserId,
                 ExtractedItemKind.Meeting,
                 deterministicMeeting.Title,
                 deterministicMeeting.Summary,
-                message.MatrixRoomId,
-                message.MatrixEventId,
+                window.MatrixRoomId,
+                window.LastMessage.MatrixEventId,
                 deterministicMeeting.Person,
-                message.SentAt,
+                window.TsTo,
                 deterministicMeeting.ScheduledFor,
                 deterministicMeeting.Confidence));
             return;
@@ -200,7 +234,7 @@ public sealed class DeepSeekStructuredExtractionService(
     private static string BuildSystemPrompt(string timeZoneId)
     {
         return $$"""
-            You extract grounded work signals from a single Telegram message for a productivity product.
+            You extract grounded work signals from a short Telegram dialogue window for a productivity product.
             Return JSON only in the shape {"items":[...]}.
 
             Allowed item kinds:
@@ -210,34 +244,40 @@ public sealed class DeepSeekStructuredExtractionService(
             - "meeting"
 
             Rules:
-            - Use only information explicitly grounded in the message.
-            - Do not invent people, deadlines, or commitments.
+            - Read the whole dialogue window, not one message in isolation.
+            - Use only information explicitly grounded in the dialogue.
+            - Do not invent people, deadlines, promises, or meetings.
             - "waiting_on" means the user likely owes someone a reply or next step now.
-            - "commitment" means the sender of the message promises to do something.
-            - "task" means the message contains a concrete requested action or deliverable.
-            - "meeting" means the message proposes, confirms, or schedules a meeting/call.
+            - "commitment" means the user promised to do something.
+            - "task" means the dialogue contains a concrete requested action or deliverable.
+            - "meeting" means the dialogue proposes, confirms, or schedules a meeting/call.
+            - Prefer the most useful single item per kind; avoid duplicates.
             - If there is no real signal, return {"items":[]}.
-            - Avoid duplicates.
             - title must be short, useful, and in Russian.
-            - summary must be a concise Russian summary grounded in the message text.
+            - summary must be concise, in Russian, and grounded in the dialogue.
             - person should contain only an explicit person or counterpart name when present, otherwise null.
-            - deadline must be null unless the message gives enough information. If present, return ISO-8601 UTC like 2026-03-13T17:00:00Z.
+            - deadline must be null unless the dialogue gives enough information. If present, return ISO-8601 UTC like 2026-03-13T17:00:00Z.
             - confidence must be a number from 0.0 to 1.0 and should vary based on certainty.
             - Business timezone for interpreting relative dates is {{timeZoneId}}.
             """;
     }
 
-    private static string BuildUserPrompt(NormalizedMessage message, string text, DateTimeOffset sentAtLocal)
+    private static string BuildUserPrompt(
+        ConversationWindow window,
+        DateTimeOffset sentAtLocal,
+        string transcript)
     {
         return $$"""
-            Message metadata:
-            - source: {{message.Source}}
-            - sender_name: {{message.SenderName}}
-            - sent_at_utc: {{message.SentAt.UtcDateTime.ToString("O", CultureInfo.InvariantCulture)}}
-            - sent_at_local: {{sentAtLocal.ToString("O", CultureInfo.InvariantCulture)}}
+            Dialogue metadata:
+            - source: {{window.Source}}
+            - room_id: {{window.MatrixRoomId}}
+            - message_count: {{window.Messages.Count}}
+            - ts_from_utc: {{window.TsFrom.UtcDateTime.ToString("O", CultureInfo.InvariantCulture)}}
+            - ts_to_utc: {{window.TsTo.UtcDateTime.ToString("O", CultureInfo.InvariantCulture)}}
+            - ts_to_local: {{sentAtLocal.ToString("O", CultureInfo.InvariantCulture)}}
 
-            Message text:
-            {{text}}
+            Dialogue transcript:
+            {{transcript}}
             """;
     }
 
