@@ -38,19 +38,14 @@ public sealed class IndexModel(
 
     public ChatTemplateDefinition DefaultTemplate => Templates.First();
 
-    public async Task OnGetAsync(CancellationToken cancellationToken)
+    public IActionResult OnGet()
     {
         if (!IsSignedIn)
         {
-            return;
+            return Page();
         }
 
-        var connection = await integrationConnectionService.GetStatusAsync(
-            User.GetUserId(),
-            IntegrationProvider.Telegram,
-            cancellationToken);
-
-        CanAskQuestions = connection.State == IntegrationConnectionState.Connected;
+        return RedirectToPage("/Dashboard/Today");
     }
 
     public async Task<IActionResult> OnPostRequestLinkAsync(CancellationToken cancellationToken)

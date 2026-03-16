@@ -6,6 +6,7 @@
   var returnUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
   var switchCulture = string.Equals(currentLanguage, "ru", StringComparison.OrdinalIgnoreCase) ? "en" : "ru";
   var switchLabel = string.Equals(currentLanguage, "ru", StringComparison.OrdinalIgnoreCase) ? "EN" : "RU";
+  var homePage = isSignedIn ? "/Dashboard/Today" : "/Index";
 
   bool IsActive(params string[] prefixes)
   {
@@ -47,9 +48,9 @@
     <div class="app-layout">
       <aside class="app-sidebar">
         <div class="brand-block">
-          <a class="brand-mark" asp-page="/Index">SC</a>
+          <a class="brand-mark" asp-page="@homePage">SC</a>
           <div>
-            <a class="brand-title" asp-page="/Index">SuperChat</a>
+            <a class="brand-title" asp-page="@homePage">SuperChat</a>
             <p class="brand-copy">Work memory layer for Telegram</p>
           </div>
         </div>
@@ -58,14 +59,6 @@
           <a class="sidebar-link@(IsActive("/today") ? " is-active" : string.Empty)" asp-page="/Dashboard/Today">
             <span>@T["Nav.Today"]</span>
             <small>Рабочая панель дня</small>
-          </a>
-          <a class="sidebar-link@(IsActive("/") ? " is-active" : string.Empty)" asp-page="/Index">
-            <span>@T["Nav.Search"] / Ask</span>
-            <small>Синтезированный ответ и evidence</small>
-          </a>
-          <a class="sidebar-link@(IsActive("/search") ? " is-active" : string.Empty)" asp-page="/Search/Index">
-            <span>@T["Nav.Search"]</span>
-            <small>Где это обсуждали</small>
           </a>
           <a class="sidebar-link@(IsActive("/connect") ? " is-active" : string.Empty)" asp-page="/Connect/Telegram">
             <span>@T["Nav.Connect"]</span>
@@ -107,7 +100,6 @@
 
       <nav class="mobile-nav" aria-label="Mobile navigation">
         <a class="mobile-nav-link@(IsActive("/today") ? " is-active" : string.Empty)" asp-page="/Dashboard/Today">@T["Nav.Today"]</a>
-        <a class="mobile-nav-link@(IsActive("/") ? " is-active" : string.Empty)" asp-page="/Index">@T["Nav.Search"]</a>
         <a class="mobile-nav-link@(IsActive("/settings", "/connect") ? " is-active" : string.Empty)" asp-page="/Settings/Connections">Профиль</a>
       </nav>
     </div>

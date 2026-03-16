@@ -172,13 +172,6 @@ textarea {
   gap: 0.5rem;
 }
 
-/* Hide the legacy search entries from shell navigation while keeping the
-   underlying routes available by direct URL. */
-.sidebar-nav > .sidebar-link:nth-child(2),
-.sidebar-nav > .sidebar-link:nth-child(3) {
-  display: none;
-}
-
 .sidebar-link {
   display: grid;
   gap: 0.16rem;
@@ -1141,10 +1134,6 @@ select {
     border-radius: 999px;
     background: var(--surface);
     box-shadow: var(--shadow-lg);
-  }
-
-  .mobile-nav-link:nth-child(2) {
-    display: none;
   }
 
   .mobile-nav-link {
