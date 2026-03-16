@@ -111,6 +111,7 @@ public sealed class DeepSeekStructuredExtractionService(
             MergeDeterministicMeeting(window, extractedItems, deterministicMeeting);
         }
 
+        HeuristicStructuredExtractionService.ApplyWaitingOnWindowRules(window, extractedItems);
         return extractedItems;
     }
 
@@ -139,6 +140,7 @@ public sealed class DeepSeekStructuredExtractionService(
             }
         }
 
+        HeuristicStructuredExtractionService.ApplyWaitingOnWindowRules(window, items);
         return items;
     }
 
@@ -248,6 +250,7 @@ public sealed class DeepSeekStructuredExtractionService(
             - Use only information explicitly grounded in the dialogue.
             - Do not invent people, deadlines, promises, or meetings.
             - "waiting_on" means the user likely owes someone a reply or next step now.
+            - Prefer "waiting_on" only when the latest meaningful dialogue turn still belongs to someone other than the user.
             - "commitment" means the user promised to do something.
             - "task" means the dialogue contains a concrete requested action or deliverable.
             - "meeting" means the dialogue proposes, confirms, or schedules a meeting/call.

@@ -26,6 +26,7 @@ public sealed class HeuristicStructuredExtractionService(PilotOptions pilotOptio
             }
         }
 
+        ApplyWaitingOnWindowRules(window, items);
         return items;
     }
 
@@ -84,6 +85,42 @@ public sealed class HeuristicStructuredExtractionService(PilotOptions pilotOptio
         return Task.FromResult<IReadOnlyCollection<ExtractedItem>>(items);
     }
 
+    internal static void ApplyWaitingOnWindowRules(ConversationWindow window, List<ExtractedItem> items)
+    {
+        var unresolvedMessage = WaitingOnTurnDetector.GetUnansweredExternalMessage(window);
+        if (unresolvedMessage is null)
+        {
+            items.RemoveAll(item => item.Kind == ExtractedItemKind.WaitingOn);
+            return;
+        }
+
+        for (var index = 0; index < items.Count; index++)
+        {
+            var item = items[index];
+            if (item.Kind != ExtractedItemKind.WaitingOn)
+            {
+                continue;
+            }
+
+            var person = string.IsNullOrWhiteSpace(item.Person) && CanUseCounterpartyName(unresolvedMessage.SenderName)
+                ? unresolvedMessage.SenderName.Trim()
+                : item.Person;
+
+            var title = string.Equals(item.Title, "Нужно ответить", StringComparison.Ordinal) &&
+                        !string.IsNullOrWhiteSpace(person)
+                ? $"Нужно ответить: {person}"
+                : item.Title;
+
+            items[index] = item with
+            {
+                Title = title,
+                Person = person,
+                SourceEventId = unresolvedMessage.MatrixEventId,
+                ObservedAt = unresolvedMessage.SentAt
+            };
+        }
+    }
+
     private static ExtractedItem CreateItem(
         NormalizedMessage message,
         ExtractedItemKind kind,
@@ -111,6 +148,13 @@ public sealed class HeuristicStructuredExtractionService(PilotOptions pilotOptio
     private static bool ContainsAny(string text, params string[] values)
     {
         return values.Any(value => text.Contains(value, StringComparison.Ordinal));
+    }
+
+    private static bool CanUseCounterpartyName(string senderName)
+    {
+        return !string.IsNullOrWhiteSpace(senderName) &&
+               !string.Equals(senderName.Trim(), "Unknown", StringComparison.OrdinalIgnoreCase) &&
+               !string.Equals(senderName.Trim(), "You", StringComparison.OrdinalIgnoreCase);
     }
 
     private static TimeZoneInfo ResolveReferenceTimeZone(string configuredTimeZoneId)

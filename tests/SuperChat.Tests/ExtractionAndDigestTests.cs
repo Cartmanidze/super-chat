@@ -190,6 +190,120 @@ public sealed class ExtractionAndDigestTests
     }
 
     [Fact]
+    public async Task HeuristicExtraction_DropsWaitingWhenUserAlreadyAnsweredInWindow()
+    {
+        var userId = Guid.NewGuid();
+        var first = new NormalizedMessage(
+            Guid.NewGuid(),
+            userId,
+            "telegram",
+            "!sales:matrix.localhost",
+            "$event-waiting-1",
+            "Marina",
+            "Жду ответ по договору.",
+            new DateTimeOffset(2026, 03, 16, 08, 00, 00, TimeSpan.Zero),
+            new DateTimeOffset(2026, 03, 16, 08, 00, 00, TimeSpan.Zero),
+            false);
+        var second = new NormalizedMessage(
+            Guid.NewGuid(),
+            userId,
+            "telegram",
+            "!sales:matrix.localhost",
+            "$event-waiting-2",
+            "You",
+            "Да, отвечу сегодня после обеда.",
+            new DateTimeOffset(2026, 03, 16, 08, 01, 00, TimeSpan.Zero),
+            new DateTimeOffset(2026, 03, 16, 08, 01, 00, TimeSpan.Zero),
+            false);
+
+        var service = CreateHeuristicService();
+        var items = await service.ExtractAsync(CreateWindow(first, second), CancellationToken.None);
+
+        Assert.DoesNotContain(items, item => item.Kind == ExtractedItemKind.WaitingOn);
+    }
+
+    [Fact]
+    public async Task DeepSeekExtraction_DropsWaitingWhenLatestMeaningfulTurnIsFromUser()
+    {
+        var userId = Guid.NewGuid();
+        var first = new NormalizedMessage(
+            Guid.NewGuid(),
+            userId,
+            "telegram",
+            "!sales:matrix.localhost",
+            "$event-ai-answered-1",
+            "Marina",
+            "Напомни, пожалуйста, по договору.",
+            new DateTimeOffset(2026, 03, 16, 08, 00, 00, TimeSpan.Zero),
+            new DateTimeOffset(2026, 03, 16, 08, 00, 00, TimeSpan.Zero),
+            false);
+        var second = new NormalizedMessage(
+            Guid.NewGuid(),
+            userId,
+            "telegram",
+            "!sales:matrix.localhost",
+            "$event-ai-answered-2",
+            "You",
+            "Да, посмотрю сегодня и вернусь с ответом.",
+            new DateTimeOffset(2026, 03, 16, 08, 01, 00, TimeSpan.Zero),
+            new DateTimeOffset(2026, 03, 16, 08, 01, 00, TimeSpan.Zero),
+            false);
+
+        var service = CreateDeepSeekService(new FakeDeepSeekJsonClient(
+            new DeepSeekStructuredResponse(
+            [
+                new DeepSeekStructuredItem(
+                    "waiting_on",
+                    "Нужно ответить",
+                    "Марина",
+                    null,
+                    null,
+                    0.91,
+                    "Марина ждёт ответ по договору.")
+            ])));
+
+        var items = await service.ExtractAsync(CreateWindow(first, second), CancellationToken.None);
+
+        Assert.DoesNotContain(items, item => item.Kind == ExtractedItemKind.WaitingOn);
+    }
+
+    [Fact]
+    public async Task DeepSeekExtraction_BackfillsWaitingCounterpartyFromLatestExternalTurn()
+    {
+        var message = new NormalizedMessage(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "telegram",
+            "!sales:matrix.localhost",
+            "$event-ai-5",
+            "Марина",
+            "Напомни, пожалуйста, по договору.",
+            new DateTimeOffset(2026, 03, 16, 08, 00, 00, TimeSpan.Zero),
+            new DateTimeOffset(2026, 03, 16, 08, 00, 00, TimeSpan.Zero),
+            false);
+
+        var service = CreateDeepSeekService(new FakeDeepSeekJsonClient(
+            new DeepSeekStructuredResponse(
+            [
+                new DeepSeekStructuredItem(
+                    "waiting_on",
+                    "Нужно ответить",
+                    null,
+                    null,
+                    null,
+                    0.89,
+                    "Нужно вернуться с ответом по договору.")
+            ])));
+
+        var items = await service.ExtractAsync(CreateWindow(message), CancellationToken.None);
+        var waiting = Assert.Single(items, item => item.Kind == ExtractedItemKind.WaitingOn);
+
+        Assert.Equal("Марина", waiting.Person);
+        Assert.Equal("Нужно ответить: Марина", waiting.Title);
+        Assert.Equal("$event-ai-5", waiting.SourceEventId);
+    }
+
+    [Fact]
     public async Task DeepSeekExtraction_SendsWholeDialogueWindowToModel()
     {
         var userId = Guid.NewGuid();
