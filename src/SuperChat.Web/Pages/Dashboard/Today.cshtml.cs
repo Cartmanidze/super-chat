@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using SuperChat.Domain.Model;
 using SuperChat.Contracts.ViewModels;
@@ -16,8 +15,7 @@ public sealed class TodayModel(
 {
     private const string DefaultSectionId = "waiting";
 
-    [BindProperty(SupportsGet = true, Name = "section")]
-    public string SelectedSectionId { get; set; } = DefaultSectionId;
+    public string SelectedSectionId { get; private set; } = DefaultSectionId;
 
     public bool TelegramConnected { get; private set; }
 
@@ -60,8 +58,10 @@ public sealed class TodayModel(
         TodaySection
     ];
 
-    public async Task OnGetAsync(CancellationToken cancellationToken)
+    public async Task OnGetAsync(string? section, CancellationToken cancellationToken)
     {
+        SelectedSectionId = NormalizeSectionId(section);
+
         var userId = User.GetUserId();
         var connection = await integrationConnectionService.GetStatusAsync(userId, IntegrationProvider.Telegram, cancellationToken);
         TelegramConnected = connection.State == IntegrationConnectionState.Connected;
@@ -156,6 +156,13 @@ public sealed class TodayModel(
         return Sections.FirstOrDefault(section =>
                    string.Equals(section.Id, selectedSectionId, StringComparison.OrdinalIgnoreCase))
                ?? WaitingSection;
+    }
+
+    private static string NormalizeSectionId(string? sectionId)
+    {
+        return string.IsNullOrWhiteSpace(sectionId)
+            ? DefaultSectionId
+            : sectionId.Trim().ToLowerInvariant();
     }
 
     private static string BuildSearchQuery(string title, string summary, string sourceRoom)

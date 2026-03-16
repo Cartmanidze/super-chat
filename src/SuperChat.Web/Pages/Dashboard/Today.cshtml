@@ -60,19 +60,20 @@
   else
   {
     <section class="dashboard-focus-stack">
-      <nav class="section-switcher" aria-label="Тип сигнала">
+      <form method="get" class="section-switcher" aria-label="Тип сигнала">
         @foreach (var laneOption in Model.Sections)
         {
           var isActive = string.Equals(laneOption.Id, Model.SelectedSectionId, StringComparison.OrdinalIgnoreCase);
-          <a class="section-switcher-item@(isActive ? " is-active" : string.Empty)"
-             asp-page="/Dashboard/Today"
-             asp-route-section="@laneOption.Id"
-             aria-current="@(isActive ? "page" : null)">
+          <button type="submit"
+                  class="section-switcher-item@(isActive ? " is-active" : string.Empty)"
+                  name="section"
+                  value="@laneOption.Id"
+                  aria-pressed="@(isActive ? "true" : "false")">
             <span>@laneOption.Title</span>
             <strong>@laneOption.Items.Count</strong>
-          </a>
+          </button>
         }
-      </nav>
+      </form>
 
       <article class="dashboard-focus-lane">
         <header class="lane-header lane-header-focus">
