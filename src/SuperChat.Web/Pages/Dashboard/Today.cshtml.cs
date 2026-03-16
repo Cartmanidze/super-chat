@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using SuperChat.Domain.Model;
 using SuperChat.Contracts.ViewModels;
@@ -13,6 +14,11 @@ public sealed class TodayModel(
     IExtractedItemService extractedItemService,
     IIntegrationConnectionService integrationConnectionService) : PageModel
 {
+    private const string DefaultSectionId = "waiting";
+
+    [BindProperty(SupportsGet = true, Name = "section")]
+    public string SelectedSectionId { get; set; } = DefaultSectionId;
+
     public bool TelegramConnected { get; private set; }
 
     public DashboardSummary Summary { get; private set; } = new(0, 0, 0, 0);
@@ -40,6 +46,19 @@ public sealed class TodayModel(
         "Важно сегодня",
         "Самое важное на сегодня из текущих переписок.",
         "На сегодня пока ничего критичного не выделилось.");
+
+    public DashboardSection ActiveSection { get; private set; } = DashboardSection.Empty(
+        DefaultSectionId,
+        "Нужно ответить",
+        "Точки, где кто-то ждёт от вас следующий шаг.",
+        "Сейчас нет явных мест, где кто-то ждёт ответ.");
+
+    public IReadOnlyList<DashboardSection> Sections => [
+        WaitingSection,
+        CommitmentsSection,
+        MeetingsSection,
+        TodaySection
+    ];
 
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
@@ -94,6 +113,9 @@ public sealed class TodayModel(
             CommitmentsSection.Items.Count,
             MeetingsSection.Items.Count,
             TodaySection.Items.Count);
+
+        ActiveSection = ResolveActiveSection(SelectedSectionId);
+        SelectedSectionId = ActiveSection.Id;
     }
 
     private static DashboardCard MapDigestCard(DashboardCardViewModel card, string hint)
@@ -107,7 +129,8 @@ public sealed class TodayModel(
             card.SourceRoom,
             timestamp,
             hint,
-            searchQuery);
+            searchQuery,
+            card.Confidence);
     }
 
     private static DashboardCard MapCommitmentCard(ExtractedItem item)
@@ -124,7 +147,15 @@ public sealed class TodayModel(
             item.Person ?? item.SourceRoom,
             item.DueAt ?? item.ObservedAt,
             hint,
-            BuildSearchQuery(item.Title, item.Summary, item.SourceRoom));
+            BuildSearchQuery(item.Title, item.Summary, item.SourceRoom),
+            item.Confidence);
+    }
+
+    private DashboardSection ResolveActiveSection(string? selectedSectionId)
+    {
+        return Sections.FirstOrDefault(section =>
+                   string.Equals(section.Id, selectedSectionId, StringComparison.OrdinalIgnoreCase))
+               ?? WaitingSection;
     }
 
     private static string BuildSearchQuery(string title, string summary, string sourceRoom)
@@ -166,5 +197,9 @@ public sealed class TodayModel(
         string ChatLabel,
         DateTimeOffset Timestamp,
         string Hint,
-        string SearchQuery);
+        string SearchQuery,
+        double Confidence)
+    {
+        public int ConfidencePercent => (int)Math.Round(Math.Clamp(Confidence, 0d, 1d) * 100, MidpointRounding.AwayFromZero);
+    }
 }

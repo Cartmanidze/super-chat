@@ -2,13 +2,7 @@
 @model SuperChat.Web.Pages.Dashboard.TodayModel
 @{
   ViewData["Title"] = T["Today.PageTitle"];
-  var lanes = new[]
-  {
-    Model.WaitingSection,
-    Model.CommitmentsSection,
-    Model.MeetingsSection,
-    Model.TodaySection
-  };
+  var activeLane = Model.ActiveSection;
 }
 
 <section class="page-stack">
@@ -65,55 +59,69 @@
   }
   else
   {
-    <section class="dashboard-grid">
-      @foreach (var lane in lanes)
-      {
-        <article class="dashboard-lane">
-          <header class="lane-header">
-            <div>
-              <h2>@lane.Title</h2>
-              <p>@lane.Description</p>
-            </div>
-            <span class="count-pill">@lane.Items.Count</span>
-          </header>
+    <section class="dashboard-focus-stack">
+      <nav class="section-switcher" aria-label="Тип сигнала">
+        @foreach (var laneOption in Model.Sections)
+        {
+          var isActive = string.Equals(laneOption.Id, Model.SelectedSectionId, StringComparison.OrdinalIgnoreCase);
+          <a class="section-switcher-item@(isActive ? " is-active" : string.Empty)"
+             asp-page="/Dashboard/Today"
+             asp-route-section="@laneOption.Id"
+             aria-current="@(isActive ? "page" : null)">
+            <span>@laneOption.Title</span>
+            <strong>@laneOption.Items.Count</strong>
+          </a>
+        }
+      </nav>
 
-          @if (lane.Items.Count == 0)
-          {
-            <div class="lane-empty">
-              <p>@lane.EmptyText</p>
-            </div>
-          }
-          else
-          {
-            <div class="signal-list">
-              @foreach (var card in lane.Items)
-              {
-                <article class="signal-card">
-                  <div class="signal-head">
-                    <span class="signal-kind">@lane.Title</span>
+      <article class="dashboard-focus-lane">
+        <header class="lane-header lane-header-focus">
+          <div>
+            <h2>@activeLane.Title</h2>
+            <p>@activeLane.Description</p>
+          </div>
+          <span class="count-pill">@activeLane.Items.Count</span>
+        </header>
+
+        @if (activeLane.Items.Count == 0)
+        {
+          <div class="lane-empty">
+            <p>@activeLane.EmptyText</p>
+          </div>
+        }
+        else
+        {
+          <div class="signal-list signal-list-focus">
+            @foreach (var card in activeLane.Items)
+            {
+              <article class="signal-card signal-card-focus">
+                <div class="signal-head">
+                  <span class="signal-kind">@activeLane.Title</span>
+                  <div class="signal-badges">
+                    <span class="signal-confidence">@card.ConfidencePercent%</span>
                     <span class="signal-hint">@card.Hint</span>
                   </div>
+                </div>
 
-                  <h3>@UiText.CardTitle(card.Title)</h3>
-                  <p class="signal-summary">@card.Summary</p>
+                <h3>@UiText.CardTitle(card.Title)</h3>
+                <p class="signal-summary">@card.Summary</p>
 
-                  <div class="signal-meta">
-                    <span>@UiText.SourceRoom(card.ChatLabel)</span>
-                    <span>@card.Timestamp.ToLocalTime().ToString("dd.MM, HH:mm")</span>
-                  </div>
+                <div class="signal-meta">
+                  <span>@UiText.SourceRoom(card.ChatLabel)</span>
+                  <span>@card.Timestamp.ToLocalTime().ToString("dd.MM, HH:mm")</span>
+                </div>
 
-                  <div class="signal-actions">
-                    <a class="action-link" asp-page="/Search/Index" asp-route-query="@card.SearchQuery">Открыть</a>
-                    <a class="action-link" asp-page="/Feedback/Index">Готово</a>
-                    <a class="action-link" asp-page="/Feedback/Index">Скрыть</a>
-                    <a class="action-link action-link-muted" asp-page="/Feedback/Index">Не полезно</a>
-                  </div>
-                </article>
-              }
-            </div>
-          }
-        </article>
-      }
+                <div class="signal-actions">
+                  <a class="action-link" asp-page="/Search/Index" asp-route-query="@card.SearchQuery">Открыть</a>
+                  <a class="action-link" asp-page="/Feedback/Index">Готово</a>
+                  <a class="action-link" asp-page="/Feedback/Index">Скрыть</a>
+                  <a class="action-link action-link-muted" asp-page="/Feedback/Index">Не полезно</a>
+                </div>
+              </article>
+            }
+          </div>
+        }
+      </article>
     </section>
   }
 </section>
