@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: read
+  packages: write
 
 jobs:
   build-test-and-deploy:
@@ -51,6 +52,56 @@ jobs:
           bash -n infra/prod/scripts/deploy.sh
           python -m py_compile infra/embedding-service/embedding_service.py
           docker compose --env-file infra/prod/.env.example -f infra/prod/docker-compose.yml config >/dev/null
+
+      - id: vars
+        shell: bash
+        run: |
+          echo "owner_lc=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push superchat-web
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: src/SuperChat.Web/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ steps.vars.outputs.owner_lc }}/superchat-web:sha-${{ github.sha }}
+            ghcr.io/${{ steps.vars.outputs.owner_lc }}/superchat-web:main
+          cache-from: type=gha,scope=superchat-web
+          cache-to: type=gha,mode=max,scope=superchat-web
+
+      - name: Build and push superchat-api
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: src/SuperChat.Api/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ steps.vars.outputs.owner_lc }}/superchat-api:sha-${{ github.sha }}
+            ghcr.io/${{ steps.vars.outputs.owner_lc }}/superchat-api:main
+          cache-from: type=gha,scope=superchat-api
+          cache-to: type=gha,mode=max,scope=superchat-api
+
+      - name: Build and push superchat-mautrix-telegram-helper
+        uses: docker/build-push-action@v6
+        with:
+          context: infra/prod/mautrix-helper-image
+          file: infra/prod/mautrix-helper-image/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ steps.vars.outputs.owner_lc }}/superchat-mautrix-telegram-helper:sha-${{ github.sha }}
+            ghcr.io/${{ steps.vars.outputs.owner_lc }}/superchat-mautrix-telegram-helper:main
+          cache-from: type=gha,scope=superchat-mautrix-telegram-helper
+          cache-to: type=gha,mode=max,scope=superchat-mautrix-telegram-helper
 
       - name: Validate deploy configuration
         shell: bash
@@ -95,11 +146,15 @@ jobs:
           PROD_SSH_USER: ${{ vars.PROD_SSH_USER || 'root' }}
           PROD_WORKTREE_PATH: ${{ vars.PROD_WORKTREE_PATH || '/opt/super-chat' }}
           PROD_ENV_FILE: ${{ vars.PROD_ENV_FILE || '/opt/super-chat/infra/prod/.env' }}
+          GHCR_USERNAME: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          OWNER_LC="${GITHUB_REPOSITORY_OWNER,,}"
+          IMAGE_TAG="sha-${GITHUB_SHA}"
           chmod +x .github/scripts/retry.sh
           ./.github/scripts/retry.sh \
             ssh -i ~/.ssh/id_ed25519 -p "${PROD_SSH_PORT}" -o BatchMode=yes -o PreferredAuthentications=publickey -o PubkeyAuthentication=yes -o PasswordAuthentication=no -o KbdInteractiveAuthentication=no -o ConnectionAttempts=1 -o ConnectTimeout=20 -o StrictHostKeyChecking=yes "${PROD_SSH_USER}@${PROD_SSH_HOST}" \
-            "cd '${PROD_WORKTREE_PATH}' && git pull --ff-only && bash infra/prod/scripts/deploy.sh '${PROD_ENV_FILE}' && docker compose --env-file '${PROD_ENV_FILE}' -f infra/prod/docker-compose.yml ps"
+            "cd '${PROD_WORKTREE_PATH}' && git pull --ff-only && export GHCR_REGISTRY='ghcr.io' GHCR_USERNAME='${GHCR_USERNAME}' GHCR_TOKEN='${GHCR_TOKEN}' SUPERCHAT_WEB_IMAGE='ghcr.io/${OWNER_LC}/superchat-web:${IMAGE_TAG}' SUPERCHAT_API_IMAGE='ghcr.io/${OWNER_LC}/superchat-api:${IMAGE_TAG}' MAUTRIX_TELEGRAM_HELPER_IMAGE='ghcr.io/${OWNER_LC}/superchat-mautrix-telegram-helper:${IMAGE_TAG}' && bash infra/prod/scripts/deploy.sh '${PROD_ENV_FILE}' && docker compose --env-file '${PROD_ENV_FILE}' -f infra/prod/docker-compose.yml ps"
 
       - name: Smoke check production endpoints
         shell: bash

@@ -68,11 +68,71 @@ jobs:
       - name: Test
         run: dotnet test SuperChat.sln --configuration Release --no-build
 
+  build-and-push-images:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.PROD_DEPLOY_ENABLED == 'true' && needs.detect-full-stack-changes.outputs.requires_full_stack != 'true'
+    needs:
+      - detect-full-stack-changes
+      - build-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image_name: superchat-web
+            context: .
+            dockerfile: src/SuperChat.Web/Dockerfile
+          - image_name: superchat-api
+            context: .
+            dockerfile: src/SuperChat.Api/Dockerfile
+          - image_name: superchat-mautrix-telegram-helper
+            context: infra/prod/mautrix-helper-image
+            dockerfile: infra/prod/mautrix-helper-image/Dockerfile
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: vars
+        shell: bash
+        run: |
+          echo "owner_lc=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ steps.vars.outputs.owner_lc }}/${{ matrix.image_name }}
+          tags: |
+            type=sha,prefix=sha-
+            type=raw,value=main,enable={{is_default_branch}}
+
+      - name: Build and push ${{ matrix.image_name }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.image_name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image_name }}
+
   deploy-production:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.PROD_DEPLOY_ENABLED == 'true' && needs.detect-full-stack-changes.outputs.requires_full_stack != 'true'
     needs:
       - detect-full-stack-changes
       - build-test
+      - build-and-push-images
     runs-on: ubuntu-latest
     timeout-minutes: 45
     concurrency:
@@ -130,11 +190,15 @@ jobs:
           PROD_SSH_USER: ${{ vars.PROD_SSH_USER || 'root' }}
           PROD_WORKTREE_PATH: ${{ vars.PROD_WORKTREE_PATH || '/opt/super-chat' }}
           PROD_ENV_FILE: ${{ vars.PROD_ENV_FILE || '/opt/super-chat/infra/prod/.env' }}
+          GHCR_USERNAME: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          OWNER_LC="${GITHUB_REPOSITORY_OWNER,,}"
+          IMAGE_TAG="sha-${GITHUB_SHA}"
           chmod +x .github/scripts/retry.sh
           ./.github/scripts/retry.sh \
             ssh -i ~/.ssh/id_ed25519 -p "${PROD_SSH_PORT}" -o BatchMode=yes -o PreferredAuthentications=publickey -o PubkeyAuthentication=yes -o PasswordAuthentication=no -o KbdInteractiveAuthentication=no -o ConnectionAttempts=1 -o ConnectTimeout=20 -o StrictHostKeyChecking=yes "${PROD_SSH_USER}@${PROD_SSH_HOST}" \
-            "cd '${PROD_WORKTREE_PATH}' && git pull --ff-only && bash infra/prod/scripts/deploy-app.sh '${PROD_ENV_FILE}'"
+            "cd '${PROD_WORKTREE_PATH}' && git pull --ff-only && export GHCR_REGISTRY='ghcr.io' GHCR_USERNAME='${GHCR_USERNAME}' GHCR_TOKEN='${GHCR_TOKEN}' SUPERCHAT_WEB_IMAGE='ghcr.io/${OWNER_LC}/superchat-web:${IMAGE_TAG}' SUPERCHAT_API_IMAGE='ghcr.io/${OWNER_LC}/superchat-api:${IMAGE_TAG}' MAUTRIX_TELEGRAM_HELPER_IMAGE='ghcr.io/${OWNER_LC}/superchat-mautrix-telegram-helper:${IMAGE_TAG}' && bash infra/prod/scripts/deploy-app.sh '${PROD_ENV_FILE}'"
 
       - name: Smoke check production endpoints
         shell: bash

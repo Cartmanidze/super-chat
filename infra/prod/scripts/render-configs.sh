@@ -24,7 +24,9 @@ while IFS= read -r line || [ -n "$line" ]; do
 
   key=${line%%=*}
   value=${line#*=}
-  export "$key=$value"
+  if [ -z "${!key+x}" ]; then
+    export "$key=$value"
+  fi
 done < "$ENV_FILE"
 
 mkdir -p "$ROOT_DIR/caddy" "$ROOT_DIR/synapse" "$ROOT_DIR/mautrix"
