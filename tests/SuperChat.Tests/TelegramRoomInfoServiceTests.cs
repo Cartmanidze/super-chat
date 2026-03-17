@@ -72,6 +72,50 @@ public sealed class TelegramRoomInfoServiceTests
         Assert.Null(result);
     }
 
+    [Fact]
+    public async Task GetSenderInfoAsync_ReturnsParsedSenderInfo()
+    {
+        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(
+                """
+                {
+                  "sender_mxid": "@telegram_12345:matrix.localhost",
+                  "telegram_user_id": 12345,
+                  "is_bot": true
+                }
+                """)
+        });
+
+        var service = CreateService(handler);
+
+        var result = await service.GetSenderInfoAsync(
+            "@pilot:matrix.localhost",
+            "@telegram_12345:matrix.localhost",
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal("@telegram_12345:matrix.localhost", result!.SenderMatrixUserId);
+        Assert.Equal(12345, result.TelegramUserId);
+        Assert.True(result.IsBot);
+        Assert.Equal("/senders/%40telegram_12345%3Amatrix.localhost/info", handler.LastRequest!.RequestUri!.AbsolutePath);
+        Assert.Contains("matrixUserId=%40pilot%3Amatrix.localhost", handler.LastRequest.RequestUri!.Query, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GetSenderInfoAsync_ReturnsNullForNotFound()
+    {
+        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound));
+        var service = CreateService(handler);
+
+        var result = await service.GetSenderInfoAsync(
+            "@pilot:matrix.localhost",
+            "@telegram_99999:matrix.localhost",
+            CancellationToken.None);
+
+        Assert.Null(result);
+    }
+
     private static TelegramRoomInfoService CreateService(RecordingHandler handler)
     {
         var httpClient = new HttpClient(handler)

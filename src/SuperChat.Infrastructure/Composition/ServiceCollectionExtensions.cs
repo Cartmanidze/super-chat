@@ -47,6 +47,9 @@ public static class ServiceCollectionExtensions
             .AddOptions<MeetingProjectionOptions>()
             .Bind(configuration.GetSection(MeetingProjectionOptions.SectionName));
         services
+            .AddOptions<MessageIngestionFilterOptions>()
+            .Bind(configuration.GetSection(MessageIngestionFilterOptions.SectionName));
+        services
             .AddOptions<PilotOptions>()
             .Bind(configuration.GetSection(PilotOptions.SectionName));
         services
@@ -165,6 +168,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ITelegramConnectionService, TelegramConnectionService>();
         services.AddSingleton<IIntegrationConnectionService, IntegrationConnectionService>();
         services.AddSingleton<IRoomDisplayNameService, MatrixRoomDisplayNameService>();
+        services.AddSingleton<IncomingMessageFilter>();
         services.AddSingleton<IMessageNormalizationService, MessageNormalizationService>();
         services.AddSingleton<IChatTemplateCatalog, ChatTemplateCatalog>();
         services.AddSingleton<IChatTemplateHandler, TodayChatTemplateHandler>();

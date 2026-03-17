@@ -6,6 +6,11 @@ public interface ITelegramRoomInfoService
         string matrixUserId,
         string roomId,
         CancellationToken cancellationToken);
+
+    Task<TelegramSenderInfo?> GetSenderInfoAsync(
+        string matrixUserId,
+        string senderMatrixUserId,
+        CancellationToken cancellationToken);
 }
 
 public sealed record TelegramRoomInfo(
@@ -14,3 +19,8 @@ public sealed record TelegramRoomInfo(
     int? ParticipantCount,
     string? Title,
     bool IsBroadcastChannel);
+
+public sealed record TelegramSenderInfo(
+    string SenderMatrixUserId,
+    long TelegramUserId,
+    bool IsBot);

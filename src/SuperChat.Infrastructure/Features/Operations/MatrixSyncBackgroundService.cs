@@ -13,6 +13,7 @@ namespace SuperChat.Infrastructure.HostedServices;
 public sealed class MatrixSyncBackgroundService(
     IIntegrationConnectionService integrationConnectionService,
     ITelegramRoomInfoService telegramRoomInfoService,
+    IncomingMessageFilter incomingMessageFilter,
     IMessageNormalizationService normalizationService,
     IDbContextFactory<SuperChatDbContext> dbContextFactory,
     MatrixApiClient matrixApiClient,
@@ -116,6 +117,7 @@ public sealed class MatrixSyncBackgroundService(
         string? discoveredLoginUrl = null;
         var ingestedMessages = 0;
         var invitedRoomsToJoin = GetInvitedRoomsToJoin(result.InvitedRoomIds, target.ManagementRoomId);
+        var senderInfoBySenderId = new Dictionary<string, TelegramSenderInfo?>(StringComparer.Ordinal);
 
         foreach (var roomId in invitedRoomsToJoin)
         {
@@ -177,8 +179,24 @@ public sealed class MatrixSyncBackgroundService(
                     continue;
                 }
 
-                if (!ShouldIngestMessageBody(timelineEvent.Body))
+                var senderInfo = await ResolveSenderInfoAsync(
+                    target,
+                    timelineEvent.Sender,
+                    senderInfoBySenderId,
+                    cancellationToken);
+
+                var ingestionDecision = incomingMessageFilter.Evaluate(
+                    timelineEvent.MessageType,
+                    timelineEvent.Body,
+                    senderInfo?.IsBot);
+                if (!ingestionDecision.ShouldIngest)
                 {
+                    logger.LogDebug(
+                        "Skipped Matrix event {EventId} in room {RoomId} for user {UserId}. Reason={Reason}.",
+                        timelineEvent.EventId,
+                        room.RoomId,
+                        target.UserId,
+                        ingestionDecision.Reason);
                     continue;
                 }
 
@@ -207,6 +225,44 @@ public sealed class MatrixSyncBackgroundService(
             connected,
             ingestedMessages > 0,
             cancellationToken);
+    }
+
+    private async Task<TelegramSenderInfo?> ResolveSenderInfoAsync(
+        MatrixSyncTarget target,
+        string senderId,
+        IDictionary<string, TelegramSenderInfo?> senderInfoBySenderId,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(senderId) ||
+            string.Equals(senderId, target.MatrixUserId, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        if (senderInfoBySenderId.TryGetValue(senderId, out var cachedSenderInfo))
+        {
+            return cachedSenderInfo;
+        }
+
+        try
+        {
+            var senderInfo = await telegramRoomInfoService.GetSenderInfoAsync(
+                target.MatrixUserId,
+                senderId,
+                cancellationToken);
+            senderInfoBySenderId[senderId] = senderInfo;
+            return senderInfo;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(
+                ex,
+                "Failed to resolve Telegram sender info for sender {SenderId} and user {UserId}. Continuing without sender metadata.",
+                senderId,
+                target.UserId);
+            senderInfoBySenderId[senderId] = null;
+            return null;
+        }
     }
 
     private async Task PersistSyncStateAsync(
@@ -395,14 +451,12 @@ public sealed class MatrixSyncBackgroundService(
 
     internal static bool ShouldIngestMessageBody(string body)
     {
-        if (string.IsNullOrWhiteSpace(body))
-        {
-            return false;
-        }
+        return IncomingMessageFilter.ShouldIngestMessageBody(body);
 
-        var normalized = body.TrimStart();
-        return !normalized.StartsWith("Forwarded from channel ", StringComparison.OrdinalIgnoreCase) &&
+        /*
+
                !normalized.StartsWith("Переслано из канала ", StringComparison.OrdinalIgnoreCase);
+        */
     }
 
     private static string DeriveSenderName(string senderId, string ownMatrixUserId)
