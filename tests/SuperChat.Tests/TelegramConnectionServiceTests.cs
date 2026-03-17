@@ -135,10 +135,98 @@ public sealed class TelegramConnectionServiceTests
         Assert.Equal(TelegramConnectionState.BridgePending, entity.State);
     }
 
+    [Fact]
+    public async Task GetStatusAsync_ClearsExpiredLoginUrlAndReissuesLogin()
+    {
+        var now = new DateTimeOffset(2026, 03, 17, 8, 35, 0, TimeSpan.Zero);
+        var user = CreateUser();
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        await SeedIdentityAsync(factory, CreateIdentity(user.Id), CancellationToken.None);
+        await SeedConnectionAsync(
+            factory,
+            user.Id,
+            TelegramConnectionState.BridgePending,
+            "!existing:matrix.localhost",
+            CreateBridgeLoginUrl(now.AddMinutes(-1)),
+            CancellationToken.None);
+
+        var handler = new RecordingHandler(request =>
+        {
+            if (request.RequestUri!.AbsolutePath.Contains("/state/m.room.member/", StringComparison.Ordinal))
+            {
+                return CreateJsonResponse("""
+                    {
+                      "membership": "join"
+                    }
+                    """);
+            }
+
+            if (request.RequestUri.AbsolutePath.Contains("/send/m.room.message/", StringComparison.Ordinal))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK);
+            }
+
+            throw new InvalidOperationException($"Unexpected request path: {request.RequestUri.AbsolutePath}");
+        });
+
+        var service = CreateService(factory, handler, CreateIdentity(user.Id), new FixedTimeProvider(now));
+
+        var connection = await service.GetStatusAsync(user.Id, CancellationToken.None);
+
+        Assert.Equal(TelegramConnectionState.BridgePending, connection.State);
+        Assert.Null(connection.WebLoginUrl);
+        Assert.Equal(2, handler.Requests.Count);
+        Assert.Equal(HttpMethod.Get, handler.Requests[0].Method);
+        Assert.Contains("/state/m.room.member/", handler.Requests[0].RequestUri!.AbsolutePath, StringComparison.Ordinal);
+        Assert.Equal(HttpMethod.Put, handler.Requests[1].Method);
+        Assert.Contains("/send/m.room.message/", handler.Requests[1].RequestUri!.AbsolutePath, StringComparison.Ordinal);
+
+        await using var dbContext = await factory.CreateDbContextAsync(CancellationToken.None);
+        var entity = await dbContext.TelegramConnections.SingleAsync(item => item.UserId == user.Id, CancellationToken.None);
+        Assert.Null(entity.WebLoginUrl);
+    }
+
+    [Fact]
+    public async Task GetStatusAsync_LeavesFreshLoginUrlUntouched()
+    {
+        var now = new DateTimeOffset(2026, 03, 17, 8, 35, 0, TimeSpan.Zero);
+        var user = CreateUser();
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        await SeedIdentityAsync(factory, CreateIdentity(user.Id), CancellationToken.None);
+        var freshUrl = CreateBridgeLoginUrl(now.AddMinutes(5));
+        await SeedConnectionAsync(
+            factory,
+            user.Id,
+            TelegramConnectionState.BridgePending,
+            "!existing:matrix.localhost",
+            freshUrl,
+            CancellationToken.None);
+
+        var handler = new RecordingHandler(_ => throw new InvalidOperationException("No Matrix calls expected for a fresh login URL."));
+        var service = CreateService(factory, handler, CreateIdentity(user.Id), new FixedTimeProvider(now));
+
+        var connection = await service.GetStatusAsync(user.Id, CancellationToken.None);
+
+        Assert.Equal(new Uri(freshUrl), connection.WebLoginUrl);
+        Assert.Empty(handler.Requests);
+    }
+
+    [Fact]
+    public void TryGetBridgeLoginExpiry_ReturnsEmbeddedExpiry()
+    {
+        var expected = new DateTimeOffset(2026, 03, 17, 8, 22, 7, TimeSpan.Zero);
+        var url = CreateBridgeLoginUrl(expected);
+
+        var result = TelegramConnectionService.TryGetBridgeLoginExpiry(url);
+
+        Assert.Equal(expected, result);
+    }
+
     private static TelegramConnectionService CreateService(
         IDbContextFactory<SuperChatDbContext> factory,
         RecordingHandler handler,
-        MatrixIdentity identity)
+        MatrixIdentity identity,
+        TimeProvider? timeProvider = null)
     {
         var httpClient = new HttpClient(handler)
         {
@@ -162,7 +250,7 @@ public sealed class TelegramConnectionServiceTests
             {
                 DevSeedSampleData = false
             }),
-            TimeProvider.System,
+            timeProvider ?? TimeProvider.System,
             NullLogger<TelegramConnectionService>.Instance);
     }
 
@@ -210,6 +298,34 @@ public sealed class TelegramConnectionServiceTests
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    private static async Task SeedIdentityAsync(
+        IDbContextFactory<SuperChatDbContext> factory,
+        MatrixIdentity identity,
+        CancellationToken cancellationToken)
+    {
+        await using var dbContext = await factory.CreateDbContextAsync(cancellationToken);
+        dbContext.MatrixIdentities.Add(new MatrixIdentityEntity
+        {
+            UserId = identity.UserId,
+            MatrixUserId = identity.MatrixUserId,
+            AccessToken = identity.AccessToken,
+            ProvisionedAt = identity.ProvisionedAt
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private static string CreateBridgeLoginUrl(DateTimeOffset expiry)
+    {
+        var payload = $"{{\"mxid\":\"@pilot:matrix.localhost\",\"endpoint\":\"/login\",\"expiry\":{expiry.ToUnixTimeSeconds()}}}";
+        var encodedPayload = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(payload))
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
+
+        return $"https://bridge.localhost/public/login?token=random-prefix:{encodedPayload}";
+    }
+
     private sealed class FakeMatrixProvisioningService(MatrixIdentity identity) : IMatrixProvisioningService
     {
         public Task<MatrixIdentity> EnsureIdentityAsync(AppUser user, CancellationToken cancellationToken)
@@ -252,6 +368,14 @@ public sealed class TelegramConnectionServiceTests
         public Task<SuperChatDbContext> CreateDbContextAsync(CancellationToken cancellationToken = default)
         {
             return Task.FromResult(new SuperChatDbContext(options));
+        }
+    }
+
+    private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow()
+        {
+            return utcNow;
         }
     }
 }

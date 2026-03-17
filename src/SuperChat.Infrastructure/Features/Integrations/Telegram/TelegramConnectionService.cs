@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.Text.Json;
 using SuperChat.Contracts.Configuration;
 using SuperChat.Domain.Model;
 using SuperChat.Infrastructure.Abstractions;
@@ -19,6 +20,7 @@ public sealed class TelegramConnectionService(
 {
     internal static readonly TimeSpan BridgeBotJoinTimeout = TimeSpan.FromSeconds(5);
     internal static readonly TimeSpan BridgeBotJoinPollInterval = TimeSpan.FromMilliseconds(150);
+    internal static readonly TimeSpan BridgeLoginRefreshSkew = TimeSpan.FromSeconds(30);
 
     public async Task<TelegramConnection> StartAsync(AppUser user, CancellationToken cancellationToken)
     {
@@ -97,6 +99,7 @@ public sealed class TelegramConnectionService(
     {
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         var existing = await FindOrCreateConnectionAsync(dbContext, userId, cancellationToken);
+        await RefreshExpiredBridgeLoginAsync(dbContext, existing, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
         return existing.ToDomain();
     }
@@ -187,6 +190,70 @@ public sealed class TelegramConnectionService(
         return existing.ToDomain();
     }
 
+    private async Task RefreshExpiredBridgeLoginAsync(
+        SuperChatDbContext dbContext,
+        TelegramConnectionEntity connection,
+        CancellationToken cancellationToken)
+    {
+        if (pilotOptions.Value.DevSeedSampleData ||
+            !ShouldRefreshExpiredBridgeLogin(connection.State, connection.WebLoginUrl, timeProvider.GetUtcNow()))
+        {
+            return;
+        }
+
+        connection.WebLoginUrl = null;
+        connection.UpdatedAt = timeProvider.GetUtcNow();
+
+        if (string.IsNullOrWhiteSpace(connection.ManagementRoomId))
+        {
+            logger.LogWarning(
+                "Cleared expired Telegram bridge login URL for user {UserId}, but no management room is known.",
+                connection.UserId);
+            return;
+        }
+
+        var identity = await dbContext.MatrixIdentities
+            .AsNoTracking()
+            .SingleOrDefaultAsync(item => item.UserId == connection.UserId, cancellationToken);
+        if (identity is null ||
+            string.IsNullOrWhiteSpace(identity.AccessToken) ||
+            identity.AccessToken.StartsWith("dev-token-", StringComparison.Ordinal))
+        {
+            logger.LogWarning(
+                "Cleared expired Telegram bridge login URL for user {UserId}, but no live Matrix access token is available.",
+                connection.UserId);
+            return;
+        }
+
+        try
+        {
+            var bridgeBotReady = await WaitForBridgeBotJoinAsync(identity.AccessToken, connection.ManagementRoomId, cancellationToken);
+            if (!bridgeBotReady)
+            {
+                logger.LogWarning(
+                    "Telegram bridge bot {BotUserId} did not join room {RoomId} for user {UserId} while refreshing an expired login URL.",
+                    bridgeOptions.Value.BotUserId,
+                    connection.ManagementRoomId,
+                    connection.UserId);
+                return;
+            }
+
+            await matrixApiClient.SendTextMessageAsync(identity.AccessToken, connection.ManagementRoomId, "login", cancellationToken);
+            logger.LogInformation(
+                "Re-issued Telegram bridge login for user {UserId} in room {RoomId} because the stored login URL expired.",
+                connection.UserId,
+                connection.ManagementRoomId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(
+                ex,
+                "Failed to refresh expired Telegram bridge login URL for user {UserId} in room {RoomId}.",
+                connection.UserId,
+                connection.ManagementRoomId);
+        }
+    }
+
     private async Task<bool> WaitForBridgeBotJoinAsync(
         string accessToken,
         string managementRoomId,
@@ -237,5 +304,119 @@ public sealed class TelegramConnectionService(
 
         dbContext.TelegramConnections.Add(connection);
         return connection;
+    }
+
+    internal static bool ShouldRefreshExpiredBridgeLogin(
+        TelegramConnectionState state,
+        string? webLoginUrl,
+        DateTimeOffset now)
+    {
+        if (state != TelegramConnectionState.BridgePending &&
+            state != TelegramConnectionState.Error)
+        {
+            return false;
+        }
+
+        return TryGetBridgeLoginExpiry(webLoginUrl) is DateTimeOffset expiry &&
+               expiry <= now.Add(BridgeLoginRefreshSkew);
+    }
+
+    internal static DateTimeOffset? TryGetBridgeLoginExpiry(string? webLoginUrl)
+    {
+        if (string.IsNullOrWhiteSpace(webLoginUrl) ||
+            !Uri.TryCreate(webLoginUrl, UriKind.Absolute, out var uri))
+        {
+            return null;
+        }
+
+        var token = TryGetQueryParameter(uri, "token");
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return null;
+        }
+
+        var separatorIndex = token.IndexOf(':', StringComparison.Ordinal);
+        if (separatorIndex < 0 || separatorIndex == token.Length - 1)
+        {
+            return null;
+        }
+
+        var payload = token[(separatorIndex + 1)..];
+        if (!TryDecodeBase64Url(payload, out var jsonBytes))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(jsonBytes);
+            if (!document.RootElement.TryGetProperty("expiry", out var expiryElement) ||
+                !expiryElement.TryGetInt64(out var expiryUnixSeconds))
+            {
+                return null;
+            }
+
+            return DateTimeOffset.FromUnixTimeSeconds(expiryUnixSeconds);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return null;
+        }
+    }
+
+    private static string? TryGetQueryParameter(Uri uri, string key)
+    {
+        var query = uri.Query;
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return null;
+        }
+
+        foreach (var segment in query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = segment.Split('=', 2);
+            if (parts.Length == 0 ||
+                !string.Equals(Uri.UnescapeDataString(parts[0]), key, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            return parts.Length == 2 ? Uri.UnescapeDataString(parts[1]) : string.Empty;
+        }
+
+        return null;
+    }
+
+    private static bool TryDecodeBase64Url(string value, out byte[] bytes)
+    {
+        var normalized = value.Replace('-', '+').Replace('_', '/');
+        normalized = (normalized.Length % 4) switch
+        {
+            0 => normalized,
+            2 => normalized + "==",
+            3 => normalized + "=",
+            _ => string.Empty
+        };
+
+        if (string.IsNullOrEmpty(normalized))
+        {
+            bytes = [];
+            return false;
+        }
+
+        try
+        {
+            bytes = Convert.FromBase64String(normalized);
+            return true;
+        }
+        catch (FormatException)
+        {
+            bytes = [];
+            return false;
+        }
     }
 }
