@@ -150,46 +150,29 @@ public sealed class ChatExperienceService : IChatExperienceService
                     .Select(item =>
                     {
                         var context = contextsByReference[item.ReferenceKey];
-                        return new ChatResultItemViewModel(
-                            item.Title,
-                            item.Summary,
-                            context.SourceRoom,
-                            context.ObservedAt);
+                        return item.ToChatResultItemViewModel(context);
                     })
                     .ToList();
 
                 if (answerItems.Count > 0 || !string.IsNullOrWhiteSpace(generatedAnswer.AssistantText))
                 {
-                    return new ChatAnswerViewModel(
+                    return answerItems.ToChatAnswerViewModel(
                         ChatPromptTemplate.Custom,
                         question,
-                        answerItems,
                         generatedAnswer.AssistantText);
                 }
             }
 
-            return new ChatAnswerViewModel(
-                ChatPromptTemplate.Custom,
-                question,
-                retrievalResults.Select(result => new ChatResultItemViewModel(
-                    result.Title,
-                    result.Summary,
-                    result.SourceRoom,
-                    result.ObservedAt))
-                .ToList());
+            return retrievalResults
+                .Select(result => result.ToChatResultItemViewModel())
+                .ToChatAnswerViewModel(ChatPromptTemplate.Custom, question);
         }
 
         var results = await SearchSmartAsync(userId, question, cancellationToken);
         AiPipelineLog.CustomSearchFallbackCompleted(_logger, results.Count);
-        return new ChatAnswerViewModel(
-            ChatPromptTemplate.Custom,
-            question,
-            results.Select(result => new ChatResultItemViewModel(
-                result.Title,
-                result.Summary,
-                result.SourceRoom,
-                result.ObservedAt))
-            .ToList());
+        return results
+            .Select(result => result.ToChatResultItemViewModel())
+            .ToChatAnswerViewModel(ChatPromptTemplate.Custom, question);
     }
 
     private async Task<ChatAnswerViewModel?> TryEnhanceTemplateAnswerAsync(
@@ -246,11 +229,7 @@ public sealed class ChatExperienceService : IChatExperienceService
             .Select(item =>
             {
                 var sourceItem = itemsByReference[item.ReferenceKey];
-                return new ChatResultItemViewModel(
-                    item.Title,
-                    item.Summary,
-                    sourceItem.SourceRoom,
-                    sourceItem.Timestamp);
+                return item.ToChatResultItemViewModel(sourceItem);
             })
             .DistinctBy(item => $"{item.Title}|{item.Summary}|{item.SourceRoom}|{item.Timestamp:O}", StringComparer.Ordinal)
             .ToList();
@@ -274,11 +253,8 @@ public sealed class ChatExperienceService : IChatExperienceService
                 generatedAnswer.AssistantText?.Length ?? 0,
                 stopwatch.ElapsedMilliseconds);
 
-            return new ChatAnswerViewModel(
-                baseAnswer.Mode,
-                baseAnswer.Question,
-                [],
-                generatedAnswer.AssistantText);
+            return Array.Empty<ChatResultItemViewModel>()
+                .ToChatAnswerViewModel(baseAnswer.Mode, baseAnswer.Question, generatedAnswer.AssistantText);
         }
 
         stopwatch.Stop();
@@ -290,13 +266,13 @@ public sealed class ChatExperienceService : IChatExperienceService
             generatedAnswer.AssistantText?.Length ?? 0,
             stopwatch.ElapsedMilliseconds);
 
-        return new ChatAnswerViewModel(
-            baseAnswer.Mode,
-            baseAnswer.Question,
-            generatedItems.Count > 0 ? generatedItems : baseAnswer.Items,
-            string.IsNullOrWhiteSpace(generatedAnswer.AssistantText)
-                ? baseAnswer.AssistantText
-                : generatedAnswer.AssistantText);
+        return (generatedItems.Count > 0 ? generatedItems : baseAnswer.Items)
+            .ToChatAnswerViewModel(
+                baseAnswer.Mode,
+                baseAnswer.Question,
+                string.IsNullOrWhiteSpace(generatedAnswer.AssistantText)
+                    ? baseAnswer.AssistantText
+                    : generatedAnswer.AssistantText);
     }
 
     private static bool LooksLikeNoContextAnswer(string? assistantText)
@@ -368,13 +344,6 @@ public sealed class ChatExperienceService : IChatExperienceService
             return [];
         }
     }
-
-    private sealed record RetrievedChatContext(
-        string Title,
-        string Summary,
-        string SourceRoom,
-        DateTimeOffset ObservedAt,
-        string Text);
 
     private async Task<IReadOnlyList<SearchResultViewModel>> SearchSmartAsync(
         Guid userId,

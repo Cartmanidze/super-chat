@@ -24,7 +24,7 @@ public static class IntegrationEndpoints
             var connections = await integrationConnectionService.GetConnectionsAsync(userId, cancellationToken);
 
             return Results.Ok(connections
-                .Select(connection => ToResponse(connection, matrixIdentity?.MatrixUserId))
+                .Select(connection => connection.ToIntegrationConnectionResponse(matrixIdentity?.MatrixUserId))
                 .ToList());
         });
 
@@ -45,7 +45,7 @@ public static class IntegrationEndpoints
                 var userId = httpContext.User.GetRequiredUserId();
                 var matrixIdentity = await matrixProvisioningService.GetIdentityAsync(userId, cancellationToken);
                 var connection = await integrationConnectionService.GetStatusAsync(userId, parsedProvider, cancellationToken);
-                return Results.Ok(ToResponse(connection, matrixIdentity?.MatrixUserId));
+                return Results.Ok(connection.ToIntegrationConnectionResponse(matrixIdentity?.MatrixUserId));
             }
             catch (NotSupportedException ex)
             {
@@ -76,7 +76,7 @@ public static class IntegrationEndpoints
             {
                 var connection = await integrationConnectionService.StartAsync(user, parsedProvider, cancellationToken);
                 var matrixIdentity = await matrixProvisioningService.GetIdentityAsync(user.Id, cancellationToken);
-                return Results.Ok(ToResponse(connection, matrixIdentity?.MatrixUserId));
+                return Results.Ok(connection.ToIntegrationConnectionResponse(matrixIdentity?.MatrixUserId));
             }
             catch (NotSupportedException ex)
             {
@@ -102,7 +102,7 @@ public static class IntegrationEndpoints
                 await integrationConnectionService.DisconnectAsync(userId, parsedProvider, cancellationToken);
                 var connection = await integrationConnectionService.GetStatusAsync(userId, parsedProvider, cancellationToken);
                 var matrixIdentity = await matrixProvisioningService.GetIdentityAsync(userId, cancellationToken);
-                return Results.Ok(ToResponse(connection, matrixIdentity?.MatrixUserId));
+                return Results.Ok(connection.ToIntegrationConnectionResponse(matrixIdentity?.MatrixUserId));
             }
             catch (NotSupportedException ex)
             {
@@ -111,20 +111,6 @@ public static class IntegrationEndpoints
         });
 
         return group;
-    }
-
-    internal static IntegrationConnectionResponse ToResponse(
-        IntegrationConnection connection,
-        string? matrixUserId)
-    {
-        return new IntegrationConnectionResponse(
-            Provider: connection.Provider.ToRouteSegment(),
-            Transport: connection.Transport.ToString(),
-            State: connection.State.ToString(),
-            MatrixUserId: connection.Transport == IntegrationTransport.MatrixBridge ? matrixUserId : null,
-            ActionUrl: connection.ActionUrl,
-            LastSyncedAt: connection.LastSyncedAt,
-            RequiresAction: connection.State is not IntegrationConnectionState.Connected);
     }
 }
 

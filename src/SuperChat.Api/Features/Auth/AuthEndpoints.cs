@@ -26,7 +26,7 @@ public static class AuthEndpoints
 
             var result = await authFlowService.RequestMagicLinkAsync(request.Email, cancellationToken);
             return result.Accepted
-                ? Results.Accepted(value: new MagicLinkResponse(result.Accepted, result.Message, result.DevelopmentLink))
+                ? Results.Accepted(value: result.ToMagicLinkResponse())
                 : Results.Problem(title: "Magic link request rejected", detail: result.Message, statusCode: StatusCodes.Status403Forbidden);
         });
 
@@ -51,7 +51,7 @@ public static class AuthEndpoints
             }
 
             var session = await apiSessionService.IssueAsync(result.User, cancellationToken);
-            return Results.Ok(ToSessionResponse(result.User, session));
+            return Results.Ok(session.ToSessionTokenResponse(result.User));
         });
 
         group.MapPost("/refresh", [Authorize(AuthenticationSchemes = ApiSessionAuthenticationHandler.SchemeName)] async (
@@ -72,7 +72,7 @@ public static class AuthEndpoints
 
             await apiSessionService.RevokeAsync(currentToken, cancellationToken);
             var session = await apiSessionService.IssueAsync(user, cancellationToken);
-            return Results.Ok(ToSessionResponse(user, session));
+            return Results.Ok(session.ToSessionTokenResponse(user));
         });
 
         group.MapPost("/logout", [Authorize(AuthenticationSchemes = ApiSessionAuthenticationHandler.SchemeName)] async (
@@ -89,15 +89,6 @@ public static class AuthEndpoints
         });
 
         return group;
-    }
-
-    private static SessionTokenResponse ToSessionResponse(AppUser user, ApiSession session)
-    {
-        return new SessionTokenResponse(
-            AccessToken: session.Token,
-            TokenType: "Bearer",
-            ExpiresAt: session.ExpiresAt,
-            User: new ApiUserResponse(user.Id, user.Email));
     }
 
     private static async Task<AppUser?> ResolveCurrentUserAsync(

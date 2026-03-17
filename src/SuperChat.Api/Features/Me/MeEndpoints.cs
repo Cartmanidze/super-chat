@@ -21,13 +21,7 @@ public static class MeEndpoints
             var matrixIdentity = await matrixProvisioningService.GetIdentityAsync(userId, cancellationToken);
             var connection = await integrationConnectionService.GetStatusAsync(userId, IntegrationProvider.Telegram, cancellationToken);
 
-            return Results.Ok(new MeResponse(
-                Id: userId,
-                Email: email,
-                MatrixUserId: matrixIdentity?.MatrixUserId,
-                TelegramState: connection.State.ToString(),
-                LastSyncedAt: connection.LastSyncedAt,
-                RequiresTelegramAction: connection.State is not IntegrationConnectionState.Connected));
+            return Results.Ok(connection.ToMeResponse(userId, email, matrixIdentity?.MatrixUserId));
         });
 
         return api;

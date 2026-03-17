@@ -45,13 +45,8 @@ public sealed class RetrievalServiceTests
         [
             new QdrantQueryPoint(
                 chunkId.ToString("D"),
-                0.93,
-                new Dictionary<string, object?>
-                {
-                    ["chunk_id"] = chunkId.ToString("D"),
-                    ["chat_id"] = "!ivan-room:matrix.localhost",
-                    ["kind"] = "dialog_chunk"
-                })
+                chunkId.ToString("D"),
+                0.93)
         ]);
 
         var embeddingService = new RecordingEmbeddingService();

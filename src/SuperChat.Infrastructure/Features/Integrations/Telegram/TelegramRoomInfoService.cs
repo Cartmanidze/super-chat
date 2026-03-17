@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using SuperChat.Infrastructure.Abstractions;
 
@@ -30,7 +29,7 @@ public sealed class TelegramRoomInfoService(
 
         response.EnsureSuccessStatusCode();
 
-        var payload = await response.Content.ReadFromJsonAsync<TelegramRoomInfoResponse>(cancellationToken)
+        var payload = await response.Content.ReadFromJsonAsync<TelegramRoomInfoApiResponse>(cancellationToken)
             ?? throw new InvalidOperationException("Telegram room helper returned an empty payload.");
 
         if (string.IsNullOrWhiteSpace(payload.PeerType))
@@ -67,7 +66,7 @@ public sealed class TelegramRoomInfoService(
 
         response.EnsureSuccessStatusCode();
 
-        var payload = await response.Content.ReadFromJsonAsync<TelegramSenderInfoResponse>(cancellationToken)
+        var payload = await response.Content.ReadFromJsonAsync<TelegramSenderInfoApiResponse>(cancellationToken)
             ?? throw new InvalidOperationException("Telegram sender helper returned an empty payload.");
 
         if (payload.TelegramUserId is null)
@@ -81,14 +80,4 @@ public sealed class TelegramRoomInfoService(
             payload.TelegramUserId.Value,
             payload.IsBot);
     }
-
-    private sealed record TelegramRoomInfoResponse(
-        [property: JsonPropertyName("peer_type")] string? PeerType,
-        [property: JsonPropertyName("participant_count")] int? ParticipantCount,
-        [property: JsonPropertyName("title")] string? Title,
-        [property: JsonPropertyName("is_broadcast_channel")] bool IsBroadcastChannel);
-
-    private sealed record TelegramSenderInfoResponse(
-        [property: JsonPropertyName("telegram_user_id")] long? TelegramUserId,
-        [property: JsonPropertyName("is_bot")] bool IsBot);
 }

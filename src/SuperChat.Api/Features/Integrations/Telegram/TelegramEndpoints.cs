@@ -22,7 +22,7 @@ public static class TelegramEndpoints
             var userId = httpContext.User.GetRequiredUserId();
             var connection = await integrationConnectionService.GetStatusAsync(userId, IntegrationProvider.Telegram, cancellationToken);
             var matrixIdentity = await matrixProvisioningService.GetIdentityAsync(userId, cancellationToken);
-            return Results.Ok(ToResponse(connection, matrixIdentity?.MatrixUserId));
+            return Results.Ok(connection.ToTelegramConnectionResponse(matrixIdentity?.MatrixUserId));
         });
 
         group.MapPost("/connect", async (
@@ -40,7 +40,7 @@ public static class TelegramEndpoints
 
             var connection = await integrationConnectionService.StartAsync(user, IntegrationProvider.Telegram, cancellationToken);
             var matrixIdentity = await matrixProvisioningService.GetIdentityAsync(user.Id, cancellationToken);
-            return Results.Ok(ToResponse(connection, matrixIdentity?.MatrixUserId));
+            return Results.Ok(connection.ToTelegramConnectionResponse(matrixIdentity?.MatrixUserId));
         });
 
         group.MapDelete(string.Empty, async (
@@ -53,20 +53,10 @@ public static class TelegramEndpoints
             await integrationConnectionService.DisconnectAsync(userId, IntegrationProvider.Telegram, cancellationToken);
             var connection = await integrationConnectionService.GetStatusAsync(userId, IntegrationProvider.Telegram, cancellationToken);
             var matrixIdentity = await matrixProvisioningService.GetIdentityAsync(userId, cancellationToken);
-            return Results.Ok(ToResponse(connection, matrixIdentity?.MatrixUserId));
+            return Results.Ok(connection.ToTelegramConnectionResponse(matrixIdentity?.MatrixUserId));
         });
 
         return group;
-    }
-
-    private static TelegramConnectionResponse ToResponse(IntegrationConnection connection, string? matrixUserId)
-    {
-        return new TelegramConnectionResponse(
-            State: connection.State.ToString(),
-            MatrixUserId: matrixUserId,
-            WebLoginUrl: connection.ActionUrl,
-            LastSyncedAt: connection.LastSyncedAt,
-            RequiresAction: connection.State is not IntegrationConnectionState.Connected);
     }
 }
 

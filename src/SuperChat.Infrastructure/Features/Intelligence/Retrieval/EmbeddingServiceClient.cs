@@ -1,7 +1,6 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SuperChat.Contracts.Configuration;
@@ -79,35 +78,16 @@ public sealed class EmbeddingServiceClient(
     {
         using (var response = await httpClient.PostAsJsonAsync(
                    "/embed",
-                   new LocalEmbedRequest(text),
+                   new LocalEmbedRequestDto(text),
                    cancellationToken))
         {
             response.EnsureSuccessStatusCode();
 
-            var payload = await response.Content.ReadFromJsonAsync<LocalEmbedResponse>(cancellationToken)
+            var payload = await response.Content.ReadFromJsonAsync<LocalEmbedResponseDto>(cancellationToken)
                 ?? throw new InvalidOperationException("Embedding service returned an empty payload.");
 
-            if (payload.DenseVector is null || payload.DenseVector.Count == 0)
-            {
-                throw new InvalidOperationException("Embedding service returned an empty dense vector.");
-            }
-
-            ValidateDenseVectorSize(payload.DenseVector.Count);
-
-            var sparseVector = payload.SparseVector
-                ?? throw new InvalidOperationException("Embedding service returned no sparse vector.");
-
-            if (sparseVector.Indices.Count != sparseVector.Values.Count)
-            {
-                throw new InvalidOperationException("Embedding service returned mismatched sparse vector arrays.");
-            }
-
-            return new TextEmbedding(
-                payload.DenseVector,
-                new SparseTextVector(sparseVector.Indices, sparseVector.Values),
-                payload.Provider ?? "local_service",
-                payload.Model ?? string.Empty,
-                payload.EmbeddingVersion ?? string.Empty);
+            ValidateDenseVectorSize(payload.DenseVector?.Count ?? 0);
+            return payload.ToTextEmbedding();
         }
     }
 
@@ -128,11 +108,9 @@ public sealed class EmbeddingServiceClient(
             throw new InvalidOperationException("Yandex Cloud embedding model URI is not configured.");
         }
 
-        using (var request = new HttpRequestMessage(HttpMethod.Post, "/foundationModels/v1/textEmbedding")
+        using (var request = new HttpRequestMessage(HttpMethod.Post, "/foundationModels/v1/textEmbedding"))
         {
-            Content = JsonContent.Create(new YandexEmbedRequest(modelUri, text))
-        })
-        {
+            request.Content = JsonContent.Create(new YandexEmbedRequestDto(modelUri, text));
             request.Headers.Authorization = new AuthenticationHeaderValue("Api-Key", configuredOptions.YandexApiKey);
 
             using (var response = await httpClient.SendAsync(request, cancellationToken))
@@ -150,25 +128,14 @@ public sealed class EmbeddingServiceClient(
                             throw new InvalidOperationException("Yandex Cloud embedding API returned no embedding vector.");
                         }
 
-                        var denseVector = ParseDenseVector(embeddingElement);
+                        var denseVector = embeddingElement.ToDenseVector();
                         if (denseVector.Count == 0)
                         {
                             throw new InvalidOperationException("Yandex Cloud embedding API returned an empty dense vector.");
                         }
 
                         ValidateDenseVectorSize(denseVector.Count);
-
-                        var sparseVector = LexicalSparseVectorBuilder.Build(text);
-                        var modelVersion = root.TryGetProperty("modelVersion", out var modelVersionElement)
-                            ? modelVersionElement.GetString()
-                            : null;
-
-                        return new TextEmbedding(
-                            denseVector,
-                            sparseVector,
-                            "yandex_cloud",
-                            modelUri,
-                            BuildYandexEmbeddingVersion(modelUri, modelVersion));
+                        return root.ToYandexTextEmbedding(text, modelUri, denseVector);
                     }
                 }
             }
@@ -222,52 +189,4 @@ public sealed class EmbeddingServiceClient(
         return $"emb://{configuredOptions.YandexFolderId.Trim()}/{modelName.Trim()}/latest";
     }
 
-    private static List<float> ParseDenseVector(JsonElement embeddingElement)
-    {
-        var denseVector = new List<float>(embeddingElement.GetArrayLength());
-
-        foreach (var item in embeddingElement.EnumerateArray())
-        {
-            if (item.ValueKind == JsonValueKind.Number)
-            {
-                denseVector.Add(item.GetSingle());
-                continue;
-            }
-
-            if (item.ValueKind == JsonValueKind.String &&
-                float.TryParse(item.GetString(), out var parsedValue))
-            {
-                denseVector.Add(parsedValue);
-                continue;
-            }
-
-            throw new InvalidOperationException("Yandex Cloud embedding API returned a non-numeric vector item.");
-        }
-
-        return denseVector;
-    }
-
-    private static string BuildYandexEmbeddingVersion(string modelUri, string? modelVersion)
-    {
-        return string.IsNullOrWhiteSpace(modelVersion)
-            ? modelUri
-            : $"{modelUri}:{modelVersion.Trim()}";
-    }
-
-    private sealed record LocalEmbedRequest([property: JsonPropertyName("text")] string Text);
-
-    private sealed record LocalEmbedResponse(
-        [property: JsonPropertyName("dense_vector")] List<float> DenseVector,
-        [property: JsonPropertyName("sparse_vector")] LocalSparseVectorResponse? SparseVector,
-        [property: JsonPropertyName("provider")] string? Provider,
-        [property: JsonPropertyName("model")] string? Model,
-        [property: JsonPropertyName("embedding_version")] string? EmbeddingVersion);
-
-    private sealed record LocalSparseVectorResponse(
-        [property: JsonPropertyName("indices")] List<long> Indices,
-        [property: JsonPropertyName("values")] List<float> Values);
-
-    private sealed record YandexEmbedRequest(
-        [property: JsonPropertyName("modelUri")] string ModelUri,
-        [property: JsonPropertyName("text")] string Text);
 }

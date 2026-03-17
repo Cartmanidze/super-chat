@@ -11,9 +11,8 @@ public sealed class MeetingsChatTemplateHandler(IDigestService digestService) : 
     public async Task<ChatAnswerViewModel> HandleAsync(Guid userId, string question, CancellationToken cancellationToken)
     {
         var cards = await digestService.GetMeetingsAsync(userId, cancellationToken);
-        return new ChatAnswerViewModel(
-            TemplateId,
-            question,
-            cards.Select(card => ChatTemplateCardMapper.MapDigestCard(card, "Upcoming meeting")).ToList());
+        return cards
+            .Select(card => card.ToChatResultItemViewModel("Upcoming meeting"))
+            .ToChatAnswerViewModel(TemplateId, question);
     }
 }

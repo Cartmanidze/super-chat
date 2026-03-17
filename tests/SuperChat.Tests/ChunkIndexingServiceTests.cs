@@ -86,10 +86,10 @@ public sealed class ChunkIndexingServiceTests
 
         var point = qdrantClient.UpsertedPoints[0];
         Assert.Equal("11111111-1111-1111-1111-111111111111", point.PointId);
-        Assert.Equal("telegram", point.Payload["provider"]);
-        Assert.Equal("!dm-room:matrix.localhost", point.Payload["chat_id"]);
-        Assert.Equal("ivan", point.Payload["peer_id"]);
-        Assert.Equal(now.AddMinutes(-10).ToUnixTimeSeconds(), point.Payload["ts_from"]);
+        Assert.Equal("telegram", point.Payload.Provider);
+        Assert.Equal("!dm-room:matrix.localhost", point.Payload.ChatId);
+        Assert.Equal("ivan", point.Payload.PeerId);
+        Assert.Equal(now.AddMinutes(-10).ToUnixTimeSeconds(), point.Payload.TsFrom);
 
         await using var dbContext = await factory.CreateDbContextAsync(CancellationToken.None);
         var storedPendingChunk = await dbContext.MessageChunks

@@ -16,11 +16,7 @@ public sealed class PilotInviteAdminService(
             .AsNoTracking()
             .OrderByDescending(item => item.IsActive)
             .ThenBy(item => item.Email)
-            .Select(item => new AdminInviteViewModel(
-                item.Email,
-                item.InvitedBy,
-                item.InvitedAt,
-                item.IsActive))
+            .Select(item => item.ToAdminInviteViewModel())
             .ToListAsync(cancellationToken);
 
         return invites;

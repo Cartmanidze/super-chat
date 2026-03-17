@@ -11,9 +11,8 @@ public sealed class TodayChatTemplateHandler(IDigestService digestService) : ICh
     public async Task<ChatAnswerViewModel> HandleAsync(Guid userId, string question, CancellationToken cancellationToken)
     {
         var cards = await digestService.GetTodayAsync(userId, cancellationToken);
-        return new ChatAnswerViewModel(
-            TemplateId,
-            question,
-            cards.Select(card => ChatTemplateCardMapper.MapDigestCard(card)).ToList());
+        return cards
+            .Select(card => card.ToChatResultItemViewModel())
+            .ToChatAnswerViewModel(TemplateId, question);
     }
 }

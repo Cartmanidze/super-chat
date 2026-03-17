@@ -42,7 +42,7 @@ public sealed class TextEnrichmentClient(
         {
             using var response = await httpClient.PostAsJsonAsync(
                 "/analyze",
-                new TextEnrichmentRequest(
+                new TextEnrichmentRequestDto(
                     normalizedText,
                     referenceTimeUtc.UtcDateTime.ToString("O"),
                     timeZoneId),
@@ -57,23 +57,7 @@ public sealed class TextEnrichmentClient(
                 return null;
             }
 
-            return new TextEnrichmentResponse(
-                NormalizeText(payload.CounterpartyName),
-                NormalizeText(payload.OrganizationName),
-                payload.Entities?
-                    .Where(entity => !string.IsNullOrWhiteSpace(entity.Text) && !string.IsNullOrWhiteSpace(entity.Type))
-                    .Select(entity => new TextEnrichmentEntity(
-                        entity.Text.Trim(),
-                        entity.Type.Trim(),
-                        NormalizeText(entity.NormalizedText)))
-                    .ToList() ?? [],
-                payload.TemporalExpressions?
-                    .Where(item => !string.IsNullOrWhiteSpace(item.Text))
-                    .Select(item => new TextEnrichmentTemporalExpression(
-                        item.Text.Trim(),
-                        NormalizeText(item.Value),
-                        NormalizeText(item.Grain)))
-                    .ToList() ?? []);
+            return payload.ToTextEnrichmentResponse();
         }
         catch (Exception exception)
         {
@@ -81,32 +65,4 @@ public sealed class TextEnrichmentClient(
             return null;
         }
     }
-
-    private static string? NormalizeText(string? value)
-    {
-        return string.IsNullOrWhiteSpace(value)
-            ? null
-            : value.Trim();
-    }
-
-    private sealed record TextEnrichmentRequest(
-        string Text,
-        string ReferenceTimeUtc,
-        string TimeZoneId);
-
-    private sealed record TextEnrichmentResponseDto(
-        string? CounterpartyName,
-        string? OrganizationName,
-        List<TextEnrichmentEntityDto>? Entities,
-        List<TextEnrichmentTemporalExpressionDto>? TemporalExpressions);
-
-    private sealed record TextEnrichmentEntityDto(
-        string Text,
-        string Type,
-        string? NormalizedText);
-
-    private sealed record TextEnrichmentTemporalExpressionDto(
-        string Text,
-        string? Value,
-        string? Grain);
 }

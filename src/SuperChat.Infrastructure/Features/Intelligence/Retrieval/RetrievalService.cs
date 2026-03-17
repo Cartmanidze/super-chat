@@ -155,7 +155,7 @@ public sealed class RetrievalService(
 
     private static Guid? TryExtractChunkId(QdrantQueryPoint match)
     {
-        if (TryParseGuid(match.Payload.TryGetValue("chunk_id", out var chunkIdValue) ? chunkIdValue : null, out var chunkId))
+        if (TryParseGuid(match.ChunkId, out var chunkId))
         {
             return chunkId;
         }
@@ -165,15 +165,9 @@ public sealed class RetrievalService(
             : null;
     }
 
-    private static bool TryParseGuid(object? value, out Guid guid)
+    private static bool TryParseGuid(string? value, out Guid guid)
     {
-        if (value is Guid typedGuid)
-        {
-            guid = typedGuid;
-            return true;
-        }
-
-        if (value is string text && Guid.TryParse(text, out guid))
+        if (!string.IsNullOrWhiteSpace(value) && Guid.TryParse(value, out guid))
         {
             return true;
         }

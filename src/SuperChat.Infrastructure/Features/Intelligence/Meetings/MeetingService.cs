@@ -97,7 +97,7 @@ public sealed class MeetingService(
         return entities
             .Select(item => item.ToDomain())
             .Where(item => item.ScheduledFor >= utcFromInclusive)
-            .GroupBy(BuildMeetingDeduplicationKey, StringComparer.Ordinal)
+            .GroupBy(item => item.ToMeetingDeduplicationKey(), StringComparer.Ordinal)
             .Select(group => group
                 .OrderBy(item => item.ScheduledFor)
                 .ThenByDescending(item => item.Confidence)
@@ -119,60 +119,6 @@ public sealed class MeetingService(
         return value.Offset == TimeSpan.Zero
             ? value
             : value.ToUniversalTime();
-    }
-
-    internal static MeetingRecord? ToMeetingCandidate(MessageChunkEntity chunk, TimeZoneInfo referenceTimeZone)
-    {
-        if (StructuredArtifactDetector.LooksLikeStructuredArtifact(chunk.Text))
-        {
-            return null;
-        }
-
-        var signal = MeetingSignalDetector.TryFromChunk(
-            chunk.Text,
-            chunk.TsTo,
-            chunk.TsTo,
-            referenceTimeZone);
-
-        if (signal is null)
-        {
-            return null;
-        }
-
-        return new MeetingRecord(
-            BuildDeterministicGuid(chunk.ContentHash),
-            chunk.UserId,
-            signal.Title,
-            signal.Summary,
-            chunk.ChatId,
-            BuildChunkSourceEventId(chunk),
-            signal.Person,
-            signal.ObservedAt,
-            signal.ScheduledFor,
-            signal.Confidence);
-    }
-
-    internal static string BuildChunkSourceEventId(MessageChunkEntity chunk)
-    {
-        return $"chunk:{chunk.ContentHash}";
-    }
-
-    internal static string BuildMeetingDeduplicationKey(MeetingRecord meeting)
-    {
-        return string.Join(
-            '|',
-            meeting.SourceRoom,
-            meeting.ScheduledFor.UtcDateTime.ToString("yyyy-MM-ddTHH:mm", System.Globalization.CultureInfo.InvariantCulture),
-            meeting.Summary.Trim().ToLowerInvariant());
-    }
-
-    internal static Guid BuildDeterministicGuid(string seed)
-    {
-        Span<byte> bytes = stackalloc byte[16];
-        var sourceBytes = System.Text.Encoding.UTF8.GetBytes(seed);
-        var hash = System.Security.Cryptography.SHA256.HashData(sourceBytes);
-        hash[..16].CopyTo(bytes);
-        return new Guid(bytes);
     }
 
     internal static TimeZoneInfo ResolveReferenceTimeZone(string configuredTimeZoneId)

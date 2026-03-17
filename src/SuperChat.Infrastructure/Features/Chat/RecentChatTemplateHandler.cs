@@ -42,15 +42,11 @@ public sealed class RecentChatTemplateHandler(
                         ? string.Empty
                         : message.MatrixRoomId;
 
-                return new ChatResultItemViewModel(
-                    MessagePresentationFormatter.ResolveDisplaySenderName(message.SenderName, sourceRoom),
-                    message.Text,
-                    sourceRoom,
-                    message.SentAt);
+                return message.ToChatResultItemViewModel(sourceRoom);
             })
             .ToList();
 
-        return new ChatAnswerViewModel(TemplateId, question, items);
+        return items.ToChatAnswerViewModel(TemplateId, question);
     }
 
     private static bool LooksLikeMatrixRoomId(string value)

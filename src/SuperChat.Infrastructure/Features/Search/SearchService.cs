@@ -24,7 +24,7 @@ public sealed class SearchService(
                 item.SourceRoom.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(item => item.ObservedAt)
             .Take(20)
-            .Select(item => new SearchResultViewModel(item.Title, item.Summary, item.Kind.ToString(), item.SourceRoom, item.ObservedAt))
+            .Select(item => item.ToSearchResultViewModel())
             .ToList();
 
         if (results.Count > 0)
@@ -38,7 +38,7 @@ public sealed class SearchService(
                 message.Text.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
                 message.SenderName.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
                 message.MatrixRoomId.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase))
-            .Select(message => new SearchResultViewModel(message.SenderName, message.Text, "Message", message.MatrixRoomId, message.SentAt))
+            .Select(message => message.ToSearchResultViewModel())
             .ToList();
 
         return await ResolveRoomNamesAsync(userId, messageResults, cancellationToken);
@@ -52,30 +52,7 @@ public sealed class SearchService(
         var roomNames = await roomDisplayNameService.ResolveManyAsync(userId, results.Select(item => item.SourceRoom), cancellationToken);
 
         return results
-            .Select(result =>
-            {
-                if (roomNames.TryGetValue(result.SourceRoom, out var roomName))
-                {
-                    return result with
-                    {
-                        Title = string.Equals(result.Kind, "Message", StringComparison.Ordinal)
-                            ? MessagePresentationFormatter.ResolveDisplaySenderName(result.Title, roomName)
-                            : result.Title,
-                        SourceRoom = roomName
-                    };
-                }
-
-                return LooksLikeMatrixRoomId(result.SourceRoom)
-                    ? result with { SourceRoom = string.Empty }
-                    : result;
-            })
+            .Select(result => result.WithResolvedSourceRoom(roomNames))
             .ToList();
-    }
-
-    private static bool LooksLikeMatrixRoomId(string value)
-    {
-        return !string.IsNullOrWhiteSpace(value) &&
-               value.StartsWith("!", StringComparison.Ordinal) &&
-               value.Contains(':', StringComparison.Ordinal);
     }
 }

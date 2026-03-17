@@ -711,8 +711,7 @@ public sealed class ExtractionAndDigestTests
             TsTo = new DateTimeOffset(2026, 03, 14, 09, 00, 00, TimeSpan.Zero)
         };
 
-        var candidate = MeetingService.ToMeetingCandidate(
-            chunk,
+        var candidate = chunk.ToMeetingCandidate(
             TimeZoneInfo.FindSystemTimeZoneById("Europe/Moscow"));
 
         Assert.Null(candidate);

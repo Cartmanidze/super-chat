@@ -6,6 +6,8 @@ public sealed class QdrantOptions
 
     public string BaseUrl { get; set; } = "http://localhost:6333";
 
+    public int GrpcPort { get; set; } = 6334;
+
     public string ApiKey { get; set; } = string.Empty;
 
     public bool AutoInitialize { get; set; }

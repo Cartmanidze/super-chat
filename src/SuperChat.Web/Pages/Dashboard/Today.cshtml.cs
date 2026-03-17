@@ -85,28 +85,28 @@ public sealed class TodayModel(
             "Нужно ответить",
             "Точки, где кто-то ждёт от вас следующий шаг.",
             "Сейчас нет явных мест, где кто-то ждёт ответ.",
-            waitingCards.Select(card => MapDigestCard(card, "Ожидает ответа")).ToList());
+            waitingCards.Select(card => card.ToDashboardCard("Ожидает ответа")).ToList());
 
         CommitmentsSection = new DashboardSection(
             "commitments",
             "Ты пообещал",
             "Фразы, где система увидела обещание или взятый на себя следующий шаг.",
             "Активных обещаний пока не выделилось.",
-            commitments.Select(MapCommitmentCard).ToList());
+            commitments.Select(item => item.ToCommitmentDashboardCard()).ToList());
 
         MeetingsSection = new DashboardSection(
             "meetings",
             "Скоро встречи",
             "Ближайшие встречи и временные договорённости, найденные в переписках.",
             "Ближайших встреч пока не видно.",
-            meetingCards.Select(card => MapDigestCard(card, "Временной сигнал")).ToList());
+            meetingCards.Select(card => card.ToDashboardCard("Временной сигнал")).ToList());
 
         TodaySection = new DashboardSection(
             "today",
             "Важно сегодня",
             "Самое важное на сегодня из текущих переписок.",
             "На сегодня пока ничего критичного не выделилось.",
-            todayCards.Select(card => MapDigestCard(card, "Сегодня в фокусе")).ToList());
+            todayCards.Select(card => card.ToDashboardCard("Сегодня в фокусе")).ToList());
 
         Summary = new DashboardSummary(
             WaitingSection.Items.Count,
@@ -116,39 +116,6 @@ public sealed class TodayModel(
 
         ActiveSection = ResolveActiveSection(SelectedSectionId);
         SelectedSectionId = ActiveSection.Id;
-    }
-
-    private static DashboardCard MapDigestCard(DashboardCardViewModel card, string hint)
-    {
-        var timestamp = card.DueAt ?? card.ObservedAt;
-        var searchQuery = BuildSearchQuery(card.Title, card.Summary, card.SourceRoom);
-
-        return new DashboardCard(
-            card.Title,
-            card.Summary,
-            card.SourceRoom,
-            timestamp,
-            hint,
-            searchQuery,
-            card.Confidence);
-    }
-
-    private static DashboardCard MapCommitmentCard(ExtractedItem item)
-    {
-        var hint = item.Confidence >= 0.9
-            ? "Высокая уверенность"
-            : item.Confidence >= 0.75
-                ? "Похоже на обещание"
-                : "Нужна проверка";
-
-        return new DashboardCard(
-            item.Title,
-            item.Summary,
-            item.Person ?? item.SourceRoom,
-            item.DueAt ?? item.ObservedAt,
-            hint,
-            BuildSearchQuery(item.Title, item.Summary, item.SourceRoom),
-            item.Confidence);
     }
 
     private DashboardSection ResolveActiveSection(string? selectedSectionId)
@@ -163,20 +130,6 @@ public sealed class TodayModel(
         return string.IsNullOrWhiteSpace(sectionId)
             ? DefaultSectionId
             : sectionId.Trim().ToLowerInvariant();
-    }
-
-    private static string BuildSearchQuery(string title, string summary, string sourceRoom)
-    {
-        foreach (var candidate in new[] { title, summary, sourceRoom })
-        {
-            if (!string.IsNullOrWhiteSpace(candidate))
-            {
-                var value = candidate.Trim();
-                return value.Length <= 80 ? value : value[..80];
-            }
-        }
-
-        return string.Empty;
     }
 
     public sealed record DashboardSummary(

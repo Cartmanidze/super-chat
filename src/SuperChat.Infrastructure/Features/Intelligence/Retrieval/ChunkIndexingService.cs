@@ -129,37 +129,27 @@ public sealed class ChunkIndexingService(
         return !string.IsNullOrWhiteSpace(model) ? model : provider;
     }
 
-    internal static IReadOnlyDictionary<string, object?> BuildPayload(
+    internal static QdrantChunkPayload BuildPayload(
         MessageChunkEntity chunk,
         string embeddingVersion)
     {
-        var payload = new Dictionary<string, object?>(StringComparer.Ordinal)
+        return new QdrantChunkPayload
         {
-            ["user_id"] = chunk.UserId.ToString("D"),
-            ["source"] = chunk.Source,
-            ["provider"] = chunk.Provider,
-            ["transport"] = chunk.Transport,
-            ["chat_id"] = chunk.ChatId,
-            ["kind"] = chunk.Kind,
-            ["ts_from"] = chunk.TsFrom.ToUnixTimeSeconds(),
-            ["ts_to"] = chunk.TsTo.ToUnixTimeSeconds(),
-            ["chunk_id"] = chunk.Id.ToString("D"),
-            ["embedding_version"] = embeddingVersion,
-            ["chunk_version"] = chunk.ChunkVersion,
-            ["message_count"] = chunk.MessageCount,
-            ["content_hash"] = chunk.ContentHash
+            UserId = chunk.UserId.ToString("D"),
+            Source = chunk.Source,
+            Provider = chunk.Provider,
+            Transport = chunk.Transport,
+            ChatId = chunk.ChatId,
+            PeerId = string.IsNullOrWhiteSpace(chunk.PeerId) ? null : chunk.PeerId,
+            ThreadId = string.IsNullOrWhiteSpace(chunk.ThreadId) ? null : chunk.ThreadId,
+            Kind = chunk.Kind,
+            TsFrom = chunk.TsFrom.ToUnixTimeSeconds(),
+            TsTo = chunk.TsTo.ToUnixTimeSeconds(),
+            ChunkId = chunk.Id.ToString("D"),
+            EmbeddingVersion = embeddingVersion,
+            ChunkVersion = chunk.ChunkVersion,
+            MessageCount = chunk.MessageCount,
+            ContentHash = chunk.ContentHash
         };
-
-        if (!string.IsNullOrWhiteSpace(chunk.PeerId))
-        {
-            payload["peer_id"] = chunk.PeerId;
-        }
-
-        if (!string.IsNullOrWhiteSpace(chunk.ThreadId))
-        {
-            payload["thread_id"] = chunk.ThreadId;
-        }
-
-        return payload;
     }
 }

@@ -1,7 +1,9 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using QdrantSdk = Qdrant.Client.QdrantClient;
 using SuperChat.Contracts.Configuration;
 using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Infrastructure.Health;
@@ -81,19 +83,28 @@ public static class ServiceCollectionExtensions
                 client.BaseAddress = baseUri;
             }
         });
-        services.AddHttpClient<IQdrantClient, QdrantClient>((serviceProvider, client) =>
+        services.AddSingleton<IQdrantSdkClient>(serviceProvider =>
         {
             var options = serviceProvider.GetRequiredService<IOptions<QdrantOptions>>().Value;
-            if (Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var baseUri))
+            if (!Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var baseUri))
             {
-                client.BaseAddress = baseUri;
+                throw new InvalidOperationException("Qdrant base URL is not configured.");
             }
 
-            if (!string.IsNullOrWhiteSpace(options.ApiKey))
+            var grpcUri = new UriBuilder(baseUri)
             {
-                client.DefaultRequestHeaders.Add("api-key", options.ApiKey);
-            }
+                Port = options.GrpcPort > 0 ? options.GrpcPort : 6334
+            }.Uri;
+
+            var sdkClient = new QdrantSdk(
+                grpcUri,
+                string.IsNullOrWhiteSpace(options.ApiKey) ? string.Empty : options.ApiKey,
+                TimeSpan.FromSeconds(30),
+                serviceProvider.GetRequiredService<ILoggerFactory>());
+
+            return new QdrantSdkClientAdapter(sdkClient);
         });
+        services.AddSingleton<IQdrantClient, QdrantClient>();
         services.AddHttpClient<IEmbeddingService, EmbeddingServiceClient>((serviceProvider, client) =>
         {
             var options = serviceProvider.GetRequiredService<IOptions<EmbeddingOptions>>().Value;

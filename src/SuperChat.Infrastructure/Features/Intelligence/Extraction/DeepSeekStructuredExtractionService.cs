@@ -108,7 +108,7 @@ public sealed class DeepSeekStructuredExtractionService(
             window.Source,
             rawItemCount);
 
-        var mappingResult = MapStructuredItems(window, response?.Items, sentAtLocal, referenceTimeZone);
+        var mappingResult = (response?.Items).ToStructuredItemMappingResult(window, sentAtLocal, referenceTimeZone);
         AiPipelineLog.StructuredExtractionItemMappingCompleted(
             logger,
             window.Source,
@@ -127,7 +127,7 @@ public sealed class DeepSeekStructuredExtractionService(
 
         if (deterministicMeeting is not null)
         {
-            MergeDeterministicMeeting(window, extractedItems, deterministicMeeting);
+            deterministicMeeting.MergeInto(extractedItems, window);
         }
 
         HeuristicStructuredExtractionService.ApplyWaitingOnWindowRules(window, extractedItems);
@@ -139,98 +139,6 @@ public sealed class DeepSeekStructuredExtractionService(
         CancellationToken cancellationToken)
     {
         return await heuristicService.ExtractAsync(window, cancellationToken);
-    }
-
-    private static StructuredItemMappingResult MapStructuredItems(
-        ConversationWindow window,
-        IReadOnlyList<DeepSeekStructuredItem>? items,
-        DateTimeOffset sentAtLocal,
-        TimeZoneInfo referenceTimeZone)
-    {
-        var result = new List<ExtractedItem>();
-        var unknownKindCount = 0;
-        var invalidContentCount = 0;
-        if (items is null || items.Count == 0)
-        {
-            return new StructuredItemMappingResult(result, unknownKindCount, invalidContentCount);
-        }
-
-        foreach (var item in items)
-        {
-            if (!TryMapKind(item.Kind, out var kind))
-            {
-                unknownKindCount++;
-                continue;
-            }
-
-            var summary = string.IsNullOrWhiteSpace(item.Summary)
-                ? window.Transcript
-                : item.Summary.Trim();
-
-            var title = string.IsNullOrWhiteSpace(item.Title)
-                ? BuildDefaultTitle(kind, item.Person)
-                : item.Title.Trim();
-
-            if (string.IsNullOrWhiteSpace(summary) || string.IsNullOrWhiteSpace(title))
-            {
-                invalidContentCount++;
-                continue;
-            }
-
-            var confidence = Math.Clamp(item.Confidence ?? 0.74d, 0d, 1d);
-            var dueAt = ParseDeadline(item.Deadline, sentAtLocal, referenceTimeZone);
-            var person = string.IsNullOrWhiteSpace(item.Person) ? null : item.Person.Trim();
-
-            result.Add(new ExtractedItem(
-                Guid.NewGuid(),
-                window.UserId,
-                kind,
-                title,
-                summary,
-                window.MatrixRoomId,
-                window.LastMessage.MatrixEventId,
-                person,
-                window.TsTo,
-                dueAt,
-                confidence));
-        }
-
-        return new StructuredItemMappingResult(result, unknownKindCount, invalidContentCount);
-    }
-
-    private static void MergeDeterministicMeeting(
-        ConversationWindow window,
-        List<ExtractedItem> extractedItems,
-        MeetingSignal deterministicMeeting)
-    {
-        var existingMeetingIndex = extractedItems.FindIndex(item => item.Kind == ExtractedItemKind.Meeting);
-        if (existingMeetingIndex < 0)
-        {
-            extractedItems.Add(new ExtractedItem(
-                Guid.NewGuid(),
-                window.UserId,
-                ExtractedItemKind.Meeting,
-                deterministicMeeting.Title,
-                deterministicMeeting.Summary,
-                window.MatrixRoomId,
-                window.LastMessage.MatrixEventId,
-                deterministicMeeting.Person,
-                window.TsTo,
-                deterministicMeeting.ScheduledFor,
-                deterministicMeeting.Confidence));
-            return;
-        }
-
-        var existingMeeting = extractedItems[existingMeetingIndex];
-        extractedItems[existingMeetingIndex] = existingMeeting with
-        {
-            Title = deterministicMeeting.Title,
-            Summary = deterministicMeeting.Summary,
-            Person = deterministicMeeting.Person ?? existingMeeting.Person,
-            ObservedAt = window.TsTo,
-            DueAt = deterministicMeeting.ScheduledFor,
-            Confidence = Math.Max(existingMeeting.Confidence, deterministicMeeting.Confidence)
-        };
     }
 
     private static string BuildSystemPrompt(string timeZoneId)
@@ -296,78 +204,6 @@ public sealed class DeepSeekStructuredExtractionService(
             """;
     }
 
-    private static bool TryMapKind(string? kind, out ExtractedItemKind extractedItemKind)
-    {
-        var normalized = kind?.Trim().ToLowerInvariant();
-        extractedItemKind = normalized switch
-        {
-            "task" or "todo" or "action" => ExtractedItemKind.Task,
-            "commitment" or "promise" => ExtractedItemKind.Commitment,
-            "waiting_on" or "waitingon" or "waiting" or "follow_up" => ExtractedItemKind.WaitingOn,
-            "meeting" or "call" => ExtractedItemKind.Meeting,
-            _ => default
-        };
-
-        return normalized is "task" or "todo" or "action" or
-            "commitment" or "promise" or
-            "waiting_on" or "waitingon" or "waiting" or "follow_up" or
-            "meeting" or "call";
-    }
-
-    private static string BuildDefaultTitle(ExtractedItemKind kind, string? person)
-    {
-        return kind switch
-        {
-            ExtractedItemKind.WaitingOn when !string.IsNullOrWhiteSpace(person) => $"Нужно ответить: {person!.Trim()}",
-            ExtractedItemKind.WaitingOn => "Нужно ответить",
-            ExtractedItemKind.Commitment => "Ты пообещал",
-            ExtractedItemKind.Task => "Нужен следующий шаг",
-            ExtractedItemKind.Meeting => "Скоро встреча",
-            _ => "Важный сигнал"
-        };
-    }
-
-    private static DateTimeOffset? ParseDeadline(
-        string? value,
-        DateTimeOffset sentAtLocal,
-        TimeZoneInfo referenceTimeZone)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        var normalized = value.Trim();
-        if (DateTimeOffset.TryParse(
-                normalized,
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
-                out var parsedOffset))
-        {
-            return parsedOffset.ToUniversalTime();
-        }
-
-        if (!DateTime.TryParse(
-                normalized,
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.AllowWhiteSpaces,
-                out var parsedDateTime))
-        {
-            return null;
-        }
-
-        var unspecifiedLocal = DateTime.SpecifyKind(parsedDateTime, DateTimeKind.Unspecified);
-        var offset = referenceTimeZone.GetUtcOffset(unspecifiedLocal);
-        var localDeadline = new DateTimeOffset(unspecifiedLocal, offset);
-
-        if (localDeadline < sentAtLocal.AddDays(-1))
-        {
-            return null;
-        }
-
-        return localDeadline.ToUniversalTime();
-    }
-
     private static TimeZoneInfo ResolveReferenceTimeZone(string configuredTimeZoneId)
     {
         if (!string.IsNullOrWhiteSpace(configuredTimeZoneId))
@@ -385,16 +221,6 @@ public sealed class DeepSeekStructuredExtractionService(
         }
 
         return TimeZoneInfo.Utc;
-    }
-
-    private sealed record StructuredItemMappingResult(
-        List<ExtractedItem> Items,
-        int UnknownKindCount,
-        int InvalidContentCount)
-    {
-        public string MappedKinds => Items.Count == 0
-            ? "none"
-            : string.Join(",", Items.Select(item => item.Kind.ToString()));
     }
 
     private readonly record struct StructuredExtractionAiAttemptResult(

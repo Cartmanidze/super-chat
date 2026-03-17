@@ -2,7 +2,6 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -24,13 +23,11 @@ public sealed partial class MatrixApiClient(
             HttpMethod.Put,
             $"/_synapse/admin/v2/users/{Uri.EscapeDataString(matrixUserId)}");
 
-        request.Content = JsonContent.Create(new
-        {
+        request.Content = JsonContent.Create(new MatrixEnsureUserRequest(
             password,
-            admin = false,
-            deactivated = false,
-            logout_devices = false
-        });
+            false,
+            false,
+            false));
 
         using var response = await httpClient.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
@@ -45,7 +42,7 @@ public sealed partial class MatrixApiClient(
         using var response = await httpClient.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
 
-        var payload = await response.Content.ReadFromJsonAsync<AdminLoginResponse>(JsonOptions, cancellationToken);
+        var payload = await response.Content.ReadFromJsonAsync<MatrixAdminLoginResponse>(JsonOptions, cancellationToken);
         if (string.IsNullOrWhiteSpace(payload?.AccessToken))
         {
             throw new InvalidOperationException($"Synapse did not return an access token for {matrixUserId}.");
@@ -60,18 +57,16 @@ public sealed partial class MatrixApiClient(
         CancellationToken cancellationToken)
     {
         using var request = CreateUserRequest(HttpMethod.Post, "/_matrix/client/v3/createRoom", accessToken);
-        request.Content = JsonContent.Create(new
-        {
-            invite = new[] { inviteUserId },
-            is_direct = true,
-            preset = "private_chat",
-            name = "Telegram Bridge"
-        });
+        request.Content = JsonContent.Create(new MatrixCreateDirectRoomRequest(
+            [inviteUserId],
+            true,
+            "private_chat",
+            "Telegram Bridge"));
 
         using var response = await httpClient.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
 
-        var payload = await response.Content.ReadFromJsonAsync<CreateRoomResponse>(JsonOptions, cancellationToken);
+        var payload = await response.Content.ReadFromJsonAsync<MatrixCreateRoomResponse>(JsonOptions, cancellationToken);
         if (string.IsNullOrWhiteSpace(payload?.RoomId))
         {
             throw new InvalidOperationException("Matrix createRoom response did not include room_id.");
@@ -89,7 +84,7 @@ public sealed partial class MatrixApiClient(
             HttpMethod.Post,
             $"/_matrix/client/v3/rooms/{Uri.EscapeDataString(roomId)}/join",
             accessToken);
-        request.Content = JsonContent.Create(new { });
+        request.Content = JsonContent.Create(new MatrixEmptyRequest());
 
         using var response = await httpClient.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
@@ -114,7 +109,7 @@ public sealed partial class MatrixApiClient(
 
         response.EnsureSuccessStatusCode();
 
-        var payload = await response.Content.ReadFromJsonAsync<RoomMemberStatePayload>(JsonOptions, cancellationToken);
+        var payload = await response.Content.ReadFromJsonAsync<MatrixRoomMemberStatePayload>(JsonOptions, cancellationToken);
         return payload?.Membership;
     }
 
@@ -130,11 +125,7 @@ public sealed partial class MatrixApiClient(
             $"/_matrix/client/v3/rooms/{Uri.EscapeDataString(roomId)}/send/m.room.message/{txnId}",
             accessToken);
 
-        request.Content = JsonContent.Create(new
-        {
-            msgtype = "m.text",
-            body
-        });
+        request.Content = JsonContent.Create(new MatrixSendTextMessageRequest("m.text", body));
 
         using var response = await httpClient.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
@@ -155,14 +146,14 @@ public sealed partial class MatrixApiClient(
         using var response = await httpClient.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
 
-        var payload = await response.Content.ReadFromJsonAsync<SyncResponse>(JsonOptions, cancellationToken)
-            ?? new SyncResponse();
+        var payload = await response.Content.ReadFromJsonAsync<MatrixSyncResponse>(JsonOptions, cancellationToken)
+            ?? new MatrixSyncResponse();
 
         var rooms = new List<MatrixTimelineRoom>();
         var invitedRoomIds = new List<string>();
-        var directRoomIds = GetDirectRoomIds(payload.AccountData);
+        var directRoomIds = payload.AccountData.GetDirectRoomIds();
 
-        foreach (var room in payload.Rooms?.Invite ?? new Dictionary<string, InvitedRoom>())
+        foreach (var room in payload.Rooms?.Invite ?? new Dictionary<string, MatrixInvitedRoom>())
         {
             if (!string.IsNullOrWhiteSpace(room.Key))
             {
@@ -170,29 +161,16 @@ public sealed partial class MatrixApiClient(
             }
         }
 
-        foreach (var room in payload.Rooms?.Join ?? new Dictionary<string, JoinedRoom>())
+        foreach (var room in payload.Rooms?.Join ?? new Dictionary<string, MatrixJoinedRoom>())
         {
             var events = new List<MatrixTimelineEvent>();
             foreach (var timelineEvent in room.Value.Timeline?.Events ?? [])
             {
-                if (!string.Equals(timelineEvent.Type, "m.room.message", StringComparison.Ordinal))
+                var mappedEvent = timelineEvent.ToMatrixTimelineEvent();
+                if (mappedEvent is not null)
                 {
-                    continue;
+                    events.Add(mappedEvent);
                 }
-
-                var body = TryGetString(timelineEvent.Content, "body");
-                if (string.IsNullOrWhiteSpace(body))
-                {
-                    continue;
-                }
-
-                var msgType = TryGetString(timelineEvent.Content, "msgtype") ?? "m.text";
-                events.Add(new MatrixTimelineEvent(
-                    timelineEvent.EventId ?? string.Empty,
-                    timelineEvent.Sender ?? string.Empty,
-                    msgType,
-                    body,
-                    ParseTimestamp(timelineEvent.OriginServerTs)));
             }
 
             if (events.Count > 0)
@@ -200,7 +178,7 @@ public sealed partial class MatrixApiClient(
                 rooms.Add(new MatrixTimelineRoom(
                     room.Key,
                     events,
-                    GetMemberCount(room.Value.Summary),
+                    room.Value.Summary.GetMemberCount(),
                     directRoomIds.Contains(room.Key)));
             }
         }
@@ -221,8 +199,8 @@ public sealed partial class MatrixApiClient(
         using var response = await httpClient.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
 
-        var payload = await response.Content.ReadFromJsonAsync<JoinedMembersResponse>(JsonOptions, cancellationToken)
-            ?? new JoinedMembersResponse();
+        var payload = await response.Content.ReadFromJsonAsync<MatrixJoinedMembersResponse>(JsonOptions, cancellationToken)
+            ?? new MatrixJoinedMembersResponse();
 
         return payload.Joined?.Count ?? 0;
     }
@@ -241,12 +219,12 @@ public sealed partial class MatrixApiClient(
         using var response = await httpClient.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
 
-        var payload = await response.Content.ReadFromJsonAsync<List<RoomStateEventPayload>>(JsonOptions, cancellationToken)
+        var payload = await response.Content.ReadFromJsonAsync<List<MatrixRoomStateEventPayload>>(JsonOptions, cancellationToken)
             ?? [];
 
         var roomName = payload
             .Where(item => string.Equals(item.Type, "m.room.name", StringComparison.Ordinal))
-            .Select(item => TryGetString(item.Content, "name"))
+            .Select(item => item.Content.GetOptionalStringProperty("name"))
             .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
         if (!string.IsNullOrWhiteSpace(roomName))
@@ -256,7 +234,7 @@ public sealed partial class MatrixApiClient(
 
         var canonicalAlias = payload
             .Where(item => string.Equals(item.Type, "m.room.canonical_alias", StringComparison.Ordinal))
-            .Select(item => TryGetString(item.Content, "alias"))
+            .Select(item => item.Content.GetOptionalStringProperty("alias"))
             .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
         if (!string.IsNullOrWhiteSpace(canonicalAlias))
@@ -266,10 +244,10 @@ public sealed partial class MatrixApiClient(
 
         var memberDisplayNames = payload
             .Where(item => string.Equals(item.Type, "m.room.member", StringComparison.Ordinal))
-            .Where(item => string.Equals(TryGetString(item.Content, "membership"), "join", StringComparison.OrdinalIgnoreCase) ||
-                           string.Equals(TryGetString(item.Content, "membership"), "invite", StringComparison.OrdinalIgnoreCase))
+            .Where(item => string.Equals(item.Content.GetOptionalStringProperty("membership"), "join", StringComparison.OrdinalIgnoreCase) ||
+                           string.Equals(item.Content.GetOptionalStringProperty("membership"), "invite", StringComparison.OrdinalIgnoreCase))
             .Where(item => !string.Equals(item.StateKey, currentMatrixUserId, StringComparison.Ordinal))
-            .Select(item => TryGetString(item.Content, "displayname"))
+            .Select(item => item.Content.GetOptionalStringProperty("displayname"))
             .Where(value => !string.IsNullOrWhiteSpace(value))
             .Select(value => value!.Trim())
             .Where(value => !string.Equals(value, "Telegram Bridge", StringComparison.OrdinalIgnoreCase))
@@ -327,160 +305,8 @@ public sealed partial class MatrixApiClient(
         return request;
     }
 
-    private static DateTimeOffset ParseTimestamp(long? originServerTs)
-    {
-        return originServerTs is > 0
-            ? DateTimeOffset.FromUnixTimeMilliseconds(originServerTs.Value)
-            : DateTimeOffset.UtcNow;
-    }
-
-    private static string? TryGetString(JsonElement? content, string propertyName)
-    {
-        if (content is not { ValueKind: JsonValueKind.Object } objectContent ||
-            !objectContent.TryGetProperty(propertyName, out var value) ||
-            value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
-        {
-            return null;
-        }
-
-        return value.GetString();
-    }
-
-    private static HashSet<string> GetDirectRoomIds(AccountDataPayload? accountData)
-    {
-        var roomIds = new HashSet<string>(StringComparer.Ordinal);
-
-        foreach (var accountDataEvent in accountData?.Events ?? [])
-        {
-            if (!string.Equals(accountDataEvent.Type, "m.direct", StringComparison.Ordinal) ||
-                accountDataEvent.Content is not { ValueKind: JsonValueKind.Object } directMappings)
-            {
-                continue;
-            }
-
-            foreach (var mapping in directMappings.EnumerateObject())
-            {
-                if (mapping.Value.ValueKind != JsonValueKind.Array)
-                {
-                    continue;
-                }
-
-                foreach (var roomId in mapping.Value.EnumerateArray())
-                {
-                    var value = roomId.GetString();
-                    if (!string.IsNullOrWhiteSpace(value))
-                    {
-                        roomIds.Add(value);
-                    }
-                }
-            }
-        }
-
-        return roomIds;
-    }
-
-    private static int? GetMemberCount(RoomSummaryPayload? summary)
-    {
-        if (summary?.JoinedMemberCount is null && summary?.InvitedMemberCount is null)
-        {
-            return null;
-        }
-
-        return Math.Max(0, summary?.JoinedMemberCount.GetValueOrDefault() ?? 0) +
-               Math.Max(0, summary?.InvitedMemberCount.GetValueOrDefault() ?? 0);
-    }
-
     [GeneratedRegex(@"https?://\S+", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     private static partial Regex UrlRegex();
-
-    private sealed record AdminLoginResponse([property: JsonPropertyName("access_token")] string? AccessToken);
-
-    private sealed record CreateRoomResponse([property: JsonPropertyName("room_id")] string? RoomId);
-
-    private sealed class SyncResponse
-    {
-        [JsonPropertyName("next_batch")]
-        public string? NextBatch { get; init; }
-
-        [JsonPropertyName("account_data")]
-        public AccountDataPayload? AccountData { get; init; }
-
-        public SyncRooms? Rooms { get; init; }
-    }
-
-    private sealed class SyncRooms
-    {
-        public Dictionary<string, JoinedRoom>? Join { get; init; }
-
-        public Dictionary<string, InvitedRoom>? Invite { get; init; }
-    }
-
-    private sealed class JoinedRoom
-    {
-        public RoomSummaryPayload? Summary { get; init; }
-
-        public TimelinePayload? Timeline { get; init; }
-    }
-
-    private sealed class InvitedRoom;
-
-    private sealed class AccountDataPayload
-    {
-        public List<AccountDataEventPayload>? Events { get; init; }
-    }
-
-    private sealed class AccountDataEventPayload
-    {
-        public string? Type { get; init; }
-
-        public JsonElement? Content { get; init; }
-    }
-
-    private sealed class RoomSummaryPayload
-    {
-        [JsonPropertyName("m.joined_member_count")]
-        public int? JoinedMemberCount { get; init; }
-
-        [JsonPropertyName("m.invited_member_count")]
-        public int? InvitedMemberCount { get; init; }
-    }
-
-    private sealed class TimelinePayload
-    {
-        public List<TimelineEventPayload>? Events { get; init; }
-    }
-
-    private sealed class TimelineEventPayload
-    {
-        [JsonPropertyName("event_id")]
-        public string? EventId { get; init; }
-
-        public string? Type { get; init; }
-
-        public string? Sender { get; init; }
-
-        [JsonPropertyName("origin_server_ts")]
-        public long? OriginServerTs { get; init; }
-
-        public JsonElement? Content { get; init; }
-    }
-
-    private sealed class JoinedMembersResponse
-    {
-        public Dictionary<string, object>? Joined { get; init; }
-    }
-
-    private sealed class RoomStateEventPayload
-    {
-        public string? Type { get; init; }
-
-        [JsonPropertyName("state_key")]
-        public string? StateKey { get; init; }
-
-        public JsonElement? Content { get; init; }
-    }
-
-    private sealed record RoomMemberStatePayload([property: JsonPropertyName("membership")] string? Membership);
 }
 
 public sealed record MatrixSyncResult(

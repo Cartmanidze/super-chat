@@ -112,9 +112,9 @@ public sealed class MeetingProjectionService(
                 .ToListAsync(cancellationToken);
 
             var projectedMeetings = roomChunks
-                .Select(item => MeetingService.ToMeetingCandidate(item, referenceTimeZone))
+                .Select(item => item.ToMeetingCandidate(referenceTimeZone))
                 .OfType<MeetingRecord>()
-                .GroupBy(MeetingService.BuildMeetingDeduplicationKey, StringComparer.Ordinal)
+                .GroupBy(item => item.ToMeetingDeduplicationKey(), StringComparer.Ordinal)
                 .Select(group => group
                     .OrderByDescending(item => item.Confidence)
                     .ThenByDescending(item => item.ObservedAt)

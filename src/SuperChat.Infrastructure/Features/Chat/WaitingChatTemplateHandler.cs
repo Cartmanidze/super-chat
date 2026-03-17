@@ -11,9 +11,8 @@ public sealed class WaitingChatTemplateHandler(IDigestService digestService) : I
     public async Task<ChatAnswerViewModel> HandleAsync(Guid userId, string question, CancellationToken cancellationToken)
     {
         var cards = await digestService.GetWaitingAsync(userId, cancellationToken);
-        return new ChatAnswerViewModel(
-            TemplateId,
-            question,
-            cards.Select(card => ChatTemplateCardMapper.MapDigestCard(card, "Awaiting response")).ToList());
+        return cards
+            .Select(card => card.ToChatResultItemViewModel("Awaiting response"))
+            .ToChatAnswerViewModel(TemplateId, question);
     }
 }
