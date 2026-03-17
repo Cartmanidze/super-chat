@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Options;
@@ -9,7 +8,6 @@ using SuperChat.Web.Security;
 
 namespace SuperChat.Web.Pages.Admin;
 
-[Authorize(Policy = AdminAuthorizationPolicy.PolicyName)]
 public sealed class IndexModel(
     IPilotInviteAdminService pilotInviteAdminService,
     IWorkerRuntimeMonitor workerRuntimeMonitor,
@@ -32,13 +30,26 @@ public sealed class IndexModel(
 
     public string DisplayTimeZoneId { get; private set; } = TimeZoneInfo.Utc.Id;
 
-    public async Task OnGetAsync(CancellationToken cancellationToken)
+    public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
+        var guard = EnsureAdminUnlocked();
+        if (guard is not null)
+        {
+            return guard;
+        }
+
         await LoadAsync(cancellationToken);
+        return Page();
     }
 
     public async Task<IActionResult> OnPostAddInviteAsync(CancellationToken cancellationToken)
     {
+        var guard = EnsureAdminUnlocked();
+        if (guard is not null)
+        {
+            return guard;
+        }
+
         var result = await pilotInviteAdminService.AddInviteAsync(InviteEmail, User.GetEmail(), cancellationToken);
         if (result.Succeeded)
         {
@@ -93,6 +104,21 @@ public sealed class IndexModel(
         DisplayTimeZoneId = _displayTimeZone.Id;
         WorkerStatuses = workerRuntimeMonitor.GetStatuses();
         Invites = await pilotInviteAdminService.GetInvitesAsync(cancellationToken);
+    }
+
+    private IActionResult? EnsureAdminUnlocked()
+    {
+        if (!User.IsConfiguredAdmin(pilotOptions.Value))
+        {
+            return RedirectToPage("/Index");
+        }
+
+        if (User.HasAdminAccess(pilotOptions.Value))
+        {
+            return null;
+        }
+
+        return RedirectToPage("/Admin/Unlock", new { returnUrl = "/admin" });
     }
 
     private static TimeZoneInfo ResolveTimeZone(string configuredTimeZoneId)

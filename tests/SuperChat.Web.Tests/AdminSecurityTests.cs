@@ -1,7 +1,14 @@
 using System.Net;
 using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Options;
 using SuperChat.Contracts.Configuration;
+using SuperChat.Contracts.Features.Admin;
+using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Web.Pages.Admin;
 using SuperChat.Web.Security;
 
 namespace SuperChat.Web.Tests;
@@ -16,19 +23,60 @@ public sealed class AdminSecurityTests : IClassFixture<WebTestApplicationFactory
     }
 
     [Fact]
-    public void IsAdmin_ReturnsTrueOnlyForConfiguredEmail()
+    public void HasAdminAccess_ReturnsTrueOnlyForConfiguredEmailWithUnlockClaim()
     {
         var principal = new ClaimsPrincipal(new ClaimsIdentity(
         [
-            new Claim(ClaimTypes.Email, "glebon84@gmail.com")
+            new Claim(ClaimTypes.Email, "admin@example.com"),
+            new Claim(AdminClaimTypes.AdminUnlocked, AdminClaimTypes.TrueValue)
         ], "test"));
 
-        var result = principal.IsAdmin(new PilotOptions
+        var result = principal.HasAdminAccess(new PilotOptions
         {
-            AdminEmails = ["glebon84@gmail.com"]
+            AdminEmails = ["admin@example.com"]
         });
 
         Assert.True(result);
+    }
+
+    [Fact]
+    public void HasAdminAccess_ReturnsFalseWithoutUnlockClaim()
+    {
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(
+        [
+            new Claim(ClaimTypes.Email, "admin@example.com")
+        ], "test"));
+
+        var result = principal.HasAdminAccess(new PilotOptions
+        {
+            AdminEmails = ["admin@example.com"]
+        });
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void AdminPasswordHasher_VerifyAcceptsMatchingPassword()
+    {
+        var hash = AdminPasswordHasher.Hash("super-secret");
+
+        Assert.True(AdminPasswordHasher.Verify("super-secret", hash));
+        Assert.False(AdminPasswordHasher.Verify("wrong-password", hash));
+    }
+
+    [Fact]
+    public async Task AdminIndex_RedirectsConfiguredAdminWithoutUnlockedSessionToUnlockPage()
+    {
+        var model = CreateIndexModel(new ClaimsPrincipal(new ClaimsIdentity(
+        [
+            new Claim(ClaimTypes.Email, "admin@example.com")
+        ], "test")));
+
+        var result = await model.OnGetAsync(CancellationToken.None);
+
+        var redirect = Assert.IsType<RedirectToPageResult>(result);
+        Assert.Equal("/Admin/Unlock", redirect.PageName);
+        Assert.Equal("/admin", redirect.RouteValues!["returnUrl"]);
     }
 
     [Fact]
@@ -44,5 +92,68 @@ public sealed class AdminSecurityTests : IClassFixture<WebTestApplicationFactory
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.NotNull(response.Headers.Location);
         Assert.Contains("/auth/request-link", response.Headers.Location!.OriginalString, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static IndexModel CreateIndexModel(ClaimsPrincipal user)
+    {
+        var model = new IndexModel(
+            new FakePilotInviteAdminService(),
+            new FakeWorkerRuntimeMonitor(),
+            Options.Create(new PilotOptions
+            {
+                AdminEmails = ["admin@example.com"]
+            }))
+        {
+            PageContext = new PageContext
+            {
+                HttpContext = new DefaultHttpContext
+                {
+                    User = user
+                }
+            }
+        };
+
+        return model;
+    }
+
+    private sealed class FakePilotInviteAdminService : IPilotInviteAdminService
+    {
+        public Task<IReadOnlyList<AdminInviteViewModel>> GetInvitesAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult<IReadOnlyList<AdminInviteViewModel>>([]);
+        }
+
+        public Task<AdminInviteMutationResult> AddInviteAsync(string email, string invitedBy, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new AdminInviteMutationResult(true, "ok"));
+        }
+    }
+
+    private sealed class FakeWorkerRuntimeMonitor : IWorkerRuntimeMonitor
+    {
+        public void RegisterWorker(string key, string displayName)
+        {
+        }
+
+        public void MarkRunning(string key, string displayName, string? details = null)
+        {
+        }
+
+        public void MarkSucceeded(string key, string displayName, string? details = null)
+        {
+        }
+
+        public void MarkFailed(string key, string displayName, Exception exception, string? details = null)
+        {
+        }
+
+        public void MarkDisabled(string key, string displayName, string? details = null)
+        {
+        }
+
+        public IReadOnlyList<WorkerRuntimeStatusViewModel> GetStatuses()
+        {
+            return [];
+        }
     }
 }

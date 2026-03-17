@@ -6,7 +6,7 @@
 @{
   var path = Context.Request.Path.Value ?? "/";
   var isSignedIn = User.Identity?.IsAuthenticated ?? false;
-  var isAdmin = isSignedIn && User.IsAdmin(PilotOptionsAccessor.Value);
+  var isAdmin = isSignedIn && User.IsConfiguredAdmin(PilotOptionsAccessor.Value);
   var currentLanguage = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
   var returnUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
   var switchCulture = string.Equals(currentLanguage, "ru", StringComparison.OrdinalIgnoreCase) ? "en" : "ru";

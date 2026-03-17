@@ -78,7 +78,7 @@ public sealed class WebTestApplicationFactory : WebApplicationFactory<Program>
                 ["ConnectionStrings:SuperChatDb"] = $"Data Source={_databasePath}",
                 ["Persistence:Provider"] = "Sqlite",
                 ["SuperChat:AllowedEmails:0"] = "pilot@example.com",
-                ["SuperChat:AdminEmails:0"] = "glebon84@gmail.com",
+                ["SuperChat:AdminEmails:0"] = "admin@example.com",
                 ["SuperChat:DevSeedSampleData"] = "true"
             });
         });

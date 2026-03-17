@@ -42,24 +42,8 @@ builder.Services
         options.ExpireTimeSpan = TimeSpan.FromHours(8);
     });
 
-var configuredAdminEmails = (builder.Configuration.GetSection(PilotOptions.SectionName).Get<PilotOptions>()?.AdminEmails ?? [])
-    .Select(email => email.Trim())
-    .Where(email => !string.IsNullOrWhiteSpace(email))
-    .Distinct(StringComparer.OrdinalIgnoreCase)
-    .ToArray();
-
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy(AdminAuthorizationPolicy.PolicyName, policy =>
-    {
-        policy.RequireAuthenticatedUser();
-        policy.RequireAssertion(context =>
-        {
-            var userEmail = context.User.GetEmail();
-            return configuredAdminEmails.Contains(userEmail, StringComparer.OrdinalIgnoreCase);
-        });
-    });
-});
+builder.Services.AddAuthorization();
+builder.Services.AddSingleton<IAdminPasswordService, AdminPasswordService>();
 
 builder.Services
     .AddRazorPages(options =>
@@ -73,7 +57,7 @@ builder.Services
         options.Conventions.AuthorizeFolder("/Search");
         options.Conventions.AuthorizeFolder("/Feedback");
         options.Conventions.AuthorizeFolder("/Settings");
-        options.Conventions.AuthorizeFolder("/Admin", AdminAuthorizationPolicy.PolicyName);
+        options.Conventions.AuthorizeFolder("/Admin");
     })
     .AddViewLocalization();
 builder.Services.AddSingleton<IUiTextService, UiTextService>();
