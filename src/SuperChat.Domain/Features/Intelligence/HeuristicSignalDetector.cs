@@ -49,32 +49,35 @@ public static partial class HeuristicSignalDetector
         TimeZoneInfo referenceTimeZone,
         List<ExtractedItem> items)
     {
-        foreach (var message in window.Messages)
+        var transcript = window.Transcript.Trim();
+        if (string.IsNullOrWhiteSpace(transcript) || StructuredArtifactDetector.LooksLikeStructuredArtifact(transcript))
         {
-            if (ShouldSkip(message))
-            {
-                continue;
-            }
-
-            var meetingSignal = MeetingSignalDetector.TryFromMessage(message, referenceTimeZone);
-            if (meetingSignal is null)
-            {
-                continue;
-            }
-
-            items.Add(new ExtractedItem(
-                Guid.NewGuid(),
-                message.UserId,
-                ExtractedItemKind.Meeting,
-                "Скоро встреча",
-                meetingSignal.Summary,
-                message.MatrixRoomId,
-                message.MatrixEventId,
-                ResolveCounterpartyName(message),
-                message.SentAt,
-                meetingSignal.ScheduledFor,
-                meetingSignal.Confidence));
+            return;
         }
+
+        var meetingSignal = MeetingSignalDetector.TryFromChunk(
+            transcript,
+            window.TsFrom,
+            window.TsTo,
+            referenceTimeZone);
+
+        if (meetingSignal is null)
+        {
+            return;
+        }
+
+        items.Add(new ExtractedItem(
+            Guid.NewGuid(),
+            window.UserId,
+            ExtractedItemKind.Meeting,
+            "Скоро встреча",
+            meetingSignal.Summary,
+            window.MatrixRoomId,
+            window.LastMessage.MatrixEventId,
+            meetingSignal.Person,
+            window.TsTo,
+            meetingSignal.ScheduledFor,
+            meetingSignal.Confidence));
     }
 
     private static void AddWaitingAndTaskItems(ConversationWindow window, List<ExtractedItem> items)

@@ -222,13 +222,12 @@ public sealed class DeepSeekStructuredExtractionService(
         }
 
         var existingMeeting = extractedItems[existingMeetingIndex];
-        if (existingMeeting.DueAt is not null)
-        {
-            return;
-        }
-
         extractedItems[existingMeetingIndex] = existingMeeting with
         {
+            Title = deterministicMeeting.Title,
+            Summary = deterministicMeeting.Summary,
+            Person = deterministicMeeting.Person ?? existingMeeting.Person,
+            ObservedAt = window.TsTo,
             DueAt = deterministicMeeting.ScheduledFor,
             Confidence = Math.Max(existingMeeting.Confidence, deterministicMeeting.Confidence)
         };

@@ -24,6 +24,13 @@ public static partial class MeetingSignalDetector
         "итого", "финально", "final", "договорились"
     ];
 
+    private static readonly string[] SchedulingFollowUpKeywords =
+    [
+        "давай", "лучше", "не могу", "не смогу", "не получится",
+        "перенес", "перенос", "вместо", "смож", "подойдёт", "подойдет",
+        "can't", "cannot", "instead", "resched"
+    ];
+
     private static readonly string[] TodayKeywords = ["today", "сегодня"];
     private static readonly string[] TomorrowKeywords = ["tomorrow", "завтра"];
     private static readonly string[] FridayKeywords = ["friday", "пятниц"];
@@ -52,19 +59,32 @@ public static partial class MeetingSignalDetector
             .ToList();
 
         MeetingSignal? best = null;
+        var meetingContextSeen = false;
+
         foreach (var line in lines)
         {
-            var candidate = TryDetectCore(line, observedAt, fallbackScheduledFrom, referenceTimeZone);
-            if (candidate is null)
+            var explicitCandidate = TryDetectCore(line, observedAt, fallbackScheduledFrom, referenceTimeZone);
+            if (explicitCandidate is not null)
+            {
+                best = explicitCandidate;
+                meetingContextSeen = true;
+                continue;
+            }
+
+            if (!meetingContextSeen)
             {
                 continue;
             }
 
-            if (best is null ||
-                candidate.Confidence > best.Confidence ||
-                (candidate.Confidence == best.Confidence && candidate.ScheduledFor < best.ScheduledFor))
+            var followUpCandidate = TryDetectContextualFollowUp(
+                line,
+                observedAt,
+                fallbackScheduledFrom,
+                referenceTimeZone);
+
+            if (followUpCandidate is not null)
             {
-                best = candidate;
+                best = followUpCandidate;
             }
         }
 
@@ -134,6 +154,50 @@ public static partial class MeetingSignalDetector
             Math.Min(0.98, confidence));
     }
 
+    private static MeetingSignal? TryDetectContextualFollowUp(
+        string rawText,
+        DateTimeOffset observedAt,
+        DateTimeOffset fallbackScheduledFrom,
+        TimeZoneInfo referenceTimeZone)
+    {
+        var summary = rawText.Trim();
+        if (string.IsNullOrWhiteSpace(summary))
+        {
+            return null;
+        }
+
+        var lowered = summary.ToLowerInvariant();
+        var scheduledFor = ResolveScheduledFor(fallbackScheduledFrom, lowered, referenceTimeZone);
+        if (scheduledFor is null || !LooksLikeSchedulingFollowUp(lowered, summary))
+        {
+            return null;
+        }
+
+        var confidence = 0.66;
+        if (ContainsAny(lowered, SchedulingFollowUpKeywords))
+        {
+            confidence += 0.10;
+        }
+
+        if (TimeRegex().IsMatch(lowered))
+        {
+            confidence += 0.08;
+        }
+
+        if (ContainsAny(lowered, TodayKeywords) || ContainsAny(lowered, TomorrowKeywords) || ContainsAny(lowered, FridayKeywords))
+        {
+            confidence += 0.06;
+        }
+
+        return new MeetingSignal(
+            "Upcoming meeting",
+            summary,
+            TryExtractPerson(summary),
+            observedAt,
+            scheduledFor.Value,
+            Math.Min(0.92, confidence));
+    }
+
     private static DateTimeOffset? ResolveScheduledFor(
         DateTimeOffset observedAt,
         string lowered,
@@ -175,12 +239,13 @@ public static partial class MeetingSignalDetector
         string lowered,
         TimeZoneInfo referenceTimeZone)
     {
-        var match = TimeRegex().Match(lowered);
-        if (!match.Success)
+        var matches = TimeRegex().Matches(lowered);
+        if (matches.Count == 0)
         {
             return null;
         }
 
+        var match = SelectRelevantTimeMatch(matches, lowered);
         if (!int.TryParse(match.Groups["hour"].Value, CultureInfo.InvariantCulture, out var hour))
         {
             return null;
@@ -229,6 +294,30 @@ public static partial class MeetingSignalDetector
         }
 
         return ToUtc(candidateLocal, referenceTimeZone);
+    }
+
+    private static Match SelectRelevantTimeMatch(MatchCollection matches, string lowered)
+    {
+        if (matches.Count == 1 || !ContainsAny(lowered, SchedulingFollowUpKeywords))
+        {
+            return matches[0];
+        }
+
+        return matches[matches.Count - 1];
+    }
+
+    private static bool LooksLikeSchedulingFollowUp(string lowered, string summary)
+    {
+        if (ContainsAny(lowered, SchedulingFollowUpKeywords))
+        {
+            return true;
+        }
+
+        return summary.Length <= 64 &&
+               (TimeRegex().IsMatch(lowered) ||
+                ContainsAny(lowered, TodayKeywords) ||
+                ContainsAny(lowered, TomorrowKeywords) ||
+                ContainsAny(lowered, FridayKeywords));
     }
 
     private static DateTimeOffset ToUtc(DateTimeOffset localValue, TimeZoneInfo referenceTimeZone)

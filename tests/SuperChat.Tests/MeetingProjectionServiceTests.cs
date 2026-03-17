@@ -134,6 +134,48 @@ public sealed class MeetingProjectionServiceTests
     }
 
     [Fact]
+    public async Task ProjectPendingChunkMeetingsAsync_UsesLatestRescheduleFromChunkDialogue()
+    {
+        var userId = Guid.NewGuid();
+        var roomId = "!dm:matrix.localhost";
+        var now = new DateTimeOffset(2026, 03, 13, 09, 30, 00, TimeSpan.Zero);
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+
+        await using (var dbContext = await factory.CreateDbContextAsync(CancellationToken.None))
+        {
+            dbContext.MessageChunks.Add(CreateChunkEntity(
+                Guid.Parse("abababab-abab-abab-abab-abababababab"),
+                userId,
+                roomId,
+                now.AddMinutes(-10),
+                now.AddMinutes(-2),
+                "chunk-hash-reschedule",
+                """
+                glebov84: назначаю встречу сегодня в 20:00 по мск
+                Stas (Telegram): в 20 не могу давай завтра в 19
+                glebov84: хорошо
+                """));
+
+            await dbContext.SaveChangesAsync(CancellationToken.None);
+        }
+
+        var service = CreateService(factory, now);
+        var result = await service.ProjectPendingChunkMeetingsAsync(CancellationToken.None);
+
+        Assert.Equal(1, result.UsersProcessed);
+        Assert.Equal(1, result.RoomsRebuilt);
+        Assert.Equal(1, result.MeetingsProjected);
+
+        await using var verificationDbContext = await factory.CreateDbContextAsync(CancellationToken.None);
+        var meeting = await verificationDbContext.Meetings
+            .SingleAsync(item => item.UserId == userId && item.SourceRoom == roomId, CancellationToken.None);
+
+        Assert.Equal("в 20 не могу давай завтра в 19", meeting.Summary);
+        Assert.Equal(new DateTimeOffset(2026, 03, 14, 16, 00, 00, TimeSpan.Zero), meeting.ScheduledFor);
+        Assert.Equal("chunk:chunk-hash-reschedule", meeting.SourceEventId);
+    }
+
+    [Fact]
     public async Task ProjectPendingChunkMeetingsAsync_RemovesStaleChunkMeetingsWhenSignalDisappears()
     {
         var userId = Guid.NewGuid();

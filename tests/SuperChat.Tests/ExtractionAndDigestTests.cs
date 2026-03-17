@@ -225,6 +225,65 @@ public sealed class ExtractionAndDigestTests
     }
 
     [Fact]
+    public async Task DeepSeekExtraction_DeterministicMeetingOverridesStaleAiSchedule()
+    {
+        var userId = Guid.NewGuid();
+        var first = new NormalizedMessage(
+            Guid.NewGuid(),
+            userId,
+            "telegram",
+            "!friends:matrix.localhost",
+            "$event-ai-meeting-1",
+            "glebov84",
+            "назначаю встречу сегодня в 20:00 по мск",
+            new DateTimeOffset(2026, 03, 13, 09, 00, 00, TimeSpan.Zero),
+            new DateTimeOffset(2026, 03, 13, 09, 00, 00, TimeSpan.Zero),
+            false);
+        var second = new NormalizedMessage(
+            Guid.NewGuid(),
+            userId,
+            "telegram",
+            "!friends:matrix.localhost",
+            "$event-ai-meeting-2",
+            "Stas (Telegram)",
+            "в 20 не могу давай завтра в 19",
+            new DateTimeOffset(2026, 03, 13, 09, 01, 00, TimeSpan.Zero),
+            new DateTimeOffset(2026, 03, 13, 09, 01, 00, TimeSpan.Zero),
+            false);
+        var third = new NormalizedMessage(
+            Guid.NewGuid(),
+            userId,
+            "telegram",
+            "!friends:matrix.localhost",
+            "$event-ai-meeting-3",
+            "glebov84",
+            "хорошо",
+            new DateTimeOffset(2026, 03, 13, 09, 02, 00, TimeSpan.Zero),
+            new DateTimeOffset(2026, 03, 13, 09, 02, 00, TimeSpan.Zero),
+            false);
+
+        var service = CreateDeepSeekService(new FakeDeepSeekJsonClient(
+            new DeepSeekStructuredResponse(
+            [
+                new DeepSeekStructuredItem(
+                    "meeting",
+                    "Скоро встреча",
+                    null,
+                    "2026-03-13T17:00:00Z",
+                    null,
+                    0.78,
+                    "назначаю встречу сегодня в 20:00 по мск")
+            ])));
+
+        var items = await service.ExtractAsync(CreateWindow(first, second, third), CancellationToken.None);
+        var meeting = Assert.Single(items, item => item.Kind == ExtractedItemKind.Meeting);
+
+        Assert.Equal("в 20 не могу давай завтра в 19", meeting.Summary);
+        Assert.Equal(new DateTimeOffset(2026, 03, 14, 16, 00, 00, TimeSpan.Zero), meeting.DueAt);
+        Assert.Equal("$event-ai-meeting-3", meeting.SourceEventId);
+    }
+
+    [Fact]
     public async Task HeuristicExtraction_DropsWaitingWhenUserAlreadyAnsweredInWindow()
     {
         var userId = Guid.NewGuid();
@@ -561,6 +620,74 @@ public sealed class ExtractionAndDigestTests
         Assert.NotNull(signal);
         Assert.Equal("итого, у нас будет встреча в 20:00 по мск времени сегодня, подтверждаю это", signal!.Summary);
         Assert.Equal(new DateTimeOffset(2026, 03, 13, 17, 00, 00, TimeSpan.Zero), signal.ScheduledFor);
+    }
+
+    [Fact]
+    public async Task HeuristicExtraction_UsesLatestRescheduleFromDialogueWindow()
+    {
+        var userId = Guid.NewGuid();
+        var first = new NormalizedMessage(
+            Guid.NewGuid(),
+            userId,
+            "telegram",
+            "!friends:matrix.localhost",
+            "$event-window-meeting-1",
+            "glebov84",
+            "назначаю встречу сегодня в 20:00 по мск",
+            new DateTimeOffset(2026, 03, 13, 09, 00, 00, TimeSpan.Zero),
+            new DateTimeOffset(2026, 03, 13, 09, 00, 00, TimeSpan.Zero),
+            false);
+        var second = new NormalizedMessage(
+            Guid.NewGuid(),
+            userId,
+            "telegram",
+            "!friends:matrix.localhost",
+            "$event-window-meeting-2",
+            "Stas (Telegram)",
+            "в 20 не могу давай завтра в 19",
+            new DateTimeOffset(2026, 03, 13, 09, 01, 00, TimeSpan.Zero),
+            new DateTimeOffset(2026, 03, 13, 09, 01, 00, TimeSpan.Zero),
+            false);
+        var third = new NormalizedMessage(
+            Guid.NewGuid(),
+            userId,
+            "telegram",
+            "!friends:matrix.localhost",
+            "$event-window-meeting-3",
+            "glebov84",
+            "хорошо",
+            new DateTimeOffset(2026, 03, 13, 09, 02, 00, TimeSpan.Zero),
+            new DateTimeOffset(2026, 03, 13, 09, 02, 00, TimeSpan.Zero),
+            false);
+
+        var service = CreateHeuristicService();
+        var items = await service.ExtractAsync(CreateWindow(first, second, third), CancellationToken.None);
+        var meeting = Assert.Single(items, item => item.Kind == ExtractedItemKind.Meeting);
+
+        Assert.Equal("в 20 не могу давай завтра в 19", meeting.Summary);
+        Assert.Equal(new DateTimeOffset(2026, 03, 14, 16, 00, 00, TimeSpan.Zero), meeting.DueAt);
+        Assert.Equal("$event-window-meeting-3", meeting.SourceEventId);
+    }
+
+    [Fact]
+    public void MeetingSignalDetector_RecognizesRescheduleFromChunkFollowUp()
+    {
+        var observedAt = new DateTimeOffset(2026, 03, 13, 09, 15, 00, TimeSpan.Zero);
+        var chunkText = """
+            glebov84: назначаю встречу сегодня в 20:00 по мск
+            Stas (Telegram): в 20 не могу давай завтра в 19
+            glebov84: хорошо
+            """;
+
+        var signal = MeetingSignalDetector.TryFromChunk(
+            chunkText,
+            observedAt,
+            observedAt,
+            TimeZoneInfo.FindSystemTimeZoneById("Europe/Moscow"));
+
+        Assert.NotNull(signal);
+        Assert.Equal("в 20 не могу давай завтра в 19", signal!.Summary);
+        Assert.Equal(new DateTimeOffset(2026, 03, 14, 16, 00, 00, TimeSpan.Zero), signal.ScheduledFor);
     }
 
     [Fact]
