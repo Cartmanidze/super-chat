@@ -1,3 +1,4 @@
+using SuperChat.Domain.Model;
 using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Infrastructure.HostedServices;
 
@@ -204,6 +205,59 @@ public sealed class MatrixSyncBackgroundServiceTests
     {
         var result = MatrixSyncBackgroundService.ShouldIngestMessageBody(
             "Please send the proposal tomorrow.");
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void ShouldRetryBridgeLogin_ReturnsTrue_ForBridgeGreetingWhilePending()
+    {
+        var result = MatrixSyncBackgroundService.ShouldRetryBridgeLogin(
+            TelegramConnectionState.BridgePending,
+            connected: false,
+            discoveredLoginUrl: null,
+            sawBridgeGreeting: true);
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void ShouldRetryBridgeLogin_ReturnsFalse_WhenLoginUrlIsAlreadyKnown()
+    {
+        var result = MatrixSyncBackgroundService.ShouldRetryBridgeLogin(
+            TelegramConnectionState.BridgePending,
+            connected: false,
+            discoveredLoginUrl: "https://bridge.example.com/login",
+            sawBridgeGreeting: true);
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void ResolveConnectionStateAfterSuccessfulSync_ReturnsBridgePending_WhenCurrentStateIsError()
+    {
+        var result = MatrixSyncBackgroundService.ResolveConnectionStateAfterSuccessfulSync(
+            TelegramConnectionState.Error,
+            connected: false);
+
+        Assert.Equal(TelegramConnectionState.BridgePending, result);
+    }
+
+    [Fact]
+    public void ResolveConnectionStateAfterSuccessfulSync_ReturnsConnected_WhenConnectionIsLive()
+    {
+        var result = MatrixSyncBackgroundService.ResolveConnectionStateAfterSuccessfulSync(
+            TelegramConnectionState.Error,
+            connected: true);
+
+        Assert.Equal(TelegramConnectionState.Connected, result);
+    }
+
+    [Fact]
+    public void LooksLikeBridgeGreeting_ReturnsTrue_ForBridgeHello()
+    {
+        var result = MatrixSyncBackgroundService.LooksLikeBridgeGreeting(
+            "Hello, I'm a Telegram bridge bot. Use `login` to continue.");
 
         Assert.True(result);
     }

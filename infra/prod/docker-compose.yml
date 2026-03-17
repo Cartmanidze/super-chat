@@ -117,7 +117,7 @@ services:
       SuperChat__BaseUrl: ${SUPERCHAT_BASE_URL}
       SuperChat__AllowedEmails__0: ${SUPERCHAT_ALLOWED_EMAILS__0}
       SuperChat__AllowedEmails__1: ${SUPERCHAT_ALLOWED_EMAILS__1}
-      SuperChat__AdminEmails__0: ${SUPERCHAT_ADMIN_EMAILS__0:-stanislavak314@gmail.com}
+      SuperChat__AdminEmails__0: ${SUPERCHAT_ADMIN_EMAILS__0:-glebon84@gmail.com}
       SuperChat__MagicLinkMinutes: ${SUPERCHAT_MAGIC_LINK_MINUTES}
       SuperChat__ApiSessionDays: ${SUPERCHAT_API_SESSION_DAYS}
       SuperChat__DevSeedSampleData: ${SUPERCHAT_DEV_SEED_SAMPLE_DATA}
@@ -194,7 +194,7 @@ services:
       SuperChat__BaseUrl: ${SUPERCHAT_BASE_URL}
       SuperChat__AllowedEmails__0: ${SUPERCHAT_ALLOWED_EMAILS__0}
       SuperChat__AllowedEmails__1: ${SUPERCHAT_ALLOWED_EMAILS__1}
-      SuperChat__AdminEmails__0: ${SUPERCHAT_ADMIN_EMAILS__0:-stanislavak314@gmail.com}
+      SuperChat__AdminEmails__0: ${SUPERCHAT_ADMIN_EMAILS__0:-glebon84@gmail.com}
       SuperChat__MagicLinkMinutes: ${SUPERCHAT_MAGIC_LINK_MINUTES}
       SuperChat__ApiSessionDays: ${SUPERCHAT_API_SESSION_DAYS}
       SuperChat__DevSeedSampleData: ${SUPERCHAT_DEV_SEED_SAMPLE_DATA}

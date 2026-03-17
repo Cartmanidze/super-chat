@@ -32,7 +32,7 @@ public sealed class TelegramConnectionServiceTests
 
         Assert.Equal(TelegramConnectionState.Connected, connection.State);
         Assert.Null(connection.WebLoginUrl);
-        Assert.Equal(0, handler.RequestCount);
+        Assert.Empty(handler.Requests);
     }
 
     [Fact]
@@ -48,23 +48,91 @@ public sealed class TelegramConnectionServiceTests
             "https://bridge.localhost/public/login?token=expired",
             CancellationToken.None);
 
-        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+        var handler = new RecordingHandler(request =>
+        {
+            if (request.RequestUri!.AbsolutePath.Contains("/state/m.room.member/", StringComparison.Ordinal))
+            {
+                return CreateJsonResponse("""
+                    {
+                      "membership": "join"
+                    }
+                    """);
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        });
         var service = CreateService(factory, handler, CreateIdentity(user.Id));
 
         var connection = await service.StartAsync(user, CancellationToken.None);
 
         Assert.Equal(TelegramConnectionState.BridgePending, connection.State);
         Assert.Null(connection.WebLoginUrl);
-        Assert.Equal(1, handler.RequestCount);
-        Assert.NotNull(handler.LastRequest);
-        Assert.Equal(HttpMethod.Put, handler.LastRequest!.Method);
-        Assert.Contains("/send/m.room.message/", handler.LastRequest.RequestUri!.AbsolutePath, StringComparison.Ordinal);
+        Assert.Equal(2, handler.Requests.Count);
+        Assert.Equal(HttpMethod.Get, handler.Requests[0].Method);
+        Assert.Contains("/state/m.room.member/", handler.Requests[0].RequestUri!.AbsolutePath, StringComparison.Ordinal);
+        Assert.Equal(HttpMethod.Put, handler.Requests[1].Method);
+        Assert.Contains("/send/m.room.message/", handler.Requests[1].RequestUri!.AbsolutePath, StringComparison.Ordinal);
 
         await using var dbContext = await factory.CreateDbContextAsync(CancellationToken.None);
         var entity = await dbContext.TelegramConnections.SingleAsync(item => item.UserId == user.Id, CancellationToken.None);
         Assert.Equal(TelegramConnectionState.BridgePending, entity.State);
         Assert.Null(entity.WebLoginUrl);
         Assert.Equal("!existing:matrix.localhost", entity.ManagementRoomId);
+    }
+
+    [Fact]
+    public async Task StartAsync_WaitsForBridgeBotJoinBeforeSendingLogin()
+    {
+        var user = CreateUser();
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        var membershipChecks = 0;
+        var handler = new RecordingHandler(request =>
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            if (string.Equals(path, "/_matrix/client/v3/createRoom", StringComparison.Ordinal))
+            {
+                return CreateJsonResponse("""
+                    {
+                      "room_id": "!bridge:matrix.localhost"
+                    }
+                    """);
+            }
+
+            if (path.Contains("/state/m.room.member/", StringComparison.Ordinal))
+            {
+                membershipChecks++;
+                return membershipChecks == 1
+                    ? new HttpResponseMessage(HttpStatusCode.NotFound)
+                    : CreateJsonResponse("""
+                        {
+                          "membership": "join"
+                        }
+                        """);
+            }
+
+            if (path.Contains("/send/m.room.message/", StringComparison.Ordinal))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK);
+            }
+
+            throw new InvalidOperationException($"Unexpected request path: {path}");
+        });
+
+        var service = CreateService(factory, handler, CreateIdentity(user.Id));
+
+        var connection = await service.StartAsync(user, CancellationToken.None);
+
+        Assert.Equal(TelegramConnectionState.BridgePending, connection.State);
+        Assert.Equal(4, handler.Requests.Count);
+        Assert.Equal("/_matrix/client/v3/createRoom", handler.Requests[0].RequestUri!.AbsolutePath);
+        Assert.Contains("/state/m.room.member/", handler.Requests[1].RequestUri!.AbsolutePath, StringComparison.Ordinal);
+        Assert.Contains("/state/m.room.member/", handler.Requests[2].RequestUri!.AbsolutePath, StringComparison.Ordinal);
+        Assert.Contains("/send/m.room.message/", handler.Requests[3].RequestUri!.AbsolutePath, StringComparison.Ordinal);
+
+        await using var dbContext = await factory.CreateDbContextAsync(CancellationToken.None);
+        var entity = await dbContext.TelegramConnections.SingleAsync(item => item.UserId == user.Id, CancellationToken.None);
+        Assert.Equal("!bridge:matrix.localhost", entity.ManagementRoomId);
+        Assert.Equal(TelegramConnectionState.BridgePending, entity.State);
     }
 
     private static TelegramConnectionService CreateService(
@@ -86,7 +154,10 @@ public sealed class TelegramConnectionServiceTests
             factory,
             new FakeMatrixProvisioningService(identity),
             matrixApiClient,
-            Options.Create(new TelegramBridgeOptions()),
+            Options.Create(new TelegramBridgeOptions
+            {
+                BotUserId = "@telegrambot:matrix.localhost"
+            }),
             Options.Create(new PilotOptions
             {
                 DevSeedSampleData = false
@@ -152,16 +223,21 @@ public sealed class TelegramConnectionServiceTests
         }
     }
 
+    private static HttpResponseMessage CreateJsonResponse(string content)
+    {
+        return new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(content)
+        };
+    }
+
     private sealed class RecordingHandler(Func<HttpRequestMessage, HttpResponseMessage> responseFactory) : HttpMessageHandler
     {
-        public int RequestCount { get; private set; }
-
-        public HttpRequestMessage? LastRequest { get; private set; }
+        public List<HttpRequestMessage> Requests { get; } = [];
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            RequestCount++;
-            LastRequest = request;
+            Requests.Add(request);
             return Task.FromResult(responseFactory(request));
         }
     }

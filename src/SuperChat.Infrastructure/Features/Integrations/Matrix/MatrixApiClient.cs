@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -92,6 +93,29 @@ public sealed partial class MatrixApiClient(
 
         using var response = await httpClient.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
+    }
+
+    public async Task<string?> GetRoomMembershipAsync(
+        string accessToken,
+        string roomId,
+        string matrixUserId,
+        CancellationToken cancellationToken)
+    {
+        using var request = CreateUserRequest(
+            HttpMethod.Get,
+            $"/_matrix/client/v3/rooms/{Uri.EscapeDataString(roomId)}/state/m.room.member/{Uri.EscapeDataString(matrixUserId)}",
+            accessToken);
+
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<RoomMemberStatePayload>(JsonOptions, cancellationToken);
+        return payload?.Membership;
     }
 
     public async Task SendTextMessageAsync(
@@ -455,6 +479,8 @@ public sealed partial class MatrixApiClient(
 
         public JsonElement? Content { get; init; }
     }
+
+    private sealed record RoomMemberStatePayload([property: JsonPropertyName("membership")] string? Membership);
 }
 
 public sealed record MatrixSyncResult(

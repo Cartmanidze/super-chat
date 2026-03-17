@@ -170,6 +170,7 @@ public sealed class MatrixSyncBackgroundService(
         {
             var isManagementRoom = IsManagementRoom(room.RoomId, target.ManagementRoomId);
             TelegramRoomInfo? telegramRoomInfo = null;
+            var sawBridgeGreeting = false;
 
             if (!isManagementRoom)
             {
@@ -209,6 +210,7 @@ public sealed class MatrixSyncBackgroundService(
                     {
                         discoveredLoginUrl ??= matrixApiClient.TryExtractFirstUrl(timelineEvent.Body)?.ToString();
                         connected = connected || LooksLikeSuccessfulLogin(timelineEvent.Body);
+                        sawBridgeGreeting = sawBridgeGreeting || LooksLikeBridgeGreeting(timelineEvent.Body);
                     }
 
                     continue;
@@ -249,6 +251,27 @@ public sealed class MatrixSyncBackgroundService(
                 {
                     ingestedMessages++;
                     connected = true;
+                }
+            }
+
+            if (isManagementRoom &&
+                ShouldRetryBridgeLogin(target.State, connected, discoveredLoginUrl, sawBridgeGreeting))
+            {
+                try
+                {
+                    await matrixApiClient.SendTextMessageAsync(target.AccessToken, room.RoomId, "login", cancellationToken);
+                    logger.LogInformation(
+                        "Re-issued Telegram bridge login for user {UserId} after bridge greeting in room {RoomId}.",
+                        target.UserId,
+                        room.RoomId);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(
+                        ex,
+                        "Failed to re-issue Telegram bridge login for user {UserId} in room {RoomId}.",
+                        target.UserId,
+                        room.RoomId);
                 }
             }
         }
@@ -333,14 +356,10 @@ public sealed class MatrixSyncBackgroundService(
         }
 
         connection.UpdatedAt = timeProvider.GetUtcNow();
-        if (connected)
+        connection.State = ResolveConnectionStateAfterSuccessfulSync(connection.State, connected);
+        if (connection.State == TelegramConnectionState.Connected)
         {
-            connection.State = TelegramConnectionState.Connected;
             connection.WebLoginUrl = null;
-        }
-        else if (connection.State == TelegramConnectionState.NotStarted)
-        {
-            connection.State = TelegramConnectionState.BridgePending;
         }
 
         if (sawMessages)
@@ -426,6 +445,49 @@ public sealed class MatrixSyncBackgroundService(
         return normalized.Contains("logged in", StringComparison.Ordinal) ||
                normalized.Contains("login successful", StringComparison.Ordinal) ||
                normalized.Contains("successfully logged in", StringComparison.Ordinal);
+    }
+
+    internal static bool LooksLikeBridgeGreeting(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return false;
+        }
+
+        var normalized = message.ToLowerInvariant();
+        return normalized.Contains("telegram bridge bot", StringComparison.Ordinal) ||
+               normalized.Contains("telegram bridge", StringComparison.Ordinal) &&
+               normalized.Contains("hello", StringComparison.Ordinal);
+    }
+
+    internal static bool ShouldRetryBridgeLogin(
+        TelegramConnectionState currentState,
+        bool connected,
+        string? discoveredLoginUrl,
+        bool sawBridgeGreeting)
+    {
+        return !connected &&
+               string.IsNullOrWhiteSpace(discoveredLoginUrl) &&
+               sawBridgeGreeting &&
+               (currentState == TelegramConnectionState.BridgePending ||
+                currentState == TelegramConnectionState.Error);
+    }
+
+    internal static TelegramConnectionState ResolveConnectionStateAfterSuccessfulSync(
+        TelegramConnectionState currentState,
+        bool connected)
+    {
+        if (connected)
+        {
+            return TelegramConnectionState.Connected;
+        }
+
+        return currentState switch
+        {
+            TelegramConnectionState.NotStarted => TelegramConnectionState.BridgePending,
+            TelegramConnectionState.Error => TelegramConnectionState.BridgePending,
+            _ => currentState
+        };
     }
 
     internal static bool IsManagementRoom(string roomId, string? managementRoomId)

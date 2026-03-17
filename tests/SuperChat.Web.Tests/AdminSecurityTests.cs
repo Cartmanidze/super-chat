@@ -20,12 +20,12 @@ public sealed class AdminSecurityTests : IClassFixture<WebTestApplicationFactory
     {
         var principal = new ClaimsPrincipal(new ClaimsIdentity(
         [
-            new Claim(ClaimTypes.Email, "stanislavak314@gmail.com")
+            new Claim(ClaimTypes.Email, "glebon84@gmail.com")
         ], "test"));
 
         var result = principal.IsAdmin(new PilotOptions
         {
-            AdminEmails = ["stanislavak314@gmail.com"]
+            AdminEmails = ["glebon84@gmail.com"]
         });
 
         Assert.True(result);

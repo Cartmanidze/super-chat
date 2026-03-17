@@ -228,6 +228,34 @@ public sealed class MatrixApiClientTests
         Assert.Equal("access-token", handler.LastRequest.Headers.Authorization?.Parameter);
     }
 
+    [Fact]
+    public async Task GetRoomMembershipAsync_ReturnsMembershipFromStateEvent()
+    {
+        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(
+                """
+                {
+                  "membership": "join"
+                }
+                """)
+        });
+
+        var client = CreateClient(handler);
+
+        var membership = await client.GetRoomMembershipAsync(
+            "access-token",
+            "!room:matrix.localhost",
+            "@telegrambot:matrix.localhost",
+            CancellationToken.None);
+
+        Assert.Equal("join", membership);
+        Assert.Equal(HttpMethod.Get, handler.LastRequest!.Method);
+        Assert.Equal(
+            "/_matrix/client/v3/rooms/%21room%3Amatrix.localhost/state/m.room.member/%40telegrambot%3Amatrix.localhost",
+            handler.LastRequest.RequestUri!.AbsolutePath);
+    }
+
     private static MatrixApiClient CreateClient(RecordingHandler handler)
     {
         var httpClient = new HttpClient(handler)

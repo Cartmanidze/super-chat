@@ -17,6 +17,9 @@ public sealed class TelegramConnectionService(
     TimeProvider timeProvider,
     ILogger<TelegramConnectionService> logger) : ITelegramConnectionService
 {
+    internal static readonly TimeSpan BridgeBotJoinTimeout = TimeSpan.FromSeconds(5);
+    internal static readonly TimeSpan BridgeBotJoinPollInterval = TimeSpan.FromMilliseconds(150);
+
     public async Task<TelegramConnection> StartAsync(AppUser user, CancellationToken cancellationToken)
     {
         if (pilotOptions.Value.DevSeedSampleData)
@@ -54,15 +57,27 @@ public sealed class TelegramConnectionService(
                 cancellationToken);
         }
 
-        await matrixApiClient.SendTextMessageAsync(identity.AccessToken, managementRoomId, "login", cancellationToken);
-
         entity.ManagementRoomId = managementRoomId;
         entity.State = TelegramConnectionState.BridgePending;
         entity.WebLoginUrl = null;
         entity.UpdatedAt = timeProvider.GetUtcNow();
 
         await dbContext.SaveChangesAsync(cancellationToken);
-        logger.LogInformation("Started Telegram bridge login for user {UserId} in room {RoomId}.", user.Id, managementRoomId);
+
+        var bridgeBotReady = await WaitForBridgeBotJoinAsync(identity.AccessToken, managementRoomId, cancellationToken);
+        if (bridgeBotReady)
+        {
+            await matrixApiClient.SendTextMessageAsync(identity.AccessToken, managementRoomId, "login", cancellationToken);
+            logger.LogInformation("Started Telegram bridge login for user {UserId} in room {RoomId}.", user.Id, managementRoomId);
+        }
+        else
+        {
+            logger.LogWarning(
+                "Telegram bridge bot {BotUserId} did not join room {RoomId} for user {UserId} before timeout. Leaving connection pending until the room becomes ready.",
+                bridgeOptions.Value.BotUserId,
+                managementRoomId,
+                user.Id);
+        }
 
         return entity.ToDomain();
     }
@@ -170,6 +185,36 @@ public sealed class TelegramConnectionService(
         existing.UpdatedAt = timeProvider.GetUtcNow();
         await dbContext.SaveChangesAsync(cancellationToken);
         return existing.ToDomain();
+    }
+
+    private async Task<bool> WaitForBridgeBotJoinAsync(
+        string accessToken,
+        string managementRoomId,
+        CancellationToken cancellationToken)
+    {
+        var deadline = timeProvider.GetUtcNow().Add(BridgeBotJoinTimeout);
+        while (true)
+        {
+            var membership = await matrixApiClient.GetRoomMembershipAsync(
+                accessToken,
+                managementRoomId,
+                bridgeOptions.Value.BotUserId,
+                cancellationToken);
+            if (string.Equals(membership, "join", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            var remaining = deadline - timeProvider.GetUtcNow();
+            if (remaining <= TimeSpan.Zero)
+            {
+                return false;
+            }
+
+            await Task.Delay(
+                remaining < BridgeBotJoinPollInterval ? remaining : BridgeBotJoinPollInterval,
+                cancellationToken);
+        }
     }
 
     private static async Task<TelegramConnectionEntity> FindOrCreateConnectionAsync(
