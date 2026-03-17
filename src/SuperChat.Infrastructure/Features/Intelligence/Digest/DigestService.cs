@@ -15,41 +15,42 @@ public sealed class DigestService(
     PilotOptions pilotOptions,
     ILogger<DigestService> logger) : IDigestService
 {
-    public async Task<IReadOnlyList<DashboardCardViewModel>> GetTodayAsync(Guid userId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<WorkItemCardViewModel>> GetTodayAsync(Guid userId, CancellationToken cancellationToken)
     {
         var items = await extractedItemService.GetForUserAsync(userId, cancellationToken);
         var now = TimeZoneInfo.ConvertTime(timeProvider.GetUtcNow(), ResolveTodayTimeZone(logger, pilotOptions.TodayTimeZoneId));
         var cards = DigestComposer.BuildToday(items, now)
-            .Select(item => item.ToDashboardCardViewModel())
+            .Select(item => item.ToWorkItemCardViewModel(now))
             .ToList();
 
         return await ResolveRoomNamesAsync(userId, cards, cancellationToken);
     }
 
-    public async Task<IReadOnlyList<DashboardCardViewModel>> GetWaitingAsync(Guid userId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<WorkItemCardViewModel>> GetWaitingAsync(Guid userId, CancellationToken cancellationToken)
     {
         var items = await extractedItemService.GetForUserAsync(userId, cancellationToken);
+        var now = TimeZoneInfo.ConvertTime(timeProvider.GetUtcNow(), ResolveTodayTimeZone(logger, pilotOptions.TodayTimeZoneId));
         var cards = DigestComposer.BuildWaiting(items)
-            .Select(item => item.ToDashboardCardViewModel())
+            .Select(item => item.ToWorkItemCardViewModel(now))
             .ToList();
 
         return await ResolveRoomNamesAsync(userId, cards, cancellationToken);
     }
 
-    public async Task<IReadOnlyList<DashboardCardViewModel>> GetMeetingsAsync(Guid userId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<WorkItemCardViewModel>> GetMeetingsAsync(Guid userId, CancellationToken cancellationToken)
     {
         var now = TimeZoneInfo.ConvertTime(timeProvider.GetUtcNow(), ResolveTodayTimeZone(logger, pilotOptions.TodayTimeZoneId));
         var meetings = await meetingService.GetUpcomingAsync(userId, now.AddHours(-1), 20, cancellationToken);
         var cards = DigestComposer.BuildMeetings(meetings, now)
-            .Select(item => item.ToDashboardCardViewModel())
+            .Select(item => item.ToWorkItemCardViewModel(now))
             .ToList();
 
         return await ResolveRoomNamesAsync(userId, cards, cancellationToken);
     }
 
-    private async Task<IReadOnlyList<DashboardCardViewModel>> ResolveRoomNamesAsync(
+    private async Task<IReadOnlyList<WorkItemCardViewModel>> ResolveRoomNamesAsync(
         Guid userId,
-        IReadOnlyList<DashboardCardViewModel> cards,
+        IReadOnlyList<WorkItemCardViewModel> cards,
         CancellationToken cancellationToken)
     {
         var roomNames = await roomDisplayNameService.ResolveManyAsync(userId, cards.Select(item => item.SourceRoom), cancellationToken);

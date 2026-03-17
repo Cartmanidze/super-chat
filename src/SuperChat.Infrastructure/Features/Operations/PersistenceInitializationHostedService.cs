@@ -129,6 +129,8 @@ public sealed class PersistenceInitializationHostedService(
                 observed_at timestamptz NOT NULL,
                 scheduled_for timestamptz NOT NULL,
                 confidence double precision NOT NULL,
+                meeting_provider text NULL,
+                meeting_join_url text NULL,
                 created_at timestamptz NOT NULL,
                 updated_at timestamptz NOT NULL
             );
@@ -138,6 +140,12 @@ public sealed class PersistenceInitializationHostedService(
 
             CREATE INDEX IF NOT EXISTS ix_meetings_user_id_scheduled_for
                 ON meetings (user_id, scheduled_for);
+
+            ALTER TABLE meetings
+            ADD COLUMN IF NOT EXISTS meeting_provider text NULL;
+
+            ALTER TABLE meetings
+            ADD COLUMN IF NOT EXISTS meeting_join_url text NULL;
 
             CREATE TABLE IF NOT EXISTS message_chunks (
                 id uuid PRIMARY KEY,

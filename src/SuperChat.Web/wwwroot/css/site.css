@@ -284,7 +284,7 @@ textarea {
 .connection-panel,
 .connection-aside,
 .settings-card,
-.dashboard-lane,
+.insight-panel,
 .answer-card,
 .evidence-section,
 .context-panel,
@@ -552,7 +552,7 @@ select {
   color: var(--danger);
 }
 
-.dashboard-hero {
+.insight-hero {
   align-items: stretch;
 }
 
@@ -580,8 +580,8 @@ select {
   color: var(--text-muted);
 }
 
-.dashboard-focus-stack,
-.dashboard-lane {
+.focus-stack,
+.insight-panel {
   display: grid;
   gap: 1rem;
 }
@@ -629,7 +629,7 @@ select {
   background: var(--accent-soft);
 }
 
-.dashboard-focus-lane {
+.focus-lane {
   display: grid;
   gap: 1rem;
 }
@@ -1280,7 +1280,7 @@ select {
   .page-hero,
   .premium-card,
   .search-workbench,
-  .dashboard-lane,
+  .insight-panel,
   .login-card,
   .auth-card {
     border-radius: 22px;

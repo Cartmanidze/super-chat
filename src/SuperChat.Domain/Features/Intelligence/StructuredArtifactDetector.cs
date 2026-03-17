@@ -31,7 +31,7 @@ public static class StructuredArtifactDetector
         "screen ",
         "login / invite-only",
         "connect telegram",
-        "main dashboard",
+        "main today view",
         "search / ask",
         "settings / connection",
         "мобильный вид",

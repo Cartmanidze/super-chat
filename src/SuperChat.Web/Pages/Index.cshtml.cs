@@ -45,7 +45,7 @@ public sealed class IndexModel(
             return Page();
         }
 
-        return RedirectToPage("/Dashboard/Today");
+        return RedirectToPage("/Today");
     }
 
     public async Task<IActionResult> OnPostRequestLinkAsync(CancellationToken cancellationToken)

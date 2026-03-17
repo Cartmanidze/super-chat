@@ -1,16 +1,16 @@
 using SuperChat.Contracts.ViewModels;
 using SuperChat.Domain.Model;
 
-namespace SuperChat.Web.Pages.Dashboard;
+namespace SuperChat.Web.Pages;
 
-internal static class DashboardCardMappings
+internal static class WorkItemCardMappings
 {
-    public static TodayModel.DashboardCard ToDashboardCard(this DashboardCardViewModel card, string hint)
+    public static TodayModel.TodayCard ToWorkItemCard(this WorkItemCardViewModel card, string hint)
     {
         var timestamp = card.DueAt ?? card.ObservedAt;
         var searchQuery = BuildSearchQuery(card.Title, card.Summary, card.SourceRoom);
 
-        return new TodayModel.DashboardCard(
+        return new TodayModel.TodayCard(
             card.Title,
             card.Summary,
             card.SourceRoom,
@@ -20,7 +20,7 @@ internal static class DashboardCardMappings
             card.Confidence);
     }
 
-    public static TodayModel.DashboardCard ToCommitmentDashboardCard(this ExtractedItem item)
+    public static TodayModel.TodayCard ToCommitmentWorkItemCard(this ExtractedItem item)
     {
         var hint = item.Confidence >= 0.9
             ? "Высокая уверенность"
@@ -28,7 +28,7 @@ internal static class DashboardCardMappings
                 ? "Похоже на обещание"
                 : "Нужна проверка";
 
-        return new TodayModel.DashboardCard(
+        return new TodayModel.TodayCard(
             item.Title,
             item.Summary,
             item.Person ?? item.SourceRoom,

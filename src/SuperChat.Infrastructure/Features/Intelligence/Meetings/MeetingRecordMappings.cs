@@ -27,6 +27,7 @@ internal static class MeetingRecordMappings
             return null;
         }
 
+        var joinLink = MeetingJoinLinkParser.TryParse(chunk.Text);
         return new MeetingRecord(
             chunk.ContentHash.ToDeterministicGuid(),
             chunk.UserId,
@@ -37,7 +38,9 @@ internal static class MeetingRecordMappings
             signal.Person,
             signal.ObservedAt,
             signal.ScheduledFor,
-            signal.Confidence);
+            signal.Confidence,
+            joinLink?.Provider.ToString(),
+            joinLink?.Url);
     }
 
     public static string ToChunkSourceEventId(this MessageChunkEntity chunk)

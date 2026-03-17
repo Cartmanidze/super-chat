@@ -147,6 +147,8 @@ public sealed class MeetingProjectionService(
                     existing.ObservedAt = MeetingService.NormalizeToUtc(meeting.ObservedAt);
                     existing.ScheduledFor = MeetingService.NormalizeToUtc(meeting.ScheduledFor);
                     existing.Confidence = meeting.Confidence;
+                    existing.MeetingProvider = meeting.MeetingProvider;
+                    existing.MeetingJoinUrl = meeting.MeetingJoinUrl?.ToString();
                     existing.UpdatedAt = now;
                     continue;
                 }
@@ -163,6 +165,8 @@ public sealed class MeetingProjectionService(
                     ObservedAt = MeetingService.NormalizeToUtc(meeting.ObservedAt),
                     ScheduledFor = MeetingService.NormalizeToUtc(meeting.ScheduledFor),
                     Confidence = meeting.Confidence,
+                    MeetingProvider = meeting.MeetingProvider,
+                    MeetingJoinUrl = meeting.MeetingJoinUrl?.ToString(),
                     CreatedAt = now,
                     UpdatedAt = now
                 });

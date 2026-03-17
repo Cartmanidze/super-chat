@@ -1,12 +1,12 @@
 @page "/today"
-@model SuperChat.Web.Pages.Dashboard.TodayModel
+@model SuperChat.Web.Pages.TodayModel
 @{
   ViewData["Title"] = T["Today.PageTitle"];
   var activeLane = Model.ActiveSection;
 }
 
 <section class="page-stack">
-  <div class="page-hero dashboard-hero">
+  <div class="page-hero insight-hero">
     <div class="page-hero-copy">
       <p class="section-kicker">@T["Today.Eyebrow"]</p>
       <h1>@T["Today.Title"]</h1>
@@ -30,7 +30,7 @@
       <article class="metric-card">
         <span class="metric-label">Скоро встречи</span>
         <strong>@Model.Summary.MeetingCount</strong>
-        <small>временных договорённостей</small>
+        <small>временных договоренностей</small>
       </article>
       <article class="metric-card">
         <span class="metric-label">Важно сегодня</span>
@@ -44,7 +44,7 @@
   {
     <section class="empty-shell">
       <div class="empty-card">
-        <span class="status-badge status-warning">Telegram не подключён</span>
+        <span class="status-badge status-warning">Telegram не подключен</span>
         <h2>Сначала подключите Telegram</h2>
         <p>
           SuperChat начинает работать только после подключения Telegram. После этого появятся сигналы по обещаниям,
@@ -59,7 +59,7 @@
   }
   else
   {
-    <section class="dashboard-focus-stack">
+    <section class="focus-stack">
       <form method="get" class="section-switcher" aria-label="Тип сигнала">
         @foreach (var laneOption in Model.Sections)
         {
@@ -75,7 +75,7 @@
         }
       </form>
 
-      <article class="dashboard-focus-lane">
+      <article class="focus-lane">
         <header class="lane-header lane-header-focus">
           <div>
             <h2>@activeLane.Title</h2>

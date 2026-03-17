@@ -11,7 +11,7 @@
   var returnUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
   var switchCulture = string.Equals(currentLanguage, "ru", StringComparison.OrdinalIgnoreCase) ? "en" : "ru";
   var switchLabel = string.Equals(currentLanguage, "ru", StringComparison.OrdinalIgnoreCase) ? "EN" : "RU";
-  var homePage = isSignedIn ? "/Dashboard/Today" : "/Index";
+  var homePage = isSignedIn ? "/Today" : "/Index";
   var mobileNavColumns = isAdmin ? 3 : 2;
 
   bool IsActive(params string[] prefixes)
@@ -62,7 +62,7 @@
         </div>
 
         <nav class="sidebar-nav" aria-label="Primary">
-          <a class="sidebar-link@(IsActive("/today") ? " is-active" : string.Empty)" asp-page="/Dashboard/Today">
+          <a class="sidebar-link@(IsActive("/today") ? " is-active" : string.Empty)" asp-page="/Today">
             <span>@T["Nav.Today"]</span>
             <small>Рабочая панель дня</small>
           </a>
@@ -112,7 +112,7 @@
       </div>
 
       <nav class="mobile-nav" aria-label="Mobile navigation" style="grid-template-columns: repeat(@mobileNavColumns, minmax(0, 1fr));">
-        <a class="mobile-nav-link@(IsActive("/today") ? " is-active" : string.Empty)" asp-page="/Dashboard/Today">@T["Nav.Today"]</a>
+        <a class="mobile-nav-link@(IsActive("/today") ? " is-active" : string.Empty)" asp-page="/Today">@T["Nav.Today"]</a>
         <a class="mobile-nav-link@(IsActive("/settings", "/connect") ? " is-active" : string.Empty)" asp-page="/Settings/Connections">Профиль</a>
         @if (isAdmin)
         {

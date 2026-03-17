@@ -1,13 +1,13 @@
 using Microsoft.AspNetCore.Authentication;
 using SuperChat.Api.Features.Auth;
 using SuperChat.Api.Features.Chat;
-using SuperChat.Api.Features.Dashboard;
 using SuperChat.Api.Features.Feedback;
 using SuperChat.Api.Features.Health;
 using SuperChat.Api.Features.Integrations;
 using SuperChat.Api.Features.Integrations.Telegram;
 using SuperChat.Api.Features.Me;
 using SuperChat.Api.Features.Search;
+using SuperChat.Api.Features.WorkItems;
 using SuperChat.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -41,7 +41,7 @@ api.MapMeEndpoints();
 api.MapIntegrationEndpoints();
 api.MapTelegramEndpoints();
 api.MapChatEndpoints();
-api.MapDashboardEndpoints();
+api.MapWorkItemEndpoints();
 api.MapSearchEndpoints();
 api.MapFeedbackEndpoints();
 

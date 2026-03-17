@@ -125,6 +125,44 @@ public sealed class ExtractedItemServiceTests
     }
 
     [Fact]
+    public async Task AddRangeAsync_ProjectsMeetingJoinLinkIntoSeparateTable()
+    {
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        var userId = Guid.NewGuid();
+        var service = CreateService(factory);
+        var dueAt = new DateTimeOffset(2026, 03, 13, 11, 00, 00, TimeSpan.FromHours(6));
+        var joinUrl = new Uri("https://meet.google.com/abc-defg-hij");
+
+        await service.AddRangeAsync(
+        [
+            new ExtractedItem(
+                Guid.NewGuid(),
+                userId,
+                ExtractedItemKind.Meeting,
+                "Upcoming meeting",
+                $"Созвон в 11, подключение тут {joinUrl}",
+                "!friends:matrix.localhost",
+                "$evt-meeting-link",
+                null,
+                dueAt.AddHours(-1),
+                dueAt,
+                0.93)
+        ],
+        CancellationToken.None);
+
+        await using var dbContext = await factory.CreateDbContextAsync(CancellationToken.None);
+        var projectedMeeting = await dbContext.Meetings.SingleAsync(CancellationToken.None);
+
+        Assert.Equal("GoogleMeet", projectedMeeting.MeetingProvider);
+        Assert.Equal(joinUrl.ToString(), projectedMeeting.MeetingJoinUrl);
+
+        var meetings = await new MeetingService(factory).GetUpcomingAsync(userId, dueAt.AddHours(-2), 10, CancellationToken.None);
+        var meeting = Assert.Single(meetings);
+        Assert.Equal("GoogleMeet", meeting.MeetingProvider);
+        Assert.Equal(joinUrl, meeting.MeetingJoinUrl);
+    }
+
+    [Fact]
     public async Task GetUpcomingAsync_ReturnsProjectedChunkMeetings()
     {
         var factory = await CreateFactoryAsync(CancellationToken.None);

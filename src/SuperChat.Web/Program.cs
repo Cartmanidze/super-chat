@@ -53,7 +53,8 @@ builder.Services
         options.Conventions.AllowAnonymousToPage("/Privacy");
         options.Conventions.AllowAnonymousToFolder("/Auth");
         options.Conventions.AuthorizePage("/Connect/Telegram");
-        options.Conventions.AuthorizeFolder("/Dashboard");
+        options.Conventions.AuthorizePage("/Today");
+        options.Conventions.AuthorizePage("/Waiting");
         options.Conventions.AuthorizeFolder("/Search");
         options.Conventions.AuthorizeFolder("/Feedback");
         options.Conventions.AuthorizeFolder("/Settings");

@@ -29,7 +29,7 @@ API сейчас используется для:
 - получения профиля текущего пользователя
 - управления интеграциями, прежде всего Telegram
 - chat-запросов к продуктовой логике
-- получения dashboard-выжимок
+- получения work-item выжимок
 - поиска
 - записи feedback
 
@@ -793,17 +793,17 @@ Auth:
 
 ---
 
-### 4.7. Dashboard
+### 4.7. Work Items
 
 Общий route prefix:
 
 ```text
-/api/v1/dashboard
+/api/v1/work-items
 ```
 
-Все dashboard endpoint'ы возвращают `List<DashboardCardViewModel>`.
+Все endpoint'ы work items возвращают `List<WorkItemCardViewModel>`.
 
-Модель `DashboardCardViewModel`:
+Модель `WorkItemCardViewModel`:
 
 ```json
 {
@@ -825,7 +825,7 @@ Auth:
 - `dueAt` — дедлайн или время события, если есть
 - `sourceRoom` — имя чата-источника
 
-#### `GET /api/v1/dashboard/today`
+#### `GET /api/v1/work-items/today`
 
 Назначение:
 
@@ -840,7 +840,7 @@ Auth:
 - `200 OK`
 - `401 Unauthorized`
 
-#### `GET /api/v1/dashboard/waiting`
+#### `GET /api/v1/work-items/waiting`
 
 Назначение:
 
@@ -855,7 +855,7 @@ Auth:
 - `200 OK`
 - `401 Unauthorized`
 
-#### `GET /api/v1/dashboard/meetings`
+#### `GET /api/v1/work-items/meetings`
 
 Назначение:
 
@@ -959,7 +959,7 @@ Auth:
 
 ```json
 {
-  "area": "dashboard.today",
+  "area": "work-items.today",
   "useful": true,
   "note": "Это действительно помогло."
 }
@@ -1048,7 +1048,7 @@ curl "https://api.tranify.ru/api/v1/search?q=%D1%86%D0%B5%D0%BD%D0%B0" \
 - `me`
 - `telegram integration`
 - `chat`
-- `dashboard`
+- `work-items`
 - `search`
 - `feedback`
 
@@ -1116,9 +1116,9 @@ DELETE /api/v1/integrations/telegram
 
 POST   /api/v1/chat/ask
 
-GET    /api/v1/dashboard/today
-GET    /api/v1/dashboard/waiting
-GET    /api/v1/dashboard/meetings
+GET    /api/v1/work-items/today
+GET    /api/v1/work-items/waiting
+GET    /api/v1/work-items/meetings
 
 GET    /api/v1/search?q=<query>
 
@@ -1137,7 +1137,7 @@ POST   /api/v1/feedback
 - [IntegrationEndpoints.cs](/d:/projects/super-chat/src/SuperChat.Api/Features/Integrations/IntegrationEndpoints.cs)
 - [TelegramEndpoints.cs](/d:/projects/super-chat/src/SuperChat.Api/Features/Integrations/Telegram/TelegramEndpoints.cs)
 - [ChatEndpoints.cs](/d:/projects/super-chat/src/SuperChat.Api/Features/Chat/ChatEndpoints.cs)
-- [DashboardEndpoints.cs](/d:/projects/super-chat/src/SuperChat.Api/Features/Dashboard/DashboardEndpoints.cs)
+- [WorkItemEndpoints.cs](/d:/projects/super-chat/src/SuperChat.Api/Features/WorkItems/WorkItemEndpoints.cs)
 - [SearchEndpoints.cs](/d:/projects/super-chat/src/SuperChat.Api/Features/Search/SearchEndpoints.cs)
 - [FeedbackEndpoints.cs](/d:/projects/super-chat/src/SuperChat.Api/Features/Feedback/FeedbackEndpoints.cs)
 - [ApiSmokeTests.cs](/d:/projects/super-chat/tests/SuperChat.Api.Tests/ApiSmokeTests.cs)

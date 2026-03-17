@@ -1,7 +1,164 @@
+using System.Text.Json.Serialization;
+
 namespace SuperChat.Contracts.ViewModels;
 
-public sealed record ChatResultItemViewModel(
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "modelType")]
+[JsonDerivedType(typeof(GenericChatResultItemViewModel), "generic")]
+[JsonDerivedType(typeof(RequestChatResultItemViewModel), "request")]
+[JsonDerivedType(typeof(EventChatResultItemViewModel), "event")]
+[JsonDerivedType(typeof(ObligationChatResultItemViewModel), "obligation")]
+public record ChatResultItemViewModel(
     string Title,
     string Summary,
     string SourceRoom,
-    DateTimeOffset? Timestamp);
+    DateTimeOffset? Timestamp,
+    WorkItemType? Type = null,
+    WorkItemStatus? Status = null,
+    WorkItemPriority? Priority = null,
+    WorkItemOwner? Owner = null,
+    WorkItemOrigin? Origin = null,
+    AiReviewState? ReviewState = null,
+    DateTimeOffset? PlannedAt = null,
+    DateTimeOffset? DueAt = null,
+    WorkItemSource? Source = null,
+    DateTimeOffset? UpdatedAt = null,
+    bool IsOverdue = false,
+    MeetingJoinProvider? MeetingProvider = null,
+    Uri? MeetingJoinUrl = null);
+
+public sealed record GenericChatResultItemViewModel(
+    string Title,
+    string Summary,
+    string SourceRoom,
+    DateTimeOffset? Timestamp,
+    WorkItemType? Type = null,
+    WorkItemStatus? Status = null,
+    WorkItemPriority? Priority = null,
+    WorkItemOwner? Owner = null,
+    WorkItemOrigin? Origin = null,
+    AiReviewState? ReviewState = null,
+    DateTimeOffset? PlannedAt = null,
+    DateTimeOffset? DueAt = null,
+    WorkItemSource? Source = null,
+    DateTimeOffset? UpdatedAt = null,
+    bool IsOverdue = false,
+    MeetingJoinProvider? MeetingProvider = null,
+    Uri? MeetingJoinUrl = null)
+    : ChatResultItemViewModel(
+        Title,
+        Summary,
+        SourceRoom,
+        Timestamp,
+        Type,
+        Status,
+        Priority,
+        Owner,
+        Origin,
+        ReviewState,
+        PlannedAt,
+        DueAt,
+        Source,
+        UpdatedAt,
+        IsOverdue,
+        MeetingProvider,
+        MeetingJoinUrl);
+
+public sealed record RequestChatResultItemViewModel(
+    string Title,
+    string Summary,
+    string SourceRoom,
+    DateTimeOffset? Timestamp,
+    RequestStatus RequestStatus = RequestStatus.AwaitingResponse,
+    WorkItemPriority PriorityValue = WorkItemPriority.Normal,
+    WorkItemOwner? Owner = null,
+    WorkItemOrigin OriginValue = WorkItemOrigin.Request,
+    AiReviewState ReviewStateValue = AiReviewState.NeedsReview,
+    DateTimeOffset? PlannedAt = null,
+    DateTimeOffset? DueAt = null,
+    WorkItemSource? Source = null,
+    DateTimeOffset? UpdatedAt = null,
+    bool IsOverdue = false)
+    : ChatResultItemViewModel(
+        Title,
+        Summary,
+        SourceRoom,
+        Timestamp,
+        WorkItemType.Request,
+        RequestStatus.ToWorkItemStatus(),
+        PriorityValue,
+        Owner,
+        OriginValue,
+        ReviewStateValue,
+        PlannedAt,
+        DueAt,
+        Source,
+        UpdatedAt,
+        IsOverdue);
+
+public sealed record EventChatResultItemViewModel(
+    string Title,
+    string Summary,
+    string SourceRoom,
+    DateTimeOffset? Timestamp,
+    EventStatus EventStatus = EventStatus.PendingConfirmation,
+    WorkItemPriority PriorityValue = WorkItemPriority.Normal,
+    WorkItemOwner? Owner = null,
+    WorkItemOrigin OriginValue = WorkItemOrigin.DetectedFromChat,
+    AiReviewState ReviewStateValue = AiReviewState.NeedsReview,
+    DateTimeOffset? PlannedAt = null,
+    DateTimeOffset? DueAt = null,
+    WorkItemSource? Source = null,
+    DateTimeOffset? UpdatedAt = null,
+    bool IsOverdue = false,
+    MeetingJoinProvider? MeetingProvider = null,
+    Uri? MeetingJoinUrl = null)
+    : ChatResultItemViewModel(
+        Title,
+        Summary,
+        SourceRoom,
+        Timestamp,
+        WorkItemType.Event,
+        EventStatus.ToWorkItemStatus(),
+        PriorityValue,
+        Owner,
+        OriginValue,
+        ReviewStateValue,
+        PlannedAt,
+        DueAt,
+        Source,
+        UpdatedAt,
+        IsOverdue,
+        MeetingProvider,
+        MeetingJoinUrl);
+
+public sealed record ObligationChatResultItemViewModel(
+    string Title,
+    string Summary,
+    string SourceRoom,
+    DateTimeOffset? Timestamp,
+    ObligationStatus ObligationStatus = ObligationStatus.ToDo,
+    WorkItemPriority PriorityValue = WorkItemPriority.Normal,
+    WorkItemOwner? Owner = null,
+    WorkItemOrigin OriginValue = WorkItemOrigin.DetectedFromChat,
+    AiReviewState ReviewStateValue = AiReviewState.NeedsReview,
+    DateTimeOffset? PlannedAt = null,
+    DateTimeOffset? DueAt = null,
+    WorkItemSource? Source = null,
+    DateTimeOffset? UpdatedAt = null,
+    bool IsOverdue = false)
+    : ChatResultItemViewModel(
+        Title,
+        Summary,
+        SourceRoom,
+        Timestamp,
+        WorkItemType.Obligation,
+        ObligationStatus.ToWorkItemStatus(),
+        PriorityValue,
+        Owner,
+        OriginValue,
+        ReviewStateValue,
+        PlannedAt,
+        DueAt,
+        Source,
+        UpdatedAt,
+        IsOverdue);

@@ -69,7 +69,7 @@ public sealed class ExtractionAndDigestTests
             MAIN INFORMATION ARCHITECTURE
             1. Login / Invite-only Authentication
             2. Onboarding / Connect Telegram
-            3. Main Dashboard: Today
+            3. Main Today View
             4. Search / Ask
             8. Примерный дизайн экранов
             ┌────────────────────────────────────────────┐

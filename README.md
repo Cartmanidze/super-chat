@@ -37,8 +37,8 @@ Key API routes in bootstrap mode:
 - `POST /api/v1/auth/refresh`
 - `GET /api/v1/me`
 - `GET|POST|DELETE /api/v1/integrations/telegram`
-- `GET /api/v1/dashboard/today`
-- `GET /api/v1/dashboard/waiting`
+- `GET /api/v1/work-items/today`
+- `GET /api/v1/work-items/waiting`
 - `GET /api/v1/search?q=...`
 - `POST /api/v1/feedback`
 - `GET /api/v1/health`

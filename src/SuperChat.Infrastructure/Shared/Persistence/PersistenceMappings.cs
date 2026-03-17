@@ -77,6 +77,8 @@ internal static class PersistenceMappings
             entity.Person,
             entity.ObservedAt,
             entity.ScheduledFor,
-            entity.Confidence);
+            entity.Confidence,
+            entity.MeetingProvider,
+            string.IsNullOrWhiteSpace(entity.MeetingJoinUrl) ? null : new Uri(entity.MeetingJoinUrl, UriKind.Absolute));
     }
 }

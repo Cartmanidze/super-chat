@@ -98,8 +98,8 @@
 
 - выдачу API-сессий
 - `GET /api/v1/me`
-- `GET /api/v1/dashboard/today`
-- `GET /api/v1/dashboard/waiting`
+- `GET /api/v1/work-items/today`
+- `GET /api/v1/work-items/waiting`
 - `GET /api/v1/search`
 - работу с Telegram integration через API
 

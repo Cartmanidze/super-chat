@@ -39,7 +39,7 @@ The repository starts as a modular monolith and keeps two clearly separated cont
 
 1. Client requests a magic link through `POST /api/v1/auth/magic-links`.
 2. Client exchanges the token through `POST /api/v1/auth/token-exchange`.
-3. API returns a bearer token used for `/api/v1/me`, `/api/v1/dashboard/*`, `/api/v1/search`, and Telegram integration endpoints.
+3. API returns a bearer token used for `/api/v1/me`, `/api/v1/work-items/*`, `/api/v1/search`, and Telegram integration endpoints.
 
 ### Sync and extraction
 

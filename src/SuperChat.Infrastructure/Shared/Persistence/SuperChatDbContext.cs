@@ -170,6 +170,8 @@ public sealed class SuperChatDbContext(DbContextOptions<SuperChatDbContext> opti
             entity.Property(item => item.ObservedAt).HasColumnName("observed_at");
             entity.Property(item => item.ScheduledFor).HasColumnName("scheduled_for");
             entity.Property(item => item.Confidence).HasColumnName("confidence");
+            entity.Property(item => item.MeetingProvider).HasColumnName("meeting_provider");
+            entity.Property(item => item.MeetingJoinUrl).HasColumnName("meeting_join_url");
             entity.Property(item => item.CreatedAt).HasColumnName("created_at");
             entity.Property(item => item.UpdatedAt).HasColumnName("updated_at");
             entity.HasIndex(item => new { item.UserId, item.ScheduledFor });
@@ -369,6 +371,8 @@ public sealed class MeetingEntity
     public DateTimeOffset ObservedAt { get; set; }
     public DateTimeOffset ScheduledFor { get; set; }
     public double Confidence { get; set; }
+    public string? MeetingProvider { get; set; }
+    public string? MeetingJoinUrl { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }

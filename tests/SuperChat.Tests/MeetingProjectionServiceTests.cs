@@ -176,6 +176,46 @@ public sealed class MeetingProjectionServiceTests
     }
 
     [Fact]
+    public async Task ProjectPendingChunkMeetingsAsync_StoresJoinLinkFromChunkDialogue()
+    {
+        var userId = Guid.NewGuid();
+        var roomId = "!dm:matrix.localhost";
+        var now = new DateTimeOffset(2026, 03, 13, 09, 30, 00, TimeSpan.Zero);
+        var joinUrl = new Uri("https://us05web.zoom.us/j/123456789?pwd=secret");
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+
+        await using (var dbContext = await factory.CreateDbContextAsync(CancellationToken.None))
+        {
+            dbContext.MessageChunks.Add(CreateChunkEntity(
+                Guid.Parse("cdcdcdcd-cdcd-cdcd-cdcd-cdcdcdcdcdcd"),
+                userId,
+                roomId,
+                now.AddMinutes(-10),
+                now.AddMinutes(-2),
+                "chunk-hash-link",
+                $"""
+                Alex: давай созвон сегодня в 20:00 по мск
+                Alex: вот ссылка {joinUrl}
+                You: ок
+                """));
+
+            await dbContext.SaveChangesAsync(CancellationToken.None);
+        }
+
+        var service = CreateService(factory, now);
+        var result = await service.ProjectPendingChunkMeetingsAsync(CancellationToken.None);
+
+        Assert.Equal(1, result.MeetingsProjected);
+
+        await using var verificationDbContext = await factory.CreateDbContextAsync(CancellationToken.None);
+        var meeting = await verificationDbContext.Meetings
+            .SingleAsync(item => item.UserId == userId && item.SourceRoom == roomId, CancellationToken.None);
+
+        Assert.Equal("Zoom", meeting.MeetingProvider);
+        Assert.Equal(joinUrl.ToString(), meeting.MeetingJoinUrl);
+    }
+
+    [Fact]
     public async Task ProjectPendingChunkMeetingsAsync_RemovesStaleChunkMeetingsWhenSignalDisappears()
     {
         var userId = Guid.NewGuid();

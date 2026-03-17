@@ -1,11 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using SuperChat.Domain.Model;
 using SuperChat.Contracts.ViewModels;
+using SuperChat.Domain.Model;
 using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Web.Security;
 
-namespace SuperChat.Web.Pages.Dashboard;
+namespace SuperChat.Web.Pages;
 
 [Authorize]
 public sealed class TodayModel(
@@ -19,43 +19,43 @@ public sealed class TodayModel(
 
     public bool TelegramConnected { get; private set; }
 
-    public DashboardSummary Summary { get; private set; } = new(0, 0, 0, 0);
+    public TodaySummary Summary { get; private set; } = new(0, 0, 0, 0);
 
-    public DashboardSection WaitingSection { get; private set; } = DashboardSection.Empty(
+    public TodaySection WaitingSection { get; private set; } = TodaySection.Empty(
         "waiting",
         "Нужно ответить",
-        "Точки, где кто-то ждёт от вас следующий шаг.",
-        "Сейчас нет явных мест, где кто-то ждёт ответ.");
+        "Точки, где кто-то ждет от вас следующий шаг.",
+        "Сейчас нет явных мест, где кто-то ждет ответ.");
 
-    public DashboardSection CommitmentsSection { get; private set; } = DashboardSection.Empty(
+    public TodaySection CommitmentsSection { get; private set; } = TodaySection.Empty(
         "commitments",
         "Ты пообещал",
         "Фразы, где система увидела обещание или взятый на себя следующий шаг.",
         "Активных обещаний пока не выделилось.");
 
-    public DashboardSection MeetingsSection { get; private set; } = DashboardSection.Empty(
+    public TodaySection MeetingsSection { get; private set; } = TodaySection.Empty(
         "meetings",
         "Скоро встречи",
-        "Ближайшие встречи и временные договорённости, найденные в переписках.",
+        "Ближайшие встречи и временные договоренности, найденные в переписках.",
         "Ближайших встреч пока не видно.");
 
-    public DashboardSection TodaySection { get; private set; } = DashboardSection.Empty(
+    public TodaySection TodayFocusSection { get; private set; } = TodaySection.Empty(
         "today",
         "Важно сегодня",
         "Самое важное на сегодня из текущих переписок.",
         "На сегодня пока ничего критичного не выделилось.");
 
-    public DashboardSection ActiveSection { get; private set; } = DashboardSection.Empty(
+    public TodaySection ActiveSection { get; private set; } = TodaySection.Empty(
         DefaultSectionId,
         "Нужно ответить",
-        "Точки, где кто-то ждёт от вас следующий шаг.",
-        "Сейчас нет явных мест, где кто-то ждёт ответ.");
+        "Точки, где кто-то ждет от вас следующий шаг.",
+        "Сейчас нет явных мест, где кто-то ждет ответ.");
 
-    public IReadOnlyList<DashboardSection> Sections => [
+    public IReadOnlyList<TodaySection> Sections => [
         WaitingSection,
         CommitmentsSection,
         MeetingsSection,
-        TodaySection
+        TodayFocusSection
     ];
 
     public async Task OnGetAsync(string? section, CancellationToken cancellationToken)
@@ -80,45 +80,45 @@ public sealed class TodayModel(
             .Take(8)
             .ToList();
 
-        WaitingSection = new DashboardSection(
+        WaitingSection = new TodaySection(
             "waiting",
             "Нужно ответить",
-            "Точки, где кто-то ждёт от вас следующий шаг.",
-            "Сейчас нет явных мест, где кто-то ждёт ответ.",
-            waitingCards.Select(card => card.ToDashboardCard("Ожидает ответа")).ToList());
+            "Точки, где кто-то ждет от вас следующий шаг.",
+            "Сейчас нет явных мест, где кто-то ждет ответ.",
+            waitingCards.Select(card => card.ToWorkItemCard("Ожидает ответа")).ToList());
 
-        CommitmentsSection = new DashboardSection(
+        CommitmentsSection = new TodaySection(
             "commitments",
             "Ты пообещал",
             "Фразы, где система увидела обещание или взятый на себя следующий шаг.",
             "Активных обещаний пока не выделилось.",
-            commitments.Select(item => item.ToCommitmentDashboardCard()).ToList());
+            commitments.Select(item => item.ToCommitmentWorkItemCard()).ToList());
 
-        MeetingsSection = new DashboardSection(
+        MeetingsSection = new TodaySection(
             "meetings",
             "Скоро встречи",
-            "Ближайшие встречи и временные договорённости, найденные в переписках.",
+            "Ближайшие встречи и временные договоренности, найденные в переписках.",
             "Ближайших встреч пока не видно.",
-            meetingCards.Select(card => card.ToDashboardCard("Временной сигнал")).ToList());
+            meetingCards.Select(card => card.ToWorkItemCard("Временной сигнал")).ToList());
 
-        TodaySection = new DashboardSection(
+        TodayFocusSection = new TodaySection(
             "today",
             "Важно сегодня",
             "Самое важное на сегодня из текущих переписок.",
             "На сегодня пока ничего критичного не выделилось.",
-            todayCards.Select(card => card.ToDashboardCard("Сегодня в фокусе")).ToList());
+            todayCards.Select(card => card.ToWorkItemCard("Сегодня в фокусе")).ToList());
 
-        Summary = new DashboardSummary(
+        Summary = new TodaySummary(
             WaitingSection.Items.Count,
             CommitmentsSection.Items.Count,
             MeetingsSection.Items.Count,
-            TodaySection.Items.Count);
+            TodayFocusSection.Items.Count);
 
         ActiveSection = ResolveActiveSection(SelectedSectionId);
         SelectedSectionId = ActiveSection.Id;
     }
 
-    private DashboardSection ResolveActiveSection(string? selectedSectionId)
+    private TodaySection ResolveActiveSection(string? selectedSectionId)
     {
         return Sections.FirstOrDefault(section =>
                    string.Equals(section.Id, selectedSectionId, StringComparison.OrdinalIgnoreCase))
@@ -132,26 +132,26 @@ public sealed class TodayModel(
             : sectionId.Trim().ToLowerInvariant();
     }
 
-    public sealed record DashboardSummary(
+    public sealed record TodaySummary(
         int WaitingCount,
         int CommitmentCount,
         int MeetingCount,
         int TodayCount);
 
-    public sealed record DashboardSection(
+    public sealed record TodaySection(
         string Id,
         string Title,
         string Description,
         string EmptyText,
-        IReadOnlyList<DashboardCard> Items)
+        IReadOnlyList<TodayCard> Items)
     {
-        public static DashboardSection Empty(string id, string title, string description, string emptyText)
+        public static TodaySection Empty(string id, string title, string description, string emptyText)
         {
-            return new DashboardSection(id, title, description, emptyText, []);
+            return new TodaySection(id, title, description, emptyText, []);
         }
     }
 
-    public sealed record DashboardCard(
+    public sealed record TodayCard(
         string Title,
         string Summary,
         string ChatLabel,

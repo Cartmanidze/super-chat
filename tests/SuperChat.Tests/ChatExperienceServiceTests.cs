@@ -16,7 +16,7 @@ public sealed class ChatExperienceServiceTests
             digestService: new StubDigestService(
                 today:
                 [
-                    new DashboardCardViewModel("Нужно отправить договор", "Свериться с Валерией", "Task", DateTimeOffset.UtcNow, null, "Личные")
+                    new WorkItemCardViewModel("Нужно отправить договор", "Свериться с Валерией", "Task", DateTimeOffset.UtcNow, null, "Личные")
                 ]));
 
         var answer = await service.AskAsync(
@@ -27,6 +27,7 @@ public sealed class ChatExperienceServiceTests
         Assert.Equal(ChatPromptTemplate.Today, answer.Mode);
         Assert.Single(answer.Items);
         Assert.Equal("Нужно отправить договор", answer.Items[0].Title);
+        Assert.IsType<ObligationChatResultItemViewModel>(answer.Items[0]);
     }
 
     [Fact]
@@ -36,7 +37,7 @@ public sealed class ChatExperienceServiceTests
             digestService: new StubDigestService(
                 today:
                 [
-                    new DashboardCardViewModel("Нужно отправить договор", "Свериться с Валерией", "Task", DateTimeOffset.UtcNow, null, "Личные")
+                    new WorkItemCardViewModel("Нужно отправить договор", "Свериться с Валерией", "Task", DateTimeOffset.UtcNow, null, "Личные")
                 ]),
             answerGenerationService: new StubChatAnswerGenerationService(
                 new GeneratedChatAnswer(
@@ -65,7 +66,7 @@ public sealed class ChatExperienceServiceTests
             digestService: new StubDigestService(
                 meetings:
                 [
-                    new DashboardCardViewModel("Upcoming meeting", "Мб заехать за тобой в 11?", "Meeting", DateTimeOffset.UtcNow, null, "Stanislav Klyukhin (Telegram)")
+                    new WorkItemCardViewModel("Upcoming meeting", "Мб заехать за тобой в 11?", "Meeting", DateTimeOffset.UtcNow, null, "Stanislav Klyukhin (Telegram)")
                 ]),
             answerGenerationService: new StubChatAnswerGenerationService(
                 new GeneratedChatAnswer(
@@ -91,7 +92,7 @@ public sealed class ChatExperienceServiceTests
             digestService: new StubDigestService(
                 today:
                 [
-                    new DashboardCardViewModel(
+                    new WorkItemCardViewModel(
                         "Action needed",
                         "Design a high-fidelity, modern B2B SaaS web app called SuperChat.",
                         "Task",
@@ -134,7 +135,7 @@ public sealed class ChatExperienceServiceTests
             digestService: new StubDigestService(
                 meetings:
                 [
-                    new DashboardCardViewModel("Upcoming meeting", "Мб заехать за тобой в 11?", "Meeting", scheduledFor.AddHours(-1), scheduledFor, "Stanislav Klyukhin (Telegram)")
+                    new WorkItemCardViewModel("Upcoming meeting", "Мб заехать за тобой в 11?", "Meeting", scheduledFor.AddHours(-1), scheduledFor, "Stanislav Klyukhin (Telegram)")
                 ]));
 
         var answer = await service.AskAsync(
@@ -147,6 +148,50 @@ public sealed class ChatExperienceServiceTests
         Assert.Equal("Мб заехать за тобой в 11?", answer.Items[0].Title);
         Assert.Equal(string.Empty, answer.Items[0].Summary);
         Assert.Equal(scheduledFor, answer.Items[0].Timestamp);
+        Assert.IsType<EventChatResultItemViewModel>(answer.Items[0]);
+    }
+
+    [Fact]
+    public async Task AskAsync_ReturnsMeetingJoinLink_ForMeetingsTemplate()
+    {
+        var scheduledFor = new DateTimeOffset(2026, 03, 13, 11, 00, 00, TimeSpan.FromHours(6));
+        var joinUrl = new Uri("https://meet.google.com/abc-defg-hij");
+        var service = CreateService(
+            digestService: new StubDigestService(
+                meetings:
+                [
+                    new WorkItemCardViewModel(
+                        "Upcoming meeting",
+                        "Созвон с командой",
+                        "Meeting",
+                        scheduledFor.AddHours(-1),
+                        scheduledFor,
+                        "Stanislav Klyukhin (Telegram)",
+                        0.95,
+                        Type: WorkItemType.Event,
+                        Status: WorkItemStatus.Confirmed,
+                        Priority: WorkItemPriority.Important,
+                        Owner: WorkItemOwner.Both,
+                        Origin: WorkItemOrigin.DetectedFromChat,
+                        ReviewState: AiReviewState.Confirmed,
+                        PlannedAt: scheduledFor,
+                        Source: WorkItemSource.Telegram,
+                        UpdatedAt: scheduledFor.AddMinutes(-5),
+                        MeetingProvider: MeetingJoinProvider.GoogleMeet,
+                        MeetingJoinUrl: joinUrl)
+                ]));
+
+        var answer = await service.AskAsync(
+            Guid.NewGuid(),
+            new ChatPromptRequest(ChatPromptTemplate.Meetings, "Какие у меня ближайшие встречи?"),
+            CancellationToken.None);
+
+        var item = Assert.Single(answer.Items);
+        Assert.Equal(MeetingJoinProvider.GoogleMeet, item.MeetingProvider);
+        Assert.Equal(joinUrl, item.MeetingJoinUrl);
+        Assert.Equal(WorkItemType.Event, item.Type);
+        Assert.Equal(WorkItemStatus.Confirmed, item.Status);
+        Assert.IsType<EventChatResultItemViewModel>(item);
     }
 
     [Fact]
@@ -156,7 +201,7 @@ public sealed class ChatExperienceServiceTests
             digestService: new StubDigestService(
                 waiting:
                 [
-                    new DashboardCardViewModel("Awaiting response", "Нужен ответ от Валерии по договору", "WaitingOn", DateTimeOffset.UtcNow, null, "Валерия (Telegram)")
+                    new WorkItemCardViewModel("Awaiting response", "Нужен ответ от Валерии по договору", "WaitingOn", DateTimeOffset.UtcNow, null, "Валерия (Telegram)")
                 ]));
 
         var answer = await service.AskAsync(
@@ -168,6 +213,7 @@ public sealed class ChatExperienceServiceTests
         Assert.Single(answer.Items);
         Assert.Equal("Нужен ответ от Валерии по договору", answer.Items[0].Title);
         Assert.Equal(string.Empty, answer.Items[0].Summary);
+        Assert.IsType<RequestChatResultItemViewModel>(answer.Items[0]);
     }
 
     [Fact]
@@ -363,23 +409,23 @@ public sealed class ChatExperienceServiceTests
     }
 
     private sealed class StubDigestService(
-        IReadOnlyList<DashboardCardViewModel>? today = null,
-        IReadOnlyList<DashboardCardViewModel>? waiting = null,
-        IReadOnlyList<DashboardCardViewModel>? meetings = null) : IDigestService
+        IReadOnlyList<WorkItemCardViewModel>? today = null,
+        IReadOnlyList<WorkItemCardViewModel>? waiting = null,
+        IReadOnlyList<WorkItemCardViewModel>? meetings = null) : IDigestService
     {
-        public Task<IReadOnlyList<DashboardCardViewModel>> GetTodayAsync(Guid userId, CancellationToken cancellationToken)
+        public Task<IReadOnlyList<WorkItemCardViewModel>> GetTodayAsync(Guid userId, CancellationToken cancellationToken)
         {
-            return Task.FromResult(today ?? Array.Empty<DashboardCardViewModel>());
+            return Task.FromResult(today ?? Array.Empty<WorkItemCardViewModel>());
         }
 
-        public Task<IReadOnlyList<DashboardCardViewModel>> GetWaitingAsync(Guid userId, CancellationToken cancellationToken)
+        public Task<IReadOnlyList<WorkItemCardViewModel>> GetWaitingAsync(Guid userId, CancellationToken cancellationToken)
         {
-            return Task.FromResult(waiting ?? Array.Empty<DashboardCardViewModel>());
+            return Task.FromResult(waiting ?? Array.Empty<WorkItemCardViewModel>());
         }
 
-        public Task<IReadOnlyList<DashboardCardViewModel>> GetMeetingsAsync(Guid userId, CancellationToken cancellationToken)
+        public Task<IReadOnlyList<WorkItemCardViewModel>> GetMeetingsAsync(Guid userId, CancellationToken cancellationToken)
         {
-            return Task.FromResult(meetings ?? Array.Empty<DashboardCardViewModel>());
+            return Task.FromResult(meetings ?? Array.Empty<WorkItemCardViewModel>());
         }
     }
 

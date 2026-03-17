@@ -3,13 +3,13 @@ using SuperChat.Api.Features.Auth;
 using SuperChat.Api.Security;
 using SuperChat.Infrastructure.Abstractions;
 
-namespace SuperChat.Api.Features.Dashboard;
+namespace SuperChat.Api.Features.WorkItems;
 
-public static class DashboardEndpoints
+public static class WorkItemEndpoints
 {
-    public static RouteGroupBuilder MapDashboardEndpoints(this RouteGroupBuilder api)
+    public static RouteGroupBuilder MapWorkItemEndpoints(this RouteGroupBuilder api)
     {
-        var group = api.MapGroup("/dashboard")
+        var group = api.MapGroup("/work-items")
             .RequireAuthorization(new AuthorizeAttribute { AuthenticationSchemes = ApiSessionAuthenticationHandler.SchemeName });
 
         group.MapGet("/today", async (

@@ -10,4 +10,6 @@ public sealed record MeetingRecord(
     string? Person,
     DateTimeOffset ObservedAt,
     DateTimeOffset ScheduledFor,
-    double Confidence);
+    double Confidence,
+    string? MeetingProvider = null,
+    Uri? MeetingJoinUrl = null);

@@ -42,6 +42,7 @@ public sealed class MeetingService(
 
         foreach (var item in meetingItems)
         {
+            var joinLink = MeetingJoinLinkParser.TryParse(item.Summary);
             var key = BuildKey(item.UserId, item.SourceEventId);
             if (existingByKey.TryGetValue(key, out var existing))
             {
@@ -52,6 +53,8 @@ public sealed class MeetingService(
                 existing.ObservedAt = NormalizeToUtc(item.ObservedAt);
                 existing.ScheduledFor = NormalizeToUtc(item.DueAt!.Value);
                 existing.Confidence = item.Confidence;
+                existing.MeetingProvider = joinLink?.Provider.ToString();
+                existing.MeetingJoinUrl = joinLink?.Url.ToString();
                 existing.UpdatedAt = now;
                 continue;
             }
@@ -68,6 +71,8 @@ public sealed class MeetingService(
                 ObservedAt = NormalizeToUtc(item.ObservedAt),
                 ScheduledFor = NormalizeToUtc(item.DueAt!.Value),
                 Confidence = item.Confidence,
+                MeetingProvider = joinLink?.Provider.ToString(),
+                MeetingJoinUrl = joinLink?.Url.ToString(),
                 CreatedAt = now,
                 UpdatedAt = now
             });
