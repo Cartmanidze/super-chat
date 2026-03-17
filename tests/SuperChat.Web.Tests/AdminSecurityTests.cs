@@ -1,5 +1,6 @@
 using System.Net;
 using System.Security.Claims;
+using System.Text;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -62,6 +63,33 @@ public sealed class AdminSecurityTests : IClassFixture<WebTestApplicationFactory
 
         Assert.True(AdminPasswordHasher.Verify("super-secret", hash));
         Assert.False(AdminPasswordHasher.Verify("wrong-password", hash));
+    }
+
+    [Fact]
+    public void AdminPasswordService_VerifyAcceptsBase64WrappedHash()
+    {
+        var hash = AdminPasswordHasher.Hash("super-secret");
+        var wrapped = "base64:" + Convert.ToBase64String(Encoding.UTF8.GetBytes(hash));
+        var service = new AdminPasswordService(Options.Create(new PilotOptions
+        {
+            AdminPasswordHash = wrapped
+        }));
+
+        Assert.True(service.IsConfigured);
+        Assert.True(service.Verify("super-secret"));
+        Assert.False(service.Verify("wrong-password"));
+    }
+
+    [Fact]
+    public void AdminPasswordService_TreatsInvalidBase64PayloadAsUnconfigured()
+    {
+        var service = new AdminPasswordService(Options.Create(new PilotOptions
+        {
+            AdminPasswordHash = "base64:not-valid-base64"
+        }));
+
+        Assert.False(service.IsConfigured);
+        Assert.False(service.Verify("super-secret"));
     }
 
     [Fact]
