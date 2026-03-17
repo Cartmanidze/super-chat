@@ -424,6 +424,11 @@ textarea {
   color: var(--warning);
 }
 
+.status-danger {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
 .status-neutral {
   background: var(--neutral-soft);
   color: var(--text-muted);
@@ -539,6 +544,12 @@ select {
 .inline-alert-info {
   background: var(--accent-soft);
   border-color: rgba(79, 70, 229, 0.14);
+}
+
+.inline-alert-error {
+  background: var(--danger-soft);
+  border-color: rgba(220, 38, 38, 0.14);
+  color: var(--danger);
 }
 
 .dashboard-hero {

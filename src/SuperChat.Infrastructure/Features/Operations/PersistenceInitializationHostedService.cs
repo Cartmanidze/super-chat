@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SuperChat.Contracts.Configuration;
+using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Infrastructure.Persistence;
 
 namespace SuperChat.Infrastructure.HostedServices;
@@ -11,55 +12,73 @@ public sealed class PersistenceInitializationHostedService(
     IDbContextFactory<SuperChatDbContext> dbContextFactory,
     IOptions<PersistenceOptions> persistenceOptions,
     IOptions<PilotOptions> pilotOptions,
+    IWorkerRuntimeMonitor workerRuntimeMonitor,
     ILogger<PersistenceInitializationHostedService> logger) : IHostedService
 {
+    private const string WorkerKey = "persistence-initialization";
+    private const string WorkerDisplayName = "Persistence Initialization";
+
     public async Task StartAsync(CancellationToken cancellationToken)
     {
+        workerRuntimeMonitor.RegisterWorker(WorkerKey, WorkerDisplayName);
         if (!persistenceOptions.Value.AutoInitialize)
         {
             logger.LogInformation("Persistence auto-initialization is disabled.");
+            workerRuntimeMonitor.MarkDisabled(WorkerKey, WorkerDisplayName, "Persistence auto-initialization is disabled.");
             return;
         }
 
-        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-        await dbContext.Database.EnsureCreatedAsync(cancellationToken);
-        await UpgradeSchemaAsync(dbContext, cancellationToken);
-
-        var configuredInvites = pilotOptions.Value.AllowedEmails
-            .Select(email => email.Trim().ToLowerInvariant())
-            .Where(email => !string.IsNullOrWhiteSpace(email))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        if (configuredInvites.Count == 0)
+        try
         {
-            return;
-        }
+            workerRuntimeMonitor.MarkRunning(WorkerKey, WorkerDisplayName);
+            await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+            await dbContext.Database.EnsureCreatedAsync(cancellationToken);
+            await UpgradeSchemaAsync(dbContext, cancellationToken);
 
-        var existingInvites = await dbContext.PilotInvites
-            .Where(item => configuredInvites.Contains(item.Email))
-            .Select(item => item.Email)
-            .ToListAsync(cancellationToken);
+            var configuredInvites = pilotOptions.Value.AllowedEmails
+                .Select(email => email.Trim().ToLowerInvariant())
+                .Where(email => !string.IsNullOrWhiteSpace(email))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
 
-        var missingInvites = configuredInvites
-            .Except(existingInvites, StringComparer.OrdinalIgnoreCase)
-            .Select(email => new PilotInviteEntity
+            if (configuredInvites.Count == 0)
             {
-                Email = email,
-                InvitedBy = "bootstrap",
-                InvitedAt = DateTimeOffset.UtcNow,
-                IsActive = true
-            })
-            .ToList();
+                workerRuntimeMonitor.MarkSucceeded(WorkerKey, WorkerDisplayName, "Schema is ready. No bootstrap invites configured.");
+                return;
+            }
 
-        if (missingInvites.Count == 0)
-        {
-            return;
+            var existingInvites = await dbContext.PilotInvites
+                .Where(item => configuredInvites.Contains(item.Email))
+                .Select(item => item.Email)
+                .ToListAsync(cancellationToken);
+
+            var missingInvites = configuredInvites
+                .Except(existingInvites, StringComparer.OrdinalIgnoreCase)
+                .Select(email => new PilotInviteEntity
+                {
+                    Email = email,
+                    InvitedBy = "bootstrap",
+                    InvitedAt = DateTimeOffset.UtcNow,
+                    IsActive = true
+                })
+                .ToList();
+
+            if (missingInvites.Count == 0)
+            {
+                workerRuntimeMonitor.MarkSucceeded(WorkerKey, WorkerDisplayName, "Schema is ready. Bootstrap invites already exist.");
+                return;
+            }
+
+            dbContext.PilotInvites.AddRange(missingInvites);
+            await dbContext.SaveChangesAsync(cancellationToken);
+            workerRuntimeMonitor.MarkSucceeded(WorkerKey, WorkerDisplayName, $"Schema is ready. Seeded {missingInvites.Count} invites.");
+            logger.LogInformation("Seeded {InviteCount} pilot invites into persistence store.", missingInvites.Count);
         }
-
-        dbContext.PilotInvites.AddRange(missingInvites);
-        await dbContext.SaveChangesAsync(cancellationToken);
-        logger.LogInformation("Seeded {InviteCount} pilot invites into persistence store.", missingInvites.Count);
+        catch (Exception exception)
+        {
+            workerRuntimeMonitor.MarkFailed(WorkerKey, WorkerDisplayName, exception);
+            throw;
+        }
     }
 
     public Task StopAsync(CancellationToken cancellationToken)

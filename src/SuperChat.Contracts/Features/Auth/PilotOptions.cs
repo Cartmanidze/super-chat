@@ -19,4 +19,6 @@ public sealed class PilotOptions
     public string TodayTimeZoneId { get; set; } = "Europe/Moscow";
 
     public string[] AllowedEmails { get; set; } = ["pilot@example.com", "stanislavak314@gmail.com"];
+
+    public string[] AdminEmails { get; set; } = ["stanislavak314@gmail.com"];
 }

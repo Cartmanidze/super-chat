@@ -20,23 +20,41 @@ public sealed class MatrixSyncBackgroundService(
     IOptions<PilotOptions> pilotOptions,
     IOptions<TelegramBridgeOptions> bridgeOptions,
     TimeProvider timeProvider,
+    IWorkerRuntimeMonitor workerRuntimeMonitor,
     ILogger<MatrixSyncBackgroundService> logger) : BackgroundService
 {
+    private const string WorkerKey = "matrix-sync";
+    private const string WorkerDisplayName = "Matrix Sync";
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        workerRuntimeMonitor.RegisterWorker(WorkerKey, WorkerDisplayName);
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(4));
 
         while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken))
         {
             try
             {
+                workerRuntimeMonitor.MarkRunning(
+                    WorkerKey,
+                    WorkerDisplayName,
+                    pilotOptions.Value.DevSeedSampleData ? "Development seed mode." : "Production sync tick.");
+
                 if (pilotOptions.Value.DevSeedSampleData)
                 {
-                    await RunDevelopmentSeedAsync(stoppingToken);
+                    var seedStats = await RunDevelopmentSeedAsync(stoppingToken);
+                    workerRuntimeMonitor.MarkSucceeded(
+                        WorkerKey,
+                        WorkerDisplayName,
+                        $"Mode=Development, Users={seedStats.UsersProcessed}, Messages={seedStats.MessagesIngested}");
                     continue;
                 }
 
-                await RunRealSyncAsync(stoppingToken);
+                var syncStats = await RunRealSyncAsync(stoppingToken);
+                workerRuntimeMonitor.MarkSucceeded(
+                    WorkerKey,
+                    WorkerDisplayName,
+                    $"Mode=Production, Users={syncStats.UsersProcessed}, Rooms={syncStats.RoomsObserved}, Messages={syncStats.MessagesIngested}, Joined={syncStats.InvitedRoomsJoined}");
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -44,19 +62,23 @@ public sealed class MatrixSyncBackgroundService(
             }
             catch (Exception ex)
             {
+                workerRuntimeMonitor.MarkFailed(WorkerKey, WorkerDisplayName, ex);
                 logger.LogWarning(ex, "Matrix sync tick failed.");
             }
         }
     }
 
-    private async Task RunDevelopmentSeedAsync(CancellationToken cancellationToken)
+    private async Task<MatrixSyncTickStats> RunDevelopmentSeedAsync(CancellationToken cancellationToken)
     {
         var connections = await integrationConnectionService.GetReadyForDevelopmentSyncAsync(
             IntegrationProvider.Telegram,
             cancellationToken);
+        var seededMessages = 0;
+
         foreach (var connection in connections)
         {
             var seeded = await SeedSampleMessagesAsync(connection.UserId, cancellationToken);
+            seededMessages += seeded;
             await integrationConnectionService.MarkSynchronizedAsync(
                 connection.UserId,
                 IntegrationProvider.Telegram,
@@ -68,9 +90,11 @@ public sealed class MatrixSyncBackgroundService(
                 logger.LogInformation("Seeded {SeededCount} development messages for user {UserId}.", seeded, connection.UserId);
             }
         }
+
+        return new MatrixSyncTickStats(connections.Count, 0, seededMessages, 0);
     }
 
-    private async Task RunRealSyncAsync(CancellationToken cancellationToken)
+    private async Task<MatrixSyncTickStats> RunRealSyncAsync(CancellationToken cancellationToken)
     {
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
@@ -93,13 +117,22 @@ public sealed class MatrixSyncBackgroundService(
             .AsNoTracking()
             .ToListAsync(cancellationToken);
 
+        var roomsObserved = 0;
+        var messagesIngested = 0;
+        var invitedRoomsJoined = 0;
+
         foreach (var target in syncTargets)
         {
-            await SyncUserAsync(target, cancellationToken);
+            var userResult = await SyncUserAsync(target, cancellationToken);
+            roomsObserved += userResult.RoomsObserved;
+            messagesIngested += userResult.MessagesIngested;
+            invitedRoomsJoined += userResult.InvitedRoomsJoined;
         }
+
+        return new MatrixSyncTickStats(syncTargets.Count, roomsObserved, messagesIngested, invitedRoomsJoined);
     }
 
-    private async Task SyncUserAsync(MatrixSyncTarget target, CancellationToken cancellationToken)
+    private async Task<MatrixSyncUserResult> SyncUserAsync(MatrixSyncTarget target, CancellationToken cancellationToken)
     {
         MatrixSyncResult result;
         try
@@ -110,12 +143,13 @@ public sealed class MatrixSyncBackgroundService(
         {
             logger.LogWarning(ex, "Matrix /sync failed for user {UserId}.", target.UserId);
             await UpdateConnectionStateAsync(target.UserId, TelegramConnectionState.Error, cancellationToken);
-            return;
+            return new MatrixSyncUserResult(0, 0, 0);
         }
 
         var connected = target.State == TelegramConnectionState.Connected;
         string? discoveredLoginUrl = null;
         var ingestedMessages = 0;
+        var joinedInvitedRooms = 0;
         var invitedRoomsToJoin = GetInvitedRoomsToJoin(result.InvitedRoomIds, target.ManagementRoomId);
         var senderInfoBySenderId = new Dictionary<string, TelegramSenderInfo?>(StringComparer.Ordinal);
 
@@ -124,6 +158,7 @@ public sealed class MatrixSyncBackgroundService(
             try
             {
                 await matrixApiClient.JoinRoomAsync(target.AccessToken, roomId, cancellationToken);
+                joinedInvitedRooms++;
             }
             catch (Exception ex)
             {
@@ -225,6 +260,8 @@ public sealed class MatrixSyncBackgroundService(
             connected,
             ingestedMessages > 0,
             cancellationToken);
+
+        return new MatrixSyncUserResult(result.Rooms.Count, ingestedMessages, joinedInvitedRooms);
     }
 
     private async Task<TelegramSenderInfo?> ResolveSenderInfoAsync(
@@ -488,4 +525,15 @@ public sealed class MatrixSyncBackgroundService(
         string MatrixUserId,
         string AccessToken,
         string? NextBatchToken);
+
+    private sealed record MatrixSyncTickStats(
+        int UsersProcessed,
+        int RoomsObserved,
+        int MessagesIngested,
+        int InvitedRoomsJoined);
+
+    private sealed record MatrixSyncUserResult(
+        int RoomsObserved,
+        int MessagesIngested,
+        int InvitedRoomsJoined);
 }

@@ -164,10 +164,12 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<IAuthFlowService, AuthFlowService>();
         services.AddSingleton<IApiSessionService, ApiSessionService>();
+        services.AddSingleton<IPilotInviteAdminService, PilotInviteAdminService>();
         services.AddSingleton<IMatrixProvisioningService, MatrixProvisioningService>();
         services.AddSingleton<ITelegramConnectionService, TelegramConnectionService>();
         services.AddSingleton<IIntegrationConnectionService, IntegrationConnectionService>();
         services.AddSingleton<IRoomDisplayNameService, MatrixRoomDisplayNameService>();
+        services.AddSingleton<IWorkerRuntimeMonitor, WorkerRuntimeMonitor>();
         services.AddSingleton<IncomingMessageFilter>();
         services.AddSingleton<IMessageNormalizationService, MessageNormalizationService>();
         services.AddSingleton<IChatTemplateCatalog, ChatTemplateCatalog>();

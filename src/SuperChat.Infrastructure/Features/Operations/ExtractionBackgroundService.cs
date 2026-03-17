@@ -10,43 +10,66 @@ public sealed class ExtractionBackgroundService(
     IAiStructuredExtractionService extractionService,
     IExtractedItemService extractedItemService,
     TimeProvider timeProvider,
+    IWorkerRuntimeMonitor workerRuntimeMonitor,
     ILogger<ExtractionBackgroundService> logger) : BackgroundService
 {
     internal static readonly TimeSpan DialogueGap = TimeSpan.FromMinutes(3);
     internal static readonly TimeSpan SettleDelay = TimeSpan.FromSeconds(20);
+    private const string WorkerKey = "structured-extraction";
+    private const string WorkerDisplayName = "Structured Extraction";
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        workerRuntimeMonitor.RegisterWorker(WorkerKey, WorkerDisplayName);
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(3));
 
         while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken))
         {
-            var pendingMessages = await normalizationService.GetPendingMessagesAsync(stoppingToken);
-            if (pendingMessages.Count == 0)
+            try
             {
-                continue;
-            }
+                workerRuntimeMonitor.MarkRunning(WorkerKey, WorkerDisplayName);
+                var pendingMessages = await normalizationService.GetPendingMessagesAsync(stoppingToken);
+                if (pendingMessages.Count == 0)
+                {
+                    workerRuntimeMonitor.MarkSucceeded(WorkerKey, WorkerDisplayName, "No pending messages.");
+                    continue;
+                }
 
-            var readyWindows = BuildReadyConversationWindows(pendingMessages, timeProvider.GetUtcNow());
-            if (readyWindows.Count == 0)
+                var readyWindows = BuildReadyConversationWindows(pendingMessages, timeProvider.GetUtcNow());
+                if (readyWindows.Count == 0)
+                {
+                    workerRuntimeMonitor.MarkSucceeded(WorkerKey, WorkerDisplayName, "No settled dialogue windows.");
+                    continue;
+                }
+
+                var processedIds = new List<Guid>(readyWindows.Sum(window => window.Messages.Count));
+
+                foreach (var window in readyWindows)
+                {
+                    var items = await extractionService.ExtractAsync(window, stoppingToken);
+                    await extractedItemService.AddRangeAsync(items, stoppingToken);
+                    processedIds.AddRange(window.Messages.Select(message => message.Id));
+                }
+
+                await normalizationService.MarkProcessedAsync(processedIds, stoppingToken);
+                workerRuntimeMonitor.MarkSucceeded(
+                    WorkerKey,
+                    WorkerDisplayName,
+                    $"Windows={readyWindows.Count}, Messages={processedIds.Count}");
+                logger.LogInformation(
+                    "Processed {WindowCount} dialogue windows from {MessageCount} messages into extracted items.",
+                    readyWindows.Count,
+                    processedIds.Count);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
-                continue;
+                break;
             }
-
-            var processedIds = new List<Guid>(readyWindows.Sum(window => window.Messages.Count));
-
-            foreach (var window in readyWindows)
+            catch (Exception exception)
             {
-                var items = await extractionService.ExtractAsync(window, stoppingToken);
-                await extractedItemService.AddRangeAsync(items, stoppingToken);
-                processedIds.AddRange(window.Messages.Select(message => message.Id));
+                workerRuntimeMonitor.MarkFailed(WorkerKey, WorkerDisplayName, exception);
+                logger.LogWarning(exception, "Extraction tick failed.");
             }
-
-            await normalizationService.MarkProcessedAsync(processedIds, stoppingToken);
-            logger.LogInformation(
-                "Processed {WindowCount} dialogue windows from {MessageCount} messages into extracted items.",
-                readyWindows.Count,
-                processedIds.Count);
         }
     }
 

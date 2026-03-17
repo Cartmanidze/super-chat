@@ -7,6 +7,7 @@ using SuperChat.Contracts.Configuration;
 using SuperChat.Infrastructure.Services;
 using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Web.Localization;
+using SuperChat.Web.Security;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -41,7 +42,25 @@ builder.Services
         options.ExpireTimeSpan = TimeSpan.FromHours(8);
     });
 
-builder.Services.AddAuthorization();
+var configuredAdminEmails = (builder.Configuration.GetSection(PilotOptions.SectionName).Get<PilotOptions>()?.AdminEmails ?? [])
+    .Select(email => email.Trim())
+    .Where(email => !string.IsNullOrWhiteSpace(email))
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToArray();
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(AdminAuthorizationPolicy.PolicyName, policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireAssertion(context =>
+        {
+            var userEmail = context.User.GetEmail();
+            return configuredAdminEmails.Contains(userEmail, StringComparer.OrdinalIgnoreCase);
+        });
+    });
+});
+
 builder.Services
     .AddRazorPages(options =>
     {
@@ -54,6 +73,7 @@ builder.Services
         options.Conventions.AuthorizeFolder("/Search");
         options.Conventions.AuthorizeFolder("/Feedback");
         options.Conventions.AuthorizeFolder("/Settings");
+        options.Conventions.AuthorizeFolder("/Admin", AdminAuthorizationPolicy.PolicyName);
     })
     .AddViewLocalization();
 builder.Services.AddSingleton<IUiTextService, UiTextService>();

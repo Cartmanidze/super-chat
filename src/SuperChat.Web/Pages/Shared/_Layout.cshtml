@@ -1,12 +1,18 @@
 <!DOCTYPE html>
+@using Microsoft.Extensions.Options
+@using SuperChat.Contracts.Configuration
+@using SuperChat.Web.Security
+@inject IOptions<PilotOptions> PilotOptionsAccessor
 @{
   var path = Context.Request.Path.Value ?? "/";
   var isSignedIn = User.Identity?.IsAuthenticated ?? false;
+  var isAdmin = isSignedIn && User.IsAdmin(PilotOptionsAccessor.Value);
   var currentLanguage = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
   var returnUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
   var switchCulture = string.Equals(currentLanguage, "ru", StringComparison.OrdinalIgnoreCase) ? "en" : "ru";
   var switchLabel = string.Equals(currentLanguage, "ru", StringComparison.OrdinalIgnoreCase) ? "EN" : "RU";
   var homePage = isSignedIn ? "/Dashboard/Today" : "/Index";
+  var mobileNavColumns = isAdmin ? 3 : 2;
 
   bool IsActive(params string[] prefixes)
   {
@@ -72,6 +78,13 @@
             <span>@T["Nav.Feedback"]</span>
             <small>Что полезно, а что шумно</small>
           </a>
+          @if (isAdmin)
+          {
+            <a class="sidebar-link@(IsActive("/admin") ? " is-active" : string.Empty)" asp-page="/Admin/Index">
+              <span>Админка</span>
+              <small>Воркеры и magic link allowlist</small>
+            </a>
+          }
         </nav>
 
         <div class="sidebar-footer-card">
@@ -98,9 +111,13 @@
         </main>
       </div>
 
-      <nav class="mobile-nav" aria-label="Mobile navigation">
+      <nav class="mobile-nav" aria-label="Mobile navigation" style="grid-template-columns: repeat(@mobileNavColumns, minmax(0, 1fr));">
         <a class="mobile-nav-link@(IsActive("/today") ? " is-active" : string.Empty)" asp-page="/Dashboard/Today">@T["Nav.Today"]</a>
         <a class="mobile-nav-link@(IsActive("/settings", "/connect") ? " is-active" : string.Empty)" asp-page="/Settings/Connections">Профиль</a>
+        @if (isAdmin)
+        {
+          <a class="mobile-nav-link@(IsActive("/admin") ? " is-active" : string.Empty)" asp-page="/Admin/Index">Админ</a>
+        }
       </nav>
     </div>
   }

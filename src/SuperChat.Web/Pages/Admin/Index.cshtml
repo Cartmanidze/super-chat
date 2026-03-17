@@ -1,0 +1,179 @@
+@page "/admin"
+@using SuperChat.Contracts.Features.Admin
+@model SuperChat.Web.Pages.Admin.IndexModel
+@{
+  ViewData["Title"] = "Админка";
+  var runningWorkers = Model.WorkerStatuses.Count(item => item.State == WorkerRuntimeState.Running);
+  var failedWorkers = Model.WorkerStatuses.Count(item => item.State == WorkerRuntimeState.Failed);
+  var activeInvites = Model.Invites.Count(item => item.IsActive);
+}
+
+<section class="page-stack">
+  <div class="page-hero dashboard-hero">
+    <div class="page-hero-copy">
+      <p class="section-kicker">Admin</p>
+      <h1>Воркеры и доступы</h1>
+      <p class="page-intro">
+        Здесь собраны статусы фоновых процессов и pilot allowlist для magic link.
+        Время на странице показывается в timezone <strong>@Model.DisplayTimeZoneId</strong>.
+      </p>
+    </div>
+
+    <div class="metric-grid">
+      <article class="metric-card">
+        <small>Всего воркеров</small>
+        <strong>@Model.WorkerStatuses.Count</strong>
+      </article>
+      <article class="metric-card">
+        <small>Сейчас выполняются</small>
+        <strong>@runningWorkers</strong>
+      </article>
+      <article class="metric-card">
+        <small>С ошибкой</small>
+        <strong>@failedWorkers</strong>
+      </article>
+      <article class="metric-card">
+        <small>Активных email</small>
+        <strong>@activeInvites</strong>
+      </article>
+    </div>
+  </div>
+
+  @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+  {
+    <div class="inline-alert inline-alert-info">
+      <strong>Изменение сохранено</strong>
+      <span>@Model.StatusMessage</span>
+    </div>
+  }
+
+  @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+  {
+    <div class="inline-alert inline-alert-error">
+      <strong>Не получилось сохранить</strong>
+      <span>@Model.ErrorMessage</span>
+    </div>
+  }
+
+  <section class="premium-card settings-card settings-card-wide">
+    <div class="section-headline">
+      <div>
+        <p class="section-kicker">Workers</p>
+        <h2>Статусы фоновых сервисов</h2>
+        <p>Для каждого воркера видны последнее начало, последнее завершение и результат последнего цикла.</p>
+      </div>
+      <span class="count-pill">@Model.WorkerStatuses.Count</span>
+    </div>
+
+    @if (Model.WorkerStatuses.Count == 0)
+    {
+      <div class="empty-card">
+        <h2>Статусы ещё не появились</h2>
+        <p>Hosted services зарегистрируют себя после старта приложения.</p>
+      </div>
+    }
+    else
+    {
+      <div class="signal-list signal-list-focus">
+        @foreach (var worker in Model.WorkerStatuses)
+        {
+          <article class="signal-card signal-card-focus">
+            <div class="signal-head">
+              <div>
+                <h3>@worker.DisplayName</h3>
+                <p class="signal-meta">Ключ: @worker.Key</p>
+              </div>
+              <span class="status-badge @Model.GetStateBadgeCss(worker.State)">
+                @Model.DescribeState(worker.State)
+              </span>
+            </div>
+
+            <dl class="detail-grid">
+              <div class="detail-row">
+                <dt>Последний старт</dt>
+                <dd>@Model.FormatTimestamp(worker.LastStartedAt)</dd>
+              </div>
+              <div class="detail-row">
+                <dt>Последнее завершение</dt>
+                <dd>@Model.FormatTimestamp(worker.LastFinishedAt)</dd>
+              </div>
+            </dl>
+
+            @if (!string.IsNullOrWhiteSpace(worker.Details))
+            {
+              <div class="inline-alert">
+                <strong>Последний результат</strong>
+                <span>@worker.Details</span>
+              </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(worker.ErrorMessage))
+            {
+              <div class="inline-alert inline-alert-error">
+                <strong>Последняя ошибка</strong>
+                <span>@worker.ErrorMessage</span>
+              </div>
+            }
+          </article>
+        }
+      </div>
+    }
+  </section>
+
+  <div class="settings-grid">
+    <section class="premium-card settings-card">
+      <div class="section-headline">
+        <div>
+          <p class="section-kicker">Allowlist</p>
+          <h2>Добавить email в magic link</h2>
+          <p>Новый email сразу попадает в `pilot_invites` и может запросить вход.</p>
+        </div>
+      </div>
+
+      <form method="post" asp-page-handler="AddInvite" class="auth-form">
+        <div class="dialog-field">
+          <label asp-for="InviteEmail">Email</label>
+          <input asp-for="InviteEmail" type="email" autocomplete="email" placeholder="name@example.com" />
+        </div>
+
+        <button type="submit" class="app-button app-button-primary">Добавить в allowlist</button>
+      </form>
+    </section>
+
+    <section class="premium-card settings-card">
+      <div class="section-headline">
+        <div>
+          <p class="section-kicker">Invites</p>
+          <h2>Текущий allowlist</h2>
+          <p>Активные адреса могут сразу запрашивать magic link.</p>
+        </div>
+        <span class="count-pill">@activeInvites</span>
+      </div>
+
+      @if (Model.Invites.Count == 0)
+      {
+        <div class="empty-state">
+          <p>Список пока пуст.</p>
+        </div>
+      }
+      else
+      {
+        <ol class="timeline-list">
+          @foreach (var invite in Model.Invites)
+          {
+            <li>
+              <div class="signal-head">
+                <strong>@invite.Email</strong>
+                <span class="status-badge @(invite.IsActive ? "status-success" : "status-neutral")">
+                  @(invite.IsActive ? "Активен" : "Выключен")
+                </span>
+              </div>
+              <span>Добавил: @invite.InvitedBy</span>
+              <span>@Model.FormatTimestamp(invite.InvitedAt)</span>
+            </li>
+          }
+        </ol>
+      }
+    </section>
+  </div>
+</section>
