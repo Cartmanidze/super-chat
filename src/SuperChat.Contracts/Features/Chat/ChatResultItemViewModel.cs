@@ -6,8 +6,9 @@ namespace SuperChat.Contracts.ViewModels;
 [JsonDerivedType(typeof(GenericChatResultItemViewModel), "generic")]
 [JsonDerivedType(typeof(RequestChatResultItemViewModel), "request")]
 [JsonDerivedType(typeof(EventChatResultItemViewModel), "event")]
-[JsonDerivedType(typeof(ObligationChatResultItemViewModel), "obligation")]
+[JsonDerivedType(typeof(ActionItemChatResultItemViewModel), "actionItem")]
 public record ChatResultItemViewModel(
+    string? ActionKey,
     string Title,
     string Summary,
     string SourceRoom,
@@ -24,7 +25,48 @@ public record ChatResultItemViewModel(
     DateTimeOffset? UpdatedAt = null,
     bool IsOverdue = false,
     MeetingJoinProvider? MeetingProvider = null,
-    Uri? MeetingJoinUrl = null);
+    Uri? MeetingJoinUrl = null)
+{
+    public ChatResultItemViewModel(
+        string Title,
+        string Summary,
+        string SourceRoom,
+        DateTimeOffset? Timestamp,
+        WorkItemType? Type = null,
+        WorkItemStatus? Status = null,
+        WorkItemPriority? Priority = null,
+        WorkItemOwner? Owner = null,
+        WorkItemOrigin? Origin = null,
+        AiReviewState? ReviewState = null,
+        DateTimeOffset? PlannedAt = null,
+        DateTimeOffset? DueAt = null,
+        WorkItemSource? Source = null,
+        DateTimeOffset? UpdatedAt = null,
+        bool IsOverdue = false,
+        MeetingJoinProvider? MeetingProvider = null,
+        Uri? MeetingJoinUrl = null)
+        : this(
+            null,
+            Title,
+            Summary,
+            SourceRoom,
+            Timestamp,
+            Type,
+            Status,
+            Priority,
+            Owner,
+            Origin,
+            ReviewState,
+            PlannedAt,
+            DueAt,
+            Source,
+            UpdatedAt,
+            IsOverdue,
+            MeetingProvider,
+            MeetingJoinUrl)
+    {
+    }
+}
 
 public sealed record GenericChatResultItemViewModel(
     string Title,
@@ -45,6 +87,7 @@ public sealed record GenericChatResultItemViewModel(
     MeetingJoinProvider? MeetingProvider = null,
     Uri? MeetingJoinUrl = null)
     : ChatResultItemViewModel(
+        null,
         Title,
         Summary,
         SourceRoom,
@@ -79,6 +122,7 @@ public sealed record RequestChatResultItemViewModel(
     DateTimeOffset? UpdatedAt = null,
     bool IsOverdue = false)
     : ChatResultItemViewModel(
+        null,
         Title,
         Summary,
         SourceRoom,
@@ -113,6 +157,7 @@ public sealed record EventChatResultItemViewModel(
     MeetingJoinProvider? MeetingProvider = null,
     Uri? MeetingJoinUrl = null)
     : ChatResultItemViewModel(
+        null,
         Title,
         Summary,
         SourceRoom,
@@ -131,12 +176,12 @@ public sealed record EventChatResultItemViewModel(
         MeetingProvider,
         MeetingJoinUrl);
 
-public sealed record ObligationChatResultItemViewModel(
+public sealed record ActionItemChatResultItemViewModel(
     string Title,
     string Summary,
     string SourceRoom,
     DateTimeOffset? Timestamp,
-    ObligationStatus ObligationStatus = ObligationStatus.ToDo,
+    ActionItemStatus ActionItemStatus = ActionItemStatus.ToDo,
     WorkItemPriority PriorityValue = WorkItemPriority.Normal,
     WorkItemOwner? Owner = null,
     WorkItemOrigin OriginValue = WorkItemOrigin.DetectedFromChat,
@@ -147,12 +192,13 @@ public sealed record ObligationChatResultItemViewModel(
     DateTimeOffset? UpdatedAt = null,
     bool IsOverdue = false)
     : ChatResultItemViewModel(
+        null,
         Title,
         Summary,
         SourceRoom,
         Timestamp,
-        WorkItemType.Obligation,
-        ObligationStatus.ToWorkItemStatus(),
+        WorkItemType.ActionItem,
+        ActionItemStatus.ToWorkItemStatus(),
         PriorityValue,
         Owner,
         OriginValue,

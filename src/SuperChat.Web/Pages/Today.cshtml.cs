@@ -74,7 +74,7 @@ public sealed class TodayModel(
         var waitingCards = await digestService.GetWaitingAsync(userId, cancellationToken);
         var meetingCards = await digestService.GetMeetingsAsync(userId, cancellationToken);
         var todayCards = await digestService.GetTodayAsync(userId, cancellationToken);
-        var commitments = (await extractedItemService.GetForUserAsync(userId, cancellationToken))
+        var commitments = (await extractedItemService.GetActiveForUserAsync(userId, cancellationToken))
             .Where(item => item.Kind == ExtractedItemKind.Commitment)
             .OrderByDescending(item => item.DueAt ?? item.ObservedAt)
             .Take(8)

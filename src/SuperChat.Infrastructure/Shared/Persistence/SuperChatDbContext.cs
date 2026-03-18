@@ -153,6 +153,9 @@ public sealed class SuperChatDbContext(DbContextOptions<SuperChatDbContext> opti
             entity.Property(item => item.ObservedAt).HasColumnName("observed_at");
             entity.Property(item => item.DueAt).HasColumnName("due_at");
             entity.Property(item => item.Confidence).HasColumnName("confidence");
+            entity.Property(item => item.ResolvedAt).HasColumnName("resolved_at");
+            entity.Property(item => item.ResolutionKind).HasColumnName("resolution_kind");
+            entity.Property(item => item.ResolutionSource).HasColumnName("resolution_source");
             entity.HasIndex(item => new { item.UserId, item.ObservedAt });
         });
 
@@ -172,6 +175,9 @@ public sealed class SuperChatDbContext(DbContextOptions<SuperChatDbContext> opti
             entity.Property(item => item.Confidence).HasColumnName("confidence");
             entity.Property(item => item.MeetingProvider).HasColumnName("meeting_provider");
             entity.Property(item => item.MeetingJoinUrl).HasColumnName("meeting_join_url");
+            entity.Property(item => item.ResolvedAt).HasColumnName("resolved_at");
+            entity.Property(item => item.ResolutionKind).HasColumnName("resolution_kind");
+            entity.Property(item => item.ResolutionSource).HasColumnName("resolution_source");
             entity.Property(item => item.CreatedAt).HasColumnName("created_at");
             entity.Property(item => item.UpdatedAt).HasColumnName("updated_at");
             entity.HasIndex(item => new { item.UserId, item.ScheduledFor });
@@ -347,6 +353,9 @@ public sealed class ExtractedItemEntity
     public DateTimeOffset ObservedAt { get; set; }
     public DateTimeOffset? DueAt { get; set; }
     public double Confidence { get; set; }
+    public DateTimeOffset? ResolvedAt { get; set; }
+    public string? ResolutionKind { get; set; }
+    public string? ResolutionSource { get; set; }
 }
 
 public sealed class FeedbackEventEntity
@@ -373,6 +382,9 @@ public sealed class MeetingEntity
     public double Confidence { get; set; }
     public string? MeetingProvider { get; set; }
     public string? MeetingJoinUrl { get; set; }
+    public DateTimeOffset? ResolvedAt { get; set; }
+    public string? ResolutionKind { get; set; }
+    public string? ResolutionSource { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }

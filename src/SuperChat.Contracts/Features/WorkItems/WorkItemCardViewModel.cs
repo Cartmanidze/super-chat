@@ -5,8 +5,9 @@ namespace SuperChat.Contracts.ViewModels;
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "modelType")]
 [JsonDerivedType(typeof(RequestWorkItemCardViewModel), "request")]
 [JsonDerivedType(typeof(EventWorkItemCardViewModel), "event")]
-[JsonDerivedType(typeof(ObligationWorkItemCardViewModel), "obligation")]
+[JsonDerivedType(typeof(ActionItemWorkItemCardViewModel), "actionItem")]
 public record WorkItemCardViewModel(
+    string? ActionKey,
     string Title,
     string Summary,
     string Kind,
@@ -25,7 +26,52 @@ public record WorkItemCardViewModel(
     DateTimeOffset? UpdatedAt = null,
     bool IsOverdue = false,
     MeetingJoinProvider? MeetingProvider = null,
-    Uri? MeetingJoinUrl = null);
+    Uri? MeetingJoinUrl = null)
+{
+    public WorkItemCardViewModel(
+        string Title,
+        string Summary,
+        string Kind,
+        DateTimeOffset ObservedAt,
+        DateTimeOffset? DueAt,
+        string SourceRoom,
+        double Confidence = 0d,
+        WorkItemType? Type = null,
+        WorkItemStatus? Status = null,
+        WorkItemPriority Priority = WorkItemPriority.Normal,
+        WorkItemOwner? Owner = null,
+        WorkItemOrigin Origin = WorkItemOrigin.DetectedFromChat,
+        AiReviewState ReviewState = AiReviewState.NeedsReview,
+        DateTimeOffset? PlannedAt = null,
+        WorkItemSource Source = WorkItemSource.Telegram,
+        DateTimeOffset? UpdatedAt = null,
+        bool IsOverdue = false,
+        MeetingJoinProvider? MeetingProvider = null,
+        Uri? MeetingJoinUrl = null)
+        : this(
+            null,
+            Title,
+            Summary,
+            Kind,
+            ObservedAt,
+            DueAt,
+            SourceRoom,
+            Confidence,
+            Type,
+            Status,
+            Priority,
+            Owner,
+            Origin,
+            ReviewState,
+            PlannedAt,
+            Source,
+            UpdatedAt,
+            IsOverdue,
+            MeetingProvider,
+            MeetingJoinUrl)
+    {
+    }
+}
 
 public sealed record RequestWorkItemCardViewModel(
     string Title,
@@ -45,6 +91,7 @@ public sealed record RequestWorkItemCardViewModel(
     DateTimeOffset? UpdatedAt = null,
     bool IsOverdue = false)
     : WorkItemCardViewModel(
+        null,
         Title,
         Summary,
         Kind,
@@ -83,6 +130,7 @@ public sealed record EventWorkItemCardViewModel(
     MeetingJoinProvider? MeetingProvider = null,
     Uri? MeetingJoinUrl = null)
     : WorkItemCardViewModel(
+        null,
         Title,
         Summary,
         Kind,
@@ -103,14 +151,14 @@ public sealed record EventWorkItemCardViewModel(
         MeetingProvider,
         MeetingJoinUrl);
 
-public sealed record ObligationWorkItemCardViewModel(
+public sealed record ActionItemWorkItemCardViewModel(
     string Title,
     string Summary,
     string Kind,
     DateTimeOffset ObservedAt,
     DateTimeOffset? DueAt,
     string SourceRoom,
-    ObligationStatus ObligationStatus = ObligationStatus.ToDo,
+    ActionItemStatus ActionItemStatus = ActionItemStatus.ToDo,
     double Confidence = 0d,
     WorkItemPriority Priority = WorkItemPriority.Normal,
     WorkItemOwner? Owner = null,
@@ -121,6 +169,7 @@ public sealed record ObligationWorkItemCardViewModel(
     DateTimeOffset? UpdatedAt = null,
     bool IsOverdue = false)
     : WorkItemCardViewModel(
+        null,
         Title,
         Summary,
         Kind,
@@ -128,8 +177,8 @@ public sealed record ObligationWorkItemCardViewModel(
         DueAt,
         SourceRoom,
         Confidence,
-        WorkItemType.Obligation,
-        ObligationStatus.ToWorkItemStatus(),
+        WorkItemType.ActionItem,
+        ActionItemStatus.ToWorkItemStatus(),
         Priority,
         Owner,
         Origin,

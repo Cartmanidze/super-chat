@@ -444,7 +444,7 @@ public sealed class ExtractionAndDigestTests
             "!sales:matrix.localhost",
             "$event-ai-6",
             "Maria",
-            "Ð”Ð¾Ð±Ñ€Ñ‹Ð¹ Ð´ÐµÐ½ÑŒ, Ð“Ð»ÐµÐ±! ÐŸÐ¾Ð´ÑÐºÐ°Ð¶Ð¸Ñ‚Ðµ, Ð°ÐºÑ‚ÑƒÐ°Ð»ÑŒÐ½Ð¾ Ð»Ð¸ Ð´Ð»Ñ Ð’Ð°Ñ ÑÐµÐ¹Ñ‡Ð°Ñ Ð¿Ñ€ÐµÐ´Ð»Ð¾Ð¶ÐµÐ½Ð¸Ðµ Ð¾ Ñ€Ð°Ð±Ð¾Ñ‚Ðµ?",
+            "Добрый день, Глеб! Подскажите, актуально ли для Вас сейчас предложение о работе?",
             new DateTimeOffset(2026, 03, 16, 09, 13, 22, TimeSpan.Zero),
             new DateTimeOffset(2026, 03, 16, 09, 13, 22, TimeSpan.Zero),
             false);

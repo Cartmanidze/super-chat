@@ -27,7 +27,7 @@ public sealed class ChatExperienceServiceTests
         Assert.Equal(ChatPromptTemplate.Today, answer.Mode);
         Assert.Single(answer.Items);
         Assert.Equal("Нужно отправить договор", answer.Items[0].Title);
-        Assert.IsType<ObligationChatResultItemViewModel>(answer.Items[0]);
+        Assert.IsType<ActionItemChatResultItemViewModel>(answer.Items[0]);
     }
 
     [Fact]

@@ -131,6 +131,9 @@ public sealed class PersistenceInitializationHostedService(
                 confidence double precision NOT NULL,
                 meeting_provider text NULL,
                 meeting_join_url text NULL,
+                resolved_at timestamptz NULL,
+                resolution_kind text NULL,
+                resolution_source text NULL,
                 created_at timestamptz NOT NULL,
                 updated_at timestamptz NOT NULL
             );
@@ -146,6 +149,24 @@ public sealed class PersistenceInitializationHostedService(
 
             ALTER TABLE meetings
             ADD COLUMN IF NOT EXISTS meeting_join_url text NULL;
+
+            ALTER TABLE meetings
+            ADD COLUMN IF NOT EXISTS resolved_at timestamptz NULL;
+
+            ALTER TABLE meetings
+            ADD COLUMN IF NOT EXISTS resolution_kind text NULL;
+
+            ALTER TABLE meetings
+            ADD COLUMN IF NOT EXISTS resolution_source text NULL;
+
+            ALTER TABLE extracted_items
+            ADD COLUMN IF NOT EXISTS resolved_at timestamptz NULL;
+
+            ALTER TABLE extracted_items
+            ADD COLUMN IF NOT EXISTS resolution_kind text NULL;
+
+            ALTER TABLE extracted_items
+            ADD COLUMN IF NOT EXISTS resolution_source text NULL;
 
             CREATE TABLE IF NOT EXISTS message_chunks (
                 id uuid PRIMARY KEY,

@@ -149,6 +149,16 @@ public sealed class RoomDisplayNamePresentationTests
         {
             return Task.FromResult(items.Where(item => item.UserId == userId).Take(take).ToList() as IReadOnlyList<MeetingRecord>);
         }
+
+        public Task<bool> CompleteAsync(Guid userId, Guid meetingId, CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<bool> DismissAsync(Guid userId, Guid meetingId, CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
     }
 
     private sealed class StubExtractedItemService(IReadOnlyList<ExtractedItem> items) : IExtractedItemService
@@ -161,6 +171,21 @@ public sealed class RoomDisplayNamePresentationTests
         public Task<IReadOnlyList<ExtractedItem>> GetForUserAsync(Guid userId, CancellationToken cancellationToken)
         {
             return Task.FromResult(items.Where(item => item.UserId == userId).ToList() as IReadOnlyList<ExtractedItem>);
+        }
+
+        public Task<IReadOnlyList<ExtractedItem>> GetActiveForUserAsync(Guid userId, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(items.Where(item => item.UserId == userId).ToList() as IReadOnlyList<ExtractedItem>);
+        }
+
+        public Task<bool> CompleteAsync(Guid userId, Guid itemId, CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<bool> DismissAsync(Guid userId, Guid itemId, CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
         }
     }
 

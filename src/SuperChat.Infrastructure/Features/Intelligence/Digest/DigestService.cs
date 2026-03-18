@@ -17,8 +17,8 @@ public sealed class DigestService(
 {
     public async Task<IReadOnlyList<WorkItemCardViewModel>> GetTodayAsync(Guid userId, CancellationToken cancellationToken)
     {
-        var items = await extractedItemService.GetForUserAsync(userId, cancellationToken);
-        var now = TimeZoneInfo.ConvertTime(timeProvider.GetUtcNow(), ResolveTodayTimeZone(logger, pilotOptions.TodayTimeZoneId));
+        var items = await extractedItemService.GetActiveForUserAsync(userId, cancellationToken);
+        var now = TimeZoneInfo.ConvertTime(timeProvider.GetUtcNow(), WorkItemTimeZoneResolver.Resolve(logger, pilotOptions.TodayTimeZoneId));
         var cards = DigestComposer.BuildToday(items, now)
             .Select(item => item.ToWorkItemCardViewModel(now))
             .ToList();
@@ -28,8 +28,8 @@ public sealed class DigestService(
 
     public async Task<IReadOnlyList<WorkItemCardViewModel>> GetWaitingAsync(Guid userId, CancellationToken cancellationToken)
     {
-        var items = await extractedItemService.GetForUserAsync(userId, cancellationToken);
-        var now = TimeZoneInfo.ConvertTime(timeProvider.GetUtcNow(), ResolveTodayTimeZone(logger, pilotOptions.TodayTimeZoneId));
+        var items = await extractedItemService.GetActiveForUserAsync(userId, cancellationToken);
+        var now = TimeZoneInfo.ConvertTime(timeProvider.GetUtcNow(), WorkItemTimeZoneResolver.Resolve(logger, pilotOptions.TodayTimeZoneId));
         var cards = DigestComposer.BuildWaiting(items)
             .Select(item => item.ToWorkItemCardViewModel(now))
             .ToList();
@@ -39,7 +39,7 @@ public sealed class DigestService(
 
     public async Task<IReadOnlyList<WorkItemCardViewModel>> GetMeetingsAsync(Guid userId, CancellationToken cancellationToken)
     {
-        var now = TimeZoneInfo.ConvertTime(timeProvider.GetUtcNow(), ResolveTodayTimeZone(logger, pilotOptions.TodayTimeZoneId));
+        var now = TimeZoneInfo.ConvertTime(timeProvider.GetUtcNow(), WorkItemTimeZoneResolver.Resolve(logger, pilotOptions.TodayTimeZoneId));
         var meetings = await meetingService.GetUpcomingAsync(userId, now.AddHours(-1), 20, cancellationToken);
         var cards = DigestComposer.BuildMeetings(meetings, now)
             .Select(item => item.ToWorkItemCardViewModel(now))
@@ -58,26 +58,5 @@ public sealed class DigestService(
         return cards
             .Select(card => card.WithResolvedSourceRoom(roomNames))
             .ToList();
-    }
-
-    private static TimeZoneInfo ResolveTodayTimeZone(ILogger logger, string configuredTimeZoneId)
-    {
-        if (!string.IsNullOrWhiteSpace(configuredTimeZoneId))
-        {
-            try
-            {
-                return TimeZoneInfo.FindSystemTimeZoneById(configuredTimeZoneId);
-            }
-            catch (TimeZoneNotFoundException ex)
-            {
-                logger.LogWarning(ex, "Configured Today time zone '{TimeZoneId}' was not found. Falling back to UTC.", configuredTimeZoneId);
-            }
-            catch (InvalidTimeZoneException ex)
-            {
-                logger.LogWarning(ex, "Configured Today time zone '{TimeZoneId}' is invalid. Falling back to UTC.", configuredTimeZoneId);
-            }
-        }
-
-        return TimeZoneInfo.Utc;
     }
 }

@@ -77,8 +77,8 @@ internal static class WorkItemPresentationMetadata
         {
             nameof(ExtractedItemKind.WaitingOn) => WorkItemType.Request,
             nameof(ExtractedItemKind.Meeting) => WorkItemType.Event,
-            nameof(ExtractedItemKind.Task) => WorkItemType.Obligation,
-            nameof(ExtractedItemKind.Commitment) => WorkItemType.Obligation,
+            nameof(ExtractedItemKind.Task) => WorkItemType.ActionItem,
+            nameof(ExtractedItemKind.Commitment) => WorkItemType.ActionItem,
             _ => null
         };
     }

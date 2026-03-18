@@ -92,7 +92,7 @@ public sealed class MeetingProjectionService(
             return MeetingProjectionRunResult.Empty;
         }
 
-        var referenceTimeZone = MeetingService.ResolveReferenceTimeZone(pilotOptions.TodayTimeZoneId);
+        var referenceTimeZone = MeetingTimeSupport.ResolveReferenceTimeZone(pilotOptions.TodayTimeZoneId);
         var now = timeProvider.GetUtcNow();
         var roomsRebuilt = 0;
         var meetingsProjected = 0;
@@ -144,8 +144,8 @@ public sealed class MeetingProjectionService(
                     existing.Title = meeting.Title;
                     existing.Summary = meeting.Summary;
                     existing.Person = meeting.Person;
-                    existing.ObservedAt = MeetingService.NormalizeToUtc(meeting.ObservedAt);
-                    existing.ScheduledFor = MeetingService.NormalizeToUtc(meeting.ScheduledFor);
+                    existing.ObservedAt = MeetingTimeSupport.NormalizeToUtc(meeting.ObservedAt);
+                    existing.ScheduledFor = MeetingTimeSupport.NormalizeToUtc(meeting.ScheduledFor);
                     existing.Confidence = meeting.Confidence;
                     existing.MeetingProvider = meeting.MeetingProvider;
                     existing.MeetingJoinUrl = meeting.MeetingJoinUrl?.ToString();
@@ -162,8 +162,8 @@ public sealed class MeetingProjectionService(
                     SourceRoom = meeting.SourceRoom,
                     SourceEventId = meeting.SourceEventId,
                     Person = meeting.Person,
-                    ObservedAt = MeetingService.NormalizeToUtc(meeting.ObservedAt),
-                    ScheduledFor = MeetingService.NormalizeToUtc(meeting.ScheduledFor),
+                    ObservedAt = MeetingTimeSupport.NormalizeToUtc(meeting.ObservedAt),
+                    ScheduledFor = MeetingTimeSupport.NormalizeToUtc(meeting.ScheduledFor),
                     Confidence = meeting.Confidence,
                     MeetingProvider = meeting.MeetingProvider,
                     MeetingJoinUrl = meeting.MeetingJoinUrl?.ToString(),

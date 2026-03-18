@@ -7,7 +7,7 @@ public enum WorkItemType
 {
     Request,
     Event,
-    Obligation
+    ActionItem
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<WorkItemStatus>))]
@@ -97,8 +97,8 @@ public enum EventStatus
     Completed
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<ObligationStatus>))]
-public enum ObligationStatus
+[JsonConverter(typeof(JsonStringEnumConverter<ActionItemStatus>))]
+public enum ActionItemStatus
 {
     ToDo,
     InProgress,
@@ -132,14 +132,14 @@ public static class WorkItemStatusConversions
         };
     }
 
-    public static WorkItemStatus ToWorkItemStatus(this ObligationStatus status)
+    public static WorkItemStatus ToWorkItemStatus(this ActionItemStatus status)
     {
         return status switch
         {
-            ObligationStatus.ToDo => WorkItemStatus.ToDo,
-            ObligationStatus.InProgress => WorkItemStatus.InProgress,
-            ObligationStatus.Done => WorkItemStatus.Done,
-            ObligationStatus.NotRelevant => WorkItemStatus.NotRelevant,
+            ActionItemStatus.ToDo => WorkItemStatus.ToDo,
+            ActionItemStatus.InProgress => WorkItemStatus.InProgress,
+            ActionItemStatus.Done => WorkItemStatus.Done,
+            ActionItemStatus.NotRelevant => WorkItemStatus.NotRelevant,
             _ => WorkItemStatus.ToDo
         };
     }
@@ -168,14 +168,14 @@ public static class WorkItemStatusConversions
         };
     }
 
-    public static ObligationStatus? ToObligationStatus(this WorkItemStatus? status)
+    public static ActionItemStatus? ToActionItemStatus(this WorkItemStatus? status)
     {
         return status switch
         {
-            WorkItemStatus.ToDo => ObligationStatus.ToDo,
-            WorkItemStatus.InProgress => ObligationStatus.InProgress,
-            WorkItemStatus.Done => ObligationStatus.Done,
-            WorkItemStatus.NotRelevant => ObligationStatus.NotRelevant,
+            WorkItemStatus.ToDo => ActionItemStatus.ToDo,
+            WorkItemStatus.InProgress => ActionItemStatus.InProgress,
+            WorkItemStatus.Done => ActionItemStatus.Done,
+            WorkItemStatus.NotRelevant => ActionItemStatus.NotRelevant,
             _ => null
         };
     }

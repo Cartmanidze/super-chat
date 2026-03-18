@@ -1,0 +1,82 @@
+using Microsoft.EntityFrameworkCore;
+using SuperChat.Infrastructure.Persistence;
+
+namespace SuperChat.Infrastructure.Services;
+
+internal sealed class MeetingAutoResolutionService(
+    IDbContextFactory<SuperChatDbContext> dbContextFactory)
+{
+    public async Task ResolveAsync(
+        Guid userId,
+        DateTimeOffset fromInclusive,
+        CancellationToken cancellationToken)
+    {
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var scheduledFrom = fromInclusive.AddDays(-1);
+        var unresolvedMeetings = await dbContext.Meetings
+            .Where(item => item.UserId == userId &&
+                           item.ResolvedAt == null)
+            .ToListAsync(cancellationToken);
+
+        var candidates = unresolvedMeetings
+            .Where(item => item.ScheduledFor >= scheduledFrom)
+            .ToList();
+
+        if (candidates.Count == 0)
+        {
+            return;
+        }
+
+        var roomIds = candidates
+            .Select(item => item.SourceRoom)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        var observedFrom = candidates.Min(item => item.ObservedAt);
+
+        var messages = await dbContext.NormalizedMessages
+            .AsNoTracking()
+            .Where(item => item.UserId == userId &&
+                           roomIds.Contains(item.MatrixRoomId))
+            .ToListAsync(cancellationToken);
+
+        var messagesByRoom = messages
+            .Where(item => item.SentAt >= observedFrom)
+            .OrderBy(item => item.SentAt)
+            .ThenBy(item => item.IngestedAt)
+            .GroupBy(item => item.MatrixRoomId, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => (IReadOnlyList<NormalizedMessageEntity>)group.ToList(), StringComparer.Ordinal);
+
+        var changed = false;
+        foreach (var meeting in candidates)
+        {
+            var roomMessages = messagesByRoom.GetValueOrDefault(meeting.SourceRoom);
+            if (roomMessages is null || roomMessages.Count == 0)
+            {
+                continue;
+            }
+
+            var laterMessages = roomMessages
+                .Where(message => message.SentAt > meeting.ObservedAt ||
+                                  (message.SentAt == meeting.ObservedAt &&
+                                   !string.Equals(message.MatrixEventId, meeting.SourceEventId, StringComparison.Ordinal)))
+                .ToList();
+
+            var resolution = WorkItemAutoResolutionDetector.TryResolve(meeting, laterMessages);
+            if (resolution is null)
+            {
+                continue;
+            }
+
+            meeting.ResolvedAt = resolution.ResolvedAt;
+            meeting.ResolutionKind = resolution.ResolutionKind;
+            meeting.ResolutionSource = resolution.ResolutionSource;
+            meeting.UpdatedAt = DateTimeOffset.UtcNow;
+            changed = true;
+        }
+
+        if (changed)
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+    }
+}

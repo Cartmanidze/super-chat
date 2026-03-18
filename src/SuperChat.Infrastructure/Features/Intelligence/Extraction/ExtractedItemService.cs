@@ -1,60 +1,35 @@
-﻿using Microsoft.EntityFrameworkCore;
 using SuperChat.Domain.Model;
 using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Persistence;
 
 namespace SuperChat.Infrastructure.Services;
 
-public sealed class ExtractedItemService(
-    IDbContextFactory<SuperChatDbContext> dbContextFactory,
-    IMeetingService meetingService) : IExtractedItemService
+internal sealed class ExtractedItemService(
+    ExtractedItemIngestionService ingestionService,
+    ExtractedItemQueryService queryService,
+    ExtractedItemManualResolutionService manualResolutionService) : IExtractedItemService
 {
-    public async Task AddRangeAsync(IEnumerable<ExtractedItem> items, CancellationToken cancellationToken)
+    public Task AddRangeAsync(IEnumerable<ExtractedItem> items, CancellationToken cancellationToken)
     {
-        var filteredItems = items
-            .Where(ExtractedItemFilters.ShouldKeep)
-            .ToList();
-
-        var entities = filteredItems
-            .Select(item => new ExtractedItemEntity
-            {
-                Id = item.Id,
-                UserId = item.UserId,
-                Kind = item.Kind,
-                Title = item.Title,
-                Summary = item.Summary,
-                SourceRoom = item.SourceRoom,
-                SourceEventId = item.SourceEventId,
-                Person = item.Person,
-                ObservedAt = item.ObservedAt,
-                DueAt = item.DueAt,
-                Confidence = item.Confidence
-            })
-            .ToList();
-
-        if (entities.Count == 0)
-        {
-            return;
-        }
-
-        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-        dbContext.ExtractedItems.AddRange(entities);
-        await dbContext.SaveChangesAsync(cancellationToken);
-        await meetingService.UpsertRangeAsync(filteredItems, cancellationToken);
+        return ingestionService.AddRangeAsync(items, cancellationToken);
     }
 
-    public async Task<IReadOnlyList<ExtractedItem>> GetForUserAsync(Guid userId, CancellationToken cancellationToken)
+    public Task<IReadOnlyList<ExtractedItem>> GetForUserAsync(Guid userId, CancellationToken cancellationToken)
     {
-        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-        var entities = await dbContext.ExtractedItems
-            .AsNoTracking()
-            .Where(item => item.UserId == userId)
-            .ToListAsync(cancellationToken);
+        return queryService.GetForUserAsync(userId, cancellationToken);
+    }
 
-        return entities
-            .Where(ExtractedItemFilters.ShouldKeep)
-            .OrderByDescending(item => item.ObservedAt)
-            .Select(item => item.ToDomain())
-            .ToList();
+    public Task<IReadOnlyList<ExtractedItem>> GetActiveForUserAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        return queryService.GetActiveForUserAsync(userId, cancellationToken);
+    }
+
+    public Task<bool> CompleteAsync(Guid userId, Guid itemId, CancellationToken cancellationToken)
+    {
+        return manualResolutionService.CompleteAsync(userId, itemId, cancellationToken);
+    }
+
+    public Task<bool> DismissAsync(Guid userId, Guid itemId, CancellationToken cancellationToken)
+    {
+        return manualResolutionService.DismissAsync(userId, itemId, cancellationToken);
     }
 }
