@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using SuperChat.Api.Validation;
 using SuperChat.Api.Security;
 using SuperChat.Domain.Model;
 using SuperChat.Infrastructure.Abstractions;
@@ -16,19 +17,12 @@ public static class AuthEndpoints
             IAuthFlowService authFlowService,
             CancellationToken cancellationToken) =>
         {
-            if (string.IsNullOrWhiteSpace(request.Email))
-            {
-                return Results.ValidationProblem(new Dictionary<string, string[]>
-                {
-                    ["email"] = ["Email is required."]
-                });
-            }
-
             var result = await authFlowService.RequestMagicLinkAsync(request.Email, cancellationToken);
             return result.Accepted
                 ? Results.Accepted(value: result.ToMagicLinkResponse())
                 : Results.Problem(title: "Magic link request rejected", detail: result.Message, statusCode: StatusCodes.Status403Forbidden);
-        });
+        })
+        .ValidateRequest<MagicLinkRequest>();
 
         group.MapPost("/token-exchange", async (
             TokenExchangeRequest request,
@@ -36,14 +30,6 @@ public static class AuthEndpoints
             IApiSessionService apiSessionService,
             CancellationToken cancellationToken) =>
         {
-            if (string.IsNullOrWhiteSpace(request.Token))
-            {
-                return Results.ValidationProblem(new Dictionary<string, string[]>
-                {
-                    ["token"] = ["Token is required."]
-                });
-            }
-
             var result = await authFlowService.VerifyAsync(request.Token, cancellationToken);
             if (!result.Accepted || result.User is null)
             {
@@ -52,7 +38,8 @@ public static class AuthEndpoints
 
             var session = await apiSessionService.IssueAsync(result.User, cancellationToken);
             return Results.Ok(session.ToSessionTokenResponse(result.User));
-        });
+        })
+        .ValidateRequest<TokenExchangeRequest>();
 
         group.MapPost("/refresh", [Authorize(AuthenticationSchemes = ApiSessionAuthenticationHandler.SchemeName)] async (
             HttpContext httpContext,

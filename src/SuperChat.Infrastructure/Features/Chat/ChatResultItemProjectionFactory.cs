@@ -18,7 +18,7 @@ internal static class ChatResultItemProjectionFactory
                                        !string.IsNullOrWhiteSpace(card.Summary);
 
         return new ChatResultItemProjection(
-            card.ActionKey,
+            card.Id,
             titleMatchesGenericTitle ? card.Summary : card.Title,
             titleMatchesGenericTitle ? string.Empty : card.Summary,
             card.SourceRoom,
@@ -120,7 +120,7 @@ internal static class ChatResultItemProjectionFactory
         ChatResultItemViewModel sourceItem)
     {
         return new ChatResultItemProjection(
-            sourceItem.ActionKey,
+            sourceItem.Id,
             item.Title,
             item.Summary,
             sourceItem.SourceRoom,

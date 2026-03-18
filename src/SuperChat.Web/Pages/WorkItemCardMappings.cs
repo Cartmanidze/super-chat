@@ -20,7 +20,7 @@ internal static class WorkItemCardMappings
             card.Confidence);
     }
 
-    public static TodayModel.TodayCard ToCommitmentWorkItemCard(this ExtractedItem item)
+    public static TodayModel.TodayCard ToCommitmentWorkItemCard(this WorkItemRecord item)
     {
         var hint = item.Confidence >= 0.9
             ? "Высокая уверенность"

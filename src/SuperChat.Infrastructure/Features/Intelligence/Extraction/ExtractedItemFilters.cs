@@ -20,6 +20,12 @@ internal static class ExtractedItemFilters
                !StructuredArtifactDetector.LooksLikeStructuredArtifact(BuildArtifactText(item.Title, item.Summary));
     }
 
+    internal static bool ShouldKeep(WorkItemEntity item)
+    {
+        return !string.Equals(item.Title, GenericFollowUpCandidateTitle, StringComparison.Ordinal) &&
+               !StructuredArtifactDetector.LooksLikeStructuredArtifact(BuildArtifactText(item.Title, item.Summary));
+    }
+
     private static string BuildArtifactText(string title, string summary)
     {
         if (string.IsNullOrWhiteSpace(summary))

@@ -3,7 +3,7 @@ using SuperChat.Contracts.ViewModels;
 namespace SuperChat.Infrastructure.Services;
 
 internal sealed record ChatResultItemProjection(
-    string? ActionKey,
+    Guid? Id,
     string Title,
     string Summary,
     string SourceRoom,

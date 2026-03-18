@@ -65,6 +65,22 @@ internal static class PersistenceMappings
             entity.Confidence);
     }
 
+    public static WorkItemRecord ToDomain(this WorkItemEntity entity)
+    {
+        return new WorkItemRecord(
+            entity.Id,
+            entity.UserId,
+            entity.Kind,
+            entity.Title,
+            entity.Summary,
+            entity.SourceRoom,
+            entity.SourceEventId,
+            entity.Person,
+            entity.ObservedAt,
+            entity.DueAt,
+            entity.Confidence);
+    }
+
     public static MeetingRecord ToDomain(this MeetingEntity entity)
     {
         return new MeetingRecord(

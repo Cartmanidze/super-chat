@@ -5,13 +5,12 @@ namespace SuperChat.Infrastructure.Services;
 
 internal static class WorkItemCardViewModelMappings
 {
-    public static WorkItemCardViewModel ToWorkItemCardViewModel(this ExtractedItem item, DateTimeOffset now)
+    public static WorkItemCardViewModel ToWorkItemCardViewModel(this WorkItemRecord item, DateTimeOffset now)
     {
-        var metadata = WorkItemPresentationMetadata.FromExtractedItem(item, now);
+        var metadata = WorkItemPresentationMetadata.FromWorkItem(item, now);
         return metadata.Type switch
         {
             WorkItemType.Request => RequestWorkItemCardViewModelMapper.Map(item, metadata),
-            WorkItemType.Event => EventWorkItemCardViewModelMapper.Map(item, metadata),
             _ => ActionItemWorkItemCardViewModelMapper.Map(item, metadata)
         };
     }

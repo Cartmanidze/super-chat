@@ -25,6 +25,6 @@ internal static class GenericChatResultItemViewModelMapper
             projection.MeetingProvider,
             projection.MeetingJoinUrl);
 
-        return item with { ActionKey = projection.ActionKey };
+        return item with { Id = projection.Id };
     }
 }

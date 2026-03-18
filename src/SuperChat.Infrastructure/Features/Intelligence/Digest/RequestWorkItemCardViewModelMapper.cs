@@ -6,7 +6,7 @@ namespace SuperChat.Infrastructure.Services;
 internal static class RequestWorkItemCardViewModelMapper
 {
     public static RequestWorkItemCardViewModel Map(
-        ExtractedItem item,
+        WorkItemRecord item,
         WorkItemMetadata metadata)
     {
         return new RequestWorkItemCardViewModel(
@@ -27,7 +27,7 @@ internal static class RequestWorkItemCardViewModelMapper
             metadata.UpdatedAt,
             metadata.IsOverdue)
         {
-            ActionKey = WorkItemActionKey.ForExtractedItem(item.Id)
+            Id = item.Id
         };
     }
 }

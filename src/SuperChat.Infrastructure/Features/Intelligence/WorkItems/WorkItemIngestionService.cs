@@ -5,18 +5,24 @@ using SuperChat.Infrastructure.Persistence;
 
 namespace SuperChat.Infrastructure.Services;
 
-internal sealed class ExtractedItemIngestionService(
+internal sealed class WorkItemIngestionService(
     IDbContextFactory<SuperChatDbContext> dbContextFactory,
     IMeetingService meetingService)
 {
-    public async Task AddRangeAsync(IEnumerable<ExtractedItem> items, CancellationToken cancellationToken)
+    public async Task IngestRangeAsync(IEnumerable<ExtractedItem> items, CancellationToken cancellationToken)
     {
         var filteredItems = items
             .Where(ExtractedItemFilters.ShouldKeep)
             .ToList();
 
-        var entities = filteredItems
-            .Select(item => new ExtractedItemEntity
+        if (filteredItems.Count == 0)
+        {
+            return;
+        }
+
+        var workItemEntities = filteredItems
+            .Where(item => item.Kind is not ExtractedItemKind.Meeting)
+            .Select(item => new WorkItemEntity
             {
                 Id = item.Id,
                 UserId = item.UserId,
@@ -28,18 +34,19 @@ internal sealed class ExtractedItemIngestionService(
                 Person = item.Person,
                 ObservedAt = item.ObservedAt,
                 DueAt = item.DueAt,
-                Confidence = item.Confidence
+                Confidence = item.Confidence,
+                CreatedAt = item.ObservedAt,
+                UpdatedAt = item.ObservedAt
             })
             .ToList();
 
-        if (entities.Count == 0)
+        if (workItemEntities.Count > 0)
         {
-            return;
+            await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+            dbContext.WorkItems.AddRange(workItemEntities);
+            await dbContext.SaveChangesAsync(cancellationToken);
         }
 
-        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-        dbContext.ExtractedItems.AddRange(entities);
-        await dbContext.SaveChangesAsync(cancellationToken);
         await meetingService.UpsertRangeAsync(filteredItems, cancellationToken);
     }
 }

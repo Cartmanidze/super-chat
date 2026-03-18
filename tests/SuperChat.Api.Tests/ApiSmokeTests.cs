@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using SuperChat.Contracts.ViewModels;
 using SuperChat.Infrastructure.Persistence;
+using SuperChat.Infrastructure.Services;
 
 namespace SuperChat.Api.Tests;
 
@@ -73,6 +74,23 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
         Assert.Equal(HttpStatusCode.OK, meResponse.StatusCode);
         Assert.NotNull(me);
         Assert.Equal("pilot@example.com", me!.Email);
+    }
+
+    [Fact]
+    public async Task AuthFlow_RejectsMissingEmail_WithValidationProblem()
+    {
+        using var client = _factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/v1/auth/magic-links", new
+        {
+            email = ""
+        });
+
+        var payload = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("\"email\"", payload, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Email is required.", payload, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -149,6 +167,25 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
     }
 
     [Fact]
+    public async Task ChatEndpoint_RejectsUnsupportedTemplate_WithTemplateIdValidationProblem()
+    {
+        using var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", await GetAccessTokenAsync(client));
+
+        var response = await client.PostAsJsonAsync("/api/v1/chat/ask", new
+        {
+            templateId = "unknown-template",
+            question = "Что важно?"
+        });
+
+        var payload = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("\"templateId\"", payload, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Unsupported chat template.", payload, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task WorkItemEndpoints_Complete_RemovesActiveWaitingItem()
     {
         using var client = _factory.CreateClient();
@@ -160,7 +197,7 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
 
         await using (var dbContext = await CreateDbContextAsync())
         {
-            dbContext.ExtractedItems.Add(new ExtractedItemEntity
+            dbContext.WorkItems.Add(new WorkItemEntity
             {
                 Id = itemId,
                 UserId = userId,
@@ -177,10 +214,9 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
             await dbContext.SaveChangesAsync();
         }
 
-        var completeResponse = await client.PostAsJsonAsync("/api/v1/work-items/requests/complete", new
-        {
-            actionKey = $"extracted:{itemId:N}"
-        });
+        var completeResponse = await client.PostAsync(
+            $"/api/v1/work-items/requests/{itemId}/complete",
+            content: null);
 
         Assert.Equal(HttpStatusCode.NoContent, completeResponse.StatusCode);
 
@@ -191,14 +227,25 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
         Assert.DoesNotContain("Reply to Marina", waitingPayload, StringComparison.Ordinal);
 
         await using var verificationContext = await CreateDbContextAsync();
-        var entity = await verificationContext.ExtractedItems.SingleAsync(item => item.Id == itemId);
+        var entity = await verificationContext.WorkItems.SingleAsync(item => item.Id == itemId);
         Assert.NotNull(entity.ResolvedAt);
         Assert.Equal("completed", entity.ResolutionKind);
         Assert.Equal("manual", entity.ResolutionSource);
     }
 
     [Fact]
-    public async Task WorkItemEndpoints_Dismiss_RemovesMeetingAndRelatedExtractedEvent()
+    public async Task WorkItemEndpoints_RejectInvalidWorkItemId_WithNotFound()
+    {
+        using var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", await GetAccessTokenAsync(client));
+
+        var response = await client.PostAsync("/api/v1/work-items/requests/not-a-work-item-id/complete", content: null);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task WorkItemEndpoints_Dismiss_RemovesMeeting()
     {
         using var client = _factory.CreateClient();
         var accessToken = await GetAccessTokenAsync(client);
@@ -207,25 +254,10 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
         var userId = await GetUserIdAsync("pilot@example.com");
         var sourceEventId = "$evt-api-meeting";
         var meetingId = Guid.NewGuid();
-        var extractedItemId = Guid.NewGuid();
         var scheduledFor = DateTimeOffset.UtcNow.AddHours(2);
 
         await using (var dbContext = await CreateDbContextAsync())
         {
-            dbContext.ExtractedItems.Add(new ExtractedItemEntity
-            {
-                Id = extractedItemId,
-                UserId = userId,
-                Kind = SuperChat.Domain.Model.ExtractedItemKind.Meeting,
-                Title = "Product sync dismiss target",
-                Summary = "Meet product team in two hours.",
-                SourceRoom = "!team:matrix.localhost",
-                SourceEventId = sourceEventId,
-                ObservedAt = scheduledFor.AddHours(-1),
-                DueAt = scheduledFor,
-                Confidence = 0.84
-            });
-
             dbContext.Meetings.Add(new MeetingEntity
             {
                 Id = meetingId,
@@ -244,10 +276,9 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
             await dbContext.SaveChangesAsync();
         }
 
-        var dismissResponse = await client.PostAsJsonAsync("/api/v1/work-items/events/dismiss", new
-        {
-            actionKey = $"meeting:{meetingId:N}"
-        });
+        var dismissResponse = await client.PostAsync(
+            $"/api/v1/work-items/events/{meetingId}/dismiss",
+            content: null);
 
         Assert.Equal(HttpStatusCode.NoContent, dismissResponse.StatusCode);
 
@@ -258,12 +289,8 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
         Assert.DoesNotContain("Product sync dismiss target", meetingsPayload, StringComparison.Ordinal);
 
         await using var verificationContext = await CreateDbContextAsync();
-        var extracted = await verificationContext.ExtractedItems.SingleAsync(item => item.Id == extractedItemId);
         var meeting = await verificationContext.Meetings.SingleAsync(item => item.Id == meetingId);
 
-        Assert.NotNull(extracted.ResolvedAt);
-        Assert.Equal("dismissed", extracted.ResolutionKind);
-        Assert.Equal("manual", extracted.ResolutionSource);
         Assert.NotNull(meeting.ResolvedAt);
         Assert.Equal("dismissed", meeting.ResolutionKind);
         Assert.Equal("manual", meeting.ResolutionSource);
@@ -281,7 +308,7 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
 
         await using (var dbContext = await CreateDbContextAsync())
         {
-            dbContext.ExtractedItems.Add(new ExtractedItemEntity
+            dbContext.WorkItems.Add(new WorkItemEntity
             {
                 Id = itemId,
                 UserId = userId,
@@ -297,15 +324,14 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
             await dbContext.SaveChangesAsync();
         }
 
-        var completeResponse = await client.PostAsJsonAsync("/api/v1/work-items/action-items/complete", new
-        {
-            actionKey = $"extracted:{itemId:N}"
-        });
+        var completeResponse = await client.PostAsync(
+            $"/api/v1/work-items/action-items/{itemId}/complete",
+            content: null);
 
         Assert.Equal(HttpStatusCode.NoContent, completeResponse.StatusCode);
 
         await using var verificationContext = await CreateDbContextAsync();
-        var entity = await verificationContext.ExtractedItems.SingleAsync(item => item.Id == itemId);
+        var entity = await verificationContext.WorkItems.SingleAsync(item => item.Id == itemId);
         Assert.NotNull(entity.ResolvedAt);
         Assert.Equal("completed", entity.ResolutionKind);
         Assert.Equal("manual", entity.ResolutionSource);
@@ -326,9 +352,9 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
 
         await using (var dbContext = await CreateDbContextAsync())
         {
-            dbContext.ExtractedItems.AddRange(
+            dbContext.WorkItems.AddRange(
             [
-                new ExtractedItemEntity
+                new WorkItemEntity
                 {
                     Id = waitingId,
                     UserId = userId,
@@ -340,7 +366,7 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
                     ObservedAt = DateTimeOffset.UtcNow.AddMinutes(-20),
                     Confidence = 0.95
                 },
-                new ExtractedItemEntity
+                new WorkItemEntity
                 {
                     Id = taskId,
                     UserId = userId,

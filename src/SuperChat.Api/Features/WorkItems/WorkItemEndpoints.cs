@@ -70,61 +70,103 @@ public static class WorkItemEndpoints
             return Results.Ok(cards);
         });
 
-        MapTypedActionEndpoints(group.MapGroup("/requests"), WorkItemType.Request);
-        MapTypedActionEndpoints(group.MapGroup("/events"), WorkItemType.Event);
-        MapTypedActionEndpoints(group.MapGroup("/action-items"), WorkItemType.ActionItem);
+        MapRequestActionEndpoints(group.MapGroup("/requests"));
+        MapEventActionEndpoints(group.MapGroup("/events"));
+        MapActionItemActionEndpoints(group.MapGroup("/action-items"));
 
         return group;
     }
 
-    private static void MapTypedActionEndpoints(RouteGroupBuilder group, WorkItemType type)
+    private static void MapRequestActionEndpoints(RouteGroupBuilder group)
     {
-        group.MapPost("/complete", async (
+        group.MapPost("/{id:guid}/complete", async (
             HttpContext httpContext,
-            WorkItemActionRequest request,
-            IWorkItemActionService workItemActionService,
+            Guid id,
+            IRequestWorkItemCommandService requestWorkItemCommandService,
             CancellationToken cancellationToken) =>
         {
-            return await ExecuteActionAsync(
-                request,
-                actionKey => workItemActionService.CompleteAsync(
-                    httpContext.User.GetRequiredUserId(),
-                    type,
-                    actionKey,
-                    cancellationToken));
+            var resolved = await requestWorkItemCommandService.CompleteAsync(
+                httpContext.User.GetRequiredUserId(),
+                id,
+                cancellationToken);
+
+            return resolved ? Results.NoContent() : Results.NotFound();
         });
 
-        group.MapPost("/dismiss", async (
+        group.MapPost("/{id:guid}/dismiss", async (
             HttpContext httpContext,
-            WorkItemActionRequest request,
-            IWorkItemActionService workItemActionService,
+            Guid id,
+            IRequestWorkItemCommandService requestWorkItemCommandService,
             CancellationToken cancellationToken) =>
         {
-            return await ExecuteActionAsync(
-                request,
-                actionKey => workItemActionService.DismissAsync(
-                    httpContext.User.GetRequiredUserId(),
-                    type,
-                    actionKey,
-                    cancellationToken));
+            var resolved = await requestWorkItemCommandService.DismissAsync(
+                httpContext.User.GetRequiredUserId(),
+                id,
+                cancellationToken);
+
+            return resolved ? Results.NoContent() : Results.NotFound();
         });
     }
 
-    private static async Task<IResult> ExecuteActionAsync(
-        WorkItemActionRequest request,
-        Func<string, Task<bool>> resolveAsync)
+    private static void MapEventActionEndpoints(RouteGroupBuilder group)
     {
-        if (string.IsNullOrWhiteSpace(request.ActionKey))
+        group.MapPost("/{id:guid}/complete", async (
+            HttpContext httpContext,
+            Guid id,
+            IEventWorkItemCommandService eventWorkItemCommandService,
+            CancellationToken cancellationToken) =>
         {
-            return Results.ValidationProblem(new Dictionary<string, string[]>
-            {
-                ["actionKey"] = ["Action key is required."]
-            });
-        }
+            var resolved = await eventWorkItemCommandService.CompleteAsync(
+                httpContext.User.GetRequiredUserId(),
+                id,
+                cancellationToken);
 
-        var resolved = await resolveAsync(request.ActionKey);
-        return resolved ? Results.NoContent() : Results.NotFound();
+            return resolved ? Results.NoContent() : Results.NotFound();
+        });
+
+        group.MapPost("/{id:guid}/dismiss", async (
+            HttpContext httpContext,
+            Guid id,
+            IEventWorkItemCommandService eventWorkItemCommandService,
+            CancellationToken cancellationToken) =>
+        {
+            var resolved = await eventWorkItemCommandService.DismissAsync(
+                httpContext.User.GetRequiredUserId(),
+                id,
+                cancellationToken);
+
+            return resolved ? Results.NoContent() : Results.NotFound();
+        });
+    }
+
+    private static void MapActionItemActionEndpoints(RouteGroupBuilder group)
+    {
+        group.MapPost("/{id:guid}/complete", async (
+            HttpContext httpContext,
+            Guid id,
+            IActionItemWorkItemCommandService actionItemWorkItemCommandService,
+            CancellationToken cancellationToken) =>
+        {
+            var resolved = await actionItemWorkItemCommandService.CompleteAsync(
+                httpContext.User.GetRequiredUserId(),
+                id,
+                cancellationToken);
+
+            return resolved ? Results.NoContent() : Results.NotFound();
+        });
+
+        group.MapPost("/{id:guid}/dismiss", async (
+            HttpContext httpContext,
+            Guid id,
+            IActionItemWorkItemCommandService actionItemWorkItemCommandService,
+            CancellationToken cancellationToken) =>
+        {
+            var resolved = await actionItemWorkItemCommandService.DismissAsync(
+                httpContext.User.GetRequiredUserId(),
+                id,
+                cancellationToken);
+
+            return resolved ? Results.NoContent() : Results.NotFound();
+        });
     }
 }
-
-public sealed record WorkItemActionRequest(string ActionKey);

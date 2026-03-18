@@ -723,9 +723,9 @@ public sealed class ExtractionAndDigestTests
         var now = DateTimeOffset.UtcNow;
         var items = new[]
         {
-            new ExtractedItem(Guid.NewGuid(), Guid.NewGuid(), ExtractedItemKind.Task, "Send contract", "send contract", "!ops", "$1", null, now, now.AddHours(6), 0.9),
-            new ExtractedItem(Guid.NewGuid(), Guid.NewGuid(), ExtractedItemKind.WaitingOn, "Waiting on Marina", "waiting", "!sales", "$2", "Marina", now, null, 0.88),
-            new ExtractedItem(Guid.NewGuid(), Guid.NewGuid(), ExtractedItemKind.Meeting, "Friday sync", "meeting", "!team", "$3", null, now, now.AddDays(1), 0.77)
+            new WorkItemRecord(Guid.NewGuid(), Guid.NewGuid(), ExtractedItemKind.Task, "Send contract", "send contract", "!ops", "$1", null, now, now.AddHours(6), 0.9),
+            new WorkItemRecord(Guid.NewGuid(), Guid.NewGuid(), ExtractedItemKind.WaitingOn, "Waiting on Marina", "waiting", "!sales", "$2", "Marina", now, null, 0.88),
+            new WorkItemRecord(Guid.NewGuid(), Guid.NewGuid(), ExtractedItemKind.Meeting, "Friday sync", "meeting", "!team", "$3", null, now, now.AddDays(1), 0.77)
         };
 
         var today = DigestComposer.BuildToday(items, now);
@@ -742,8 +742,8 @@ public sealed class ExtractionAndDigestTests
         var now = new DateTimeOffset(2026, 03, 12, 10, 00, 00, TimeSpan.FromHours(3));
         var items = new[]
         {
-            new ExtractedItem(Guid.NewGuid(), Guid.NewGuid(), ExtractedItemKind.Task, "Today task", "today", "!ops", "$1", null, now.AddHours(-1), now.AddHours(2), 0.9),
-            new ExtractedItem(Guid.NewGuid(), Guid.NewGuid(), ExtractedItemKind.Task, "Yesterday task", "yesterday", "!ops", "$2", null, now.AddDays(-1), now.AddHours(1), 0.8)
+            new WorkItemRecord(Guid.NewGuid(), Guid.NewGuid(), ExtractedItemKind.Task, "Today task", "today", "!ops", "$1", null, now.AddHours(-1), now.AddHours(2), 0.9),
+            new WorkItemRecord(Guid.NewGuid(), Guid.NewGuid(), ExtractedItemKind.Task, "Yesterday task", "yesterday", "!ops", "$2", null, now.AddDays(-1), now.AddHours(1), 0.8)
         };
 
         var today = DigestComposer.BuildToday(items, now);
@@ -758,8 +758,8 @@ public sealed class ExtractionAndDigestTests
         var now = new DateTimeOffset(2026, 03, 12, 00, 10, 00, TimeSpan.FromHours(3));
         var items = new[]
         {
-            new ExtractedItem(Guid.NewGuid(), Guid.NewGuid(), ExtractedItemKind.Task, "After midnight Moscow", "today in business timezone", "!ops", "$1", null, new DateTimeOffset(2026, 03, 11, 21, 10, 00, TimeSpan.Zero), now.AddHours(1), 0.9),
-            new ExtractedItem(Guid.NewGuid(), Guid.NewGuid(), ExtractedItemKind.Task, "Before midnight Moscow", "previous local day", "!ops", "$2", null, new DateTimeOffset(2026, 03, 11, 20, 50, 00, TimeSpan.Zero), now.AddHours(1), 0.7)
+            new WorkItemRecord(Guid.NewGuid(), Guid.NewGuid(), ExtractedItemKind.Task, "After midnight Moscow", "today in business timezone", "!ops", "$1", null, new DateTimeOffset(2026, 03, 11, 21, 10, 00, TimeSpan.Zero), now.AddHours(1), 0.9),
+            new WorkItemRecord(Guid.NewGuid(), Guid.NewGuid(), ExtractedItemKind.Task, "Before midnight Moscow", "previous local day", "!ops", "$2", null, new DateTimeOffset(2026, 03, 11, 20, 50, 00, TimeSpan.Zero), now.AddHours(1), 0.7)
         };
 
         var today = DigestComposer.BuildToday(items, now);

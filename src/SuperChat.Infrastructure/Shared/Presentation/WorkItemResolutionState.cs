@@ -16,6 +16,11 @@ internal static class WorkItemResolutionState
         return item.ResolvedAt is not null;
     }
 
+    public static bool IsResolved(this WorkItemEntity item)
+    {
+        return item.ResolvedAt is not null;
+    }
+
     public static bool IsResolved(this MeetingEntity item)
     {
         return item.ResolvedAt is not null;

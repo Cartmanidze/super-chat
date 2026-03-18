@@ -24,6 +24,8 @@ public sealed class SuperChatDbContext(DbContextOptions<SuperChatDbContext> opti
 
     public DbSet<ExtractedItemEntity> ExtractedItems => Set<ExtractedItemEntity>();
 
+    public DbSet<WorkItemEntity> WorkItems => Set<WorkItemEntity>();
+
     public DbSet<MeetingEntity> Meetings => Set<MeetingEntity>();
 
     public DbSet<FeedbackEventEntity> FeedbackEvents => Set<FeedbackEventEntity>();
@@ -157,6 +159,30 @@ public sealed class SuperChatDbContext(DbContextOptions<SuperChatDbContext> opti
             entity.Property(item => item.ResolutionKind).HasColumnName("resolution_kind");
             entity.Property(item => item.ResolutionSource).HasColumnName("resolution_source");
             entity.HasIndex(item => new { item.UserId, item.ObservedAt });
+        });
+
+        modelBuilder.Entity<WorkItemEntity>(entity =>
+        {
+            entity.ToTable("work_items");
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.Id).HasColumnName("id");
+            entity.Property(item => item.UserId).HasColumnName("user_id");
+            entity.Property(item => item.Kind).HasColumnName("kind").HasConversion(extractedItemKindConverter);
+            entity.Property(item => item.Title).HasColumnName("title");
+            entity.Property(item => item.Summary).HasColumnName("summary");
+            entity.Property(item => item.SourceRoom).HasColumnName("source_room");
+            entity.Property(item => item.SourceEventId).HasColumnName("source_event_id");
+            entity.Property(item => item.Person).HasColumnName("person");
+            entity.Property(item => item.ObservedAt).HasColumnName("observed_at");
+            entity.Property(item => item.DueAt).HasColumnName("due_at");
+            entity.Property(item => item.Confidence).HasColumnName("confidence");
+            entity.Property(item => item.ResolvedAt).HasColumnName("resolved_at");
+            entity.Property(item => item.ResolutionKind).HasColumnName("resolution_kind");
+            entity.Property(item => item.ResolutionSource).HasColumnName("resolution_source");
+            entity.Property(item => item.CreatedAt).HasColumnName("created_at");
+            entity.Property(item => item.UpdatedAt).HasColumnName("updated_at");
+            entity.HasIndex(item => new { item.UserId, item.ObservedAt });
+            entity.HasIndex(item => new { item.UserId, item.DueAt });
         });
 
         modelBuilder.Entity<MeetingEntity>(entity =>
@@ -366,6 +392,26 @@ public sealed class FeedbackEventEntity
     public string Value { get; set; } = string.Empty;
     public string? Notes { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
+}
+
+public sealed class WorkItemEntity
+{
+    public Guid Id { get; set; }
+    public Guid UserId { get; set; }
+    public ExtractedItemKind Kind { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Summary { get; set; } = string.Empty;
+    public string SourceRoom { get; set; } = string.Empty;
+    public string SourceEventId { get; set; } = string.Empty;
+    public string? Person { get; set; }
+    public DateTimeOffset ObservedAt { get; set; }
+    public DateTimeOffset? DueAt { get; set; }
+    public double Confidence { get; set; }
+    public DateTimeOffset? ResolvedAt { get; set; }
+    public string? ResolutionKind { get; set; }
+    public string? ResolutionSource { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
 }
 
 public sealed class MeetingEntity

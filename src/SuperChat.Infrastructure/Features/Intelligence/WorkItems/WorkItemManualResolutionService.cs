@@ -3,28 +3,28 @@ using SuperChat.Infrastructure.Persistence;
 
 namespace SuperChat.Infrastructure.Services;
 
-internal sealed class MeetingManualResolutionService(
+internal sealed class WorkItemManualResolutionService(
     IDbContextFactory<SuperChatDbContext> dbContextFactory)
 {
-    public Task<bool> CompleteAsync(Guid userId, Guid meetingId, CancellationToken cancellationToken)
+    public Task<bool> CompleteAsync(Guid userId, Guid workItemId, CancellationToken cancellationToken)
     {
-        return ResolveAsync(userId, meetingId, WorkItemResolutionState.Completed, cancellationToken);
+        return ResolveAsync(userId, workItemId, WorkItemResolutionState.Completed, cancellationToken);
     }
 
-    public Task<bool> DismissAsync(Guid userId, Guid meetingId, CancellationToken cancellationToken)
+    public Task<bool> DismissAsync(Guid userId, Guid workItemId, CancellationToken cancellationToken)
     {
-        return ResolveAsync(userId, meetingId, WorkItemResolutionState.Dismissed, cancellationToken);
+        return ResolveAsync(userId, workItemId, WorkItemResolutionState.Dismissed, cancellationToken);
     }
 
     private async Task<bool> ResolveAsync(
         Guid userId,
-        Guid meetingId,
+        Guid workItemId,
         string resolutionKind,
         CancellationToken cancellationToken)
     {
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-        var target = await dbContext.Meetings
-            .SingleOrDefaultAsync(item => item.UserId == userId && item.Id == meetingId, cancellationToken);
+        var target = await dbContext.WorkItems
+            .SingleOrDefaultAsync(item => item.UserId == userId && item.Id == workItemId, cancellationToken);
 
         if (target is null)
         {
@@ -34,13 +34,13 @@ internal sealed class MeetingManualResolutionService(
         var changed = false;
         var now = DateTimeOffset.UtcNow;
 
-        var relatedMeetings = await dbContext.Meetings
+        var relatedItems = await dbContext.WorkItems
             .Where(item => item.UserId == userId && item.SourceEventId == target.SourceEventId)
             .ToListAsync(cancellationToken);
 
-        foreach (var meeting in relatedMeetings)
+        foreach (var item in relatedItems)
         {
-            changed |= ApplyResolution(meeting, resolutionKind, now);
+            changed |= ApplyResolution(item, resolutionKind, now);
         }
 
         if (changed)
@@ -52,7 +52,7 @@ internal sealed class MeetingManualResolutionService(
     }
 
     private static bool ApplyResolution(
-        MeetingEntity entity,
+        WorkItemEntity entity,
         string resolutionKind,
         DateTimeOffset resolvedAt)
     {

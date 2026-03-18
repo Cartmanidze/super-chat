@@ -27,27 +27,44 @@ internal static class WorkItemPresentationMetadata
 
     public static WorkItemMetadata FromExtractedItem(ExtractedItem item, DateTimeOffset now)
     {
-        var kind = item.Kind.ToString();
-        var joinLink = item.Kind == ExtractedItemKind.Meeting
-            ? MeetingJoinLinkParser.TryParse(item.Summary)
+        return BuildWorkItemMetadata(item.Kind, item.Title, item.Summary, item.ObservedAt, item.DueAt, item.Confidence, now);
+    }
+
+    public static WorkItemMetadata FromWorkItem(WorkItemRecord item, DateTimeOffset now)
+    {
+        return BuildWorkItemMetadata(item.Kind, item.Title, item.Summary, item.ObservedAt, item.DueAt, item.Confidence, now);
+    }
+
+    private static WorkItemMetadata BuildWorkItemMetadata(
+        ExtractedItemKind kindValue,
+        string title,
+        string summary,
+        DateTimeOffset observedAt,
+        DateTimeOffset? dueAt,
+        double confidence,
+        DateTimeOffset now)
+    {
+        var kind = kindValue.ToString();
+        var joinLink = kindValue == ExtractedItemKind.Meeting
+            ? MeetingJoinLinkParser.TryParse(summary)
             : null;
-        var plannedAt = item.Kind == ExtractedItemKind.Meeting
-            ? item.DueAt
+        var plannedAt = kindValue == ExtractedItemKind.Meeting
+            ? dueAt
             : null;
 
-        var status = ResolveStatus(kind, item.Summary);
+        var status = ResolveStatus(kind, summary);
         return new WorkItemMetadata(
             Type: ResolveType(kind),
             Status: status,
-            Priority: ResolvePriority(item.Title, item.Summary, item.DueAt, now),
+            Priority: ResolvePriority(title, summary, dueAt, now),
             Owner: ResolveOwner(kind),
             Origin: ResolveOrigin(kind),
-            ReviewState: ResolveReviewState(item.Confidence),
+            ReviewState: ResolveReviewState(confidence),
             PlannedAt: plannedAt,
-            DueAt: item.DueAt,
+            DueAt: dueAt,
             Source: WorkItemSource.Telegram,
-            UpdatedAt: item.ObservedAt,
-            IsOverdue: ResolveIsOverdue(status, item.DueAt, plannedAt, now),
+            UpdatedAt: observedAt,
+            IsOverdue: ResolveIsOverdue(status, dueAt, plannedAt, now),
             MeetingProvider: joinLink?.Provider,
             MeetingJoinUrl: joinLink?.Url);
     }

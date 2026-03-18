@@ -8,7 +8,7 @@ namespace SuperChat.Contracts.ViewModels;
 [JsonDerivedType(typeof(EventChatResultItemViewModel), "event")]
 [JsonDerivedType(typeof(ActionItemChatResultItemViewModel), "actionItem")]
 public record ChatResultItemViewModel(
-    string? ActionKey,
+    Guid? Id,
     string Title,
     string Summary,
     string SourceRoom,

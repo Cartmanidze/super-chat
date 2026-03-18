@@ -88,6 +88,24 @@ internal static class WorkItemAutoResolutionDetector
     }
 
     public static WorkItemAutoResolution? TryResolve(
+        WorkItemEntity item,
+        IReadOnlyList<NormalizedMessageEntity> laterMessages)
+    {
+        if (laterMessages.Count == 0)
+        {
+            return null;
+        }
+
+        return item.Kind switch
+        {
+            ExtractedItemKind.WaitingOn => TryResolveWaiting(item.SourceEventId, laterMessages),
+            ExtractedItemKind.Task or ExtractedItemKind.Commitment => TryResolveActionItem(laterMessages),
+            ExtractedItemKind.Meeting => TryResolveMeeting(item.DueAt ?? item.ObservedAt, laterMessages),
+            _ => null
+        };
+    }
+
+    public static WorkItemAutoResolution? TryResolve(
         MeetingEntity item,
         IReadOnlyList<NormalizedMessageEntity> laterMessages)
     {
@@ -103,8 +121,15 @@ internal static class WorkItemAutoResolutionDetector
         ExtractedItemEntity item,
         IReadOnlyList<NormalizedMessageEntity> laterMessages)
     {
+        return TryResolveWaiting(item.SourceEventId, laterMessages);
+    }
+
+    private static WorkItemAutoResolution? TryResolveWaiting(
+        string sourceEventId,
+        IReadOnlyList<NormalizedMessageEntity> laterMessages)
+    {
         var reply = laterMessages.FirstOrDefault(message =>
-            message.MatrixEventId != item.SourceEventId &&
+            message.MatrixEventId != sourceEventId &&
             LooksMeaningful(message) &&
             WaitingOnTurnDetector.IsOwnMessage(message.ToDomain()));
 

@@ -8,7 +8,7 @@ namespace SuperChat.Infrastructure.HostedServices;
 public sealed class ExtractionBackgroundService(
     IMessageNormalizationService normalizationService,
     IAiStructuredExtractionService extractionService,
-    IExtractedItemService extractedItemService,
+    IWorkItemService workItemService,
     TimeProvider timeProvider,
     IWorkerRuntimeMonitor workerRuntimeMonitor,
     ILogger<ExtractionBackgroundService> logger) : BackgroundService
@@ -47,7 +47,7 @@ public sealed class ExtractionBackgroundService(
                 foreach (var window in readyWindows)
                 {
                     var items = await extractionService.ExtractAsync(window, stoppingToken);
-                    await extractedItemService.AddRangeAsync(items, stoppingToken);
+                    await workItemService.IngestRangeAsync(items, stoppingToken);
                     processedIds.AddRange(window.Messages.Select(message => message.Id));
                 }
 

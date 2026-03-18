@@ -17,7 +17,7 @@ public sealed class ExtractedItemServiceTests
         var userId = Guid.NewGuid();
         var service = CreateService(factory);
 
-        await service.AddRangeAsync(
+        await service.IngestRangeAsync(
         [
             new ExtractedItem(
                 Guid.NewGuid(),
@@ -35,7 +35,7 @@ public sealed class ExtractedItemServiceTests
         CancellationToken.None);
 
         await using var dbContext = await factory.CreateDbContextAsync(CancellationToken.None);
-        var count = await dbContext.ExtractedItems.CountAsync(CancellationToken.None);
+        var count = await dbContext.WorkItems.CountAsync(CancellationToken.None);
 
         Assert.Equal(0, count);
     }
@@ -48,9 +48,9 @@ public sealed class ExtractedItemServiceTests
 
         await using (var dbContext = await factory.CreateDbContextAsync(CancellationToken.None))
         {
-            dbContext.ExtractedItems.AddRange(
+            dbContext.WorkItems.AddRange(
             [
-                new ExtractedItemEntity
+                new WorkItemEntity
                 {
                     Id = Guid.NewGuid(),
                     UserId = userId,
@@ -62,7 +62,7 @@ public sealed class ExtractedItemServiceTests
                     ObservedAt = DateTimeOffset.UtcNow,
                     Confidence = 0.51
                 },
-                new ExtractedItemEntity
+                new WorkItemEntity
                 {
                     Id = Guid.NewGuid(),
                     UserId = userId,
@@ -94,7 +94,7 @@ public sealed class ExtractedItemServiceTests
         var service = CreateService(factory);
         var dueAt = new DateTimeOffset(2026, 03, 13, 11, 00, 00, TimeSpan.FromHours(6));
 
-        await service.AddRangeAsync(
+        await service.IngestRangeAsync(
         [
             new ExtractedItem(
                 Guid.NewGuid(),
@@ -134,7 +134,7 @@ public sealed class ExtractedItemServiceTests
         var dueAt = new DateTimeOffset(2026, 03, 13, 11, 00, 00, TimeSpan.FromHours(6));
         var joinUrl = new Uri("https://meet.google.com/abc-defg-hij");
 
-        await service.AddRangeAsync(
+        await service.IngestRangeAsync(
         [
             new ExtractedItem(
                 Guid.NewGuid(),
@@ -173,7 +173,7 @@ public sealed class ExtractedItemServiceTests
 
         await using (var dbContext = await factory.CreateDbContextAsync(CancellationToken.None))
         {
-            dbContext.ExtractedItems.Add(new ExtractedItemEntity
+            dbContext.WorkItems.Add(new WorkItemEntity
             {
                 Id = itemId,
                 UserId = userId,
@@ -210,7 +210,7 @@ public sealed class ExtractedItemServiceTests
         Assert.Empty(items);
 
         await using var verificationContext = await factory.CreateDbContextAsync(CancellationToken.None);
-        var entity = await verificationContext.ExtractedItems.SingleAsync(item => item.Id == itemId, CancellationToken.None);
+        var entity = await verificationContext.WorkItems.SingleAsync(item => item.Id == itemId, CancellationToken.None);
         Assert.NotNull(entity.ResolvedAt);
         Assert.Equal(WorkItemResolutionState.Completed, entity.ResolutionKind);
         Assert.Equal(WorkItemResolutionState.AutoReply, entity.ResolutionSource);
@@ -226,7 +226,7 @@ public sealed class ExtractedItemServiceTests
 
         await using (var dbContext = await factory.CreateDbContextAsync(CancellationToken.None))
         {
-            dbContext.ExtractedItems.Add(new ExtractedItemEntity
+            dbContext.WorkItems.Add(new WorkItemEntity
             {
                 Id = itemId,
                 UserId = userId,
@@ -262,7 +262,7 @@ public sealed class ExtractedItemServiceTests
         Assert.Empty(items);
 
         await using var verificationContext = await factory.CreateDbContextAsync(CancellationToken.None);
-        var entity = await verificationContext.ExtractedItems.SingleAsync(item => item.Id == itemId, CancellationToken.None);
+        var entity = await verificationContext.WorkItems.SingleAsync(item => item.Id == itemId, CancellationToken.None);
         Assert.NotNull(entity.ResolvedAt);
         Assert.Equal(WorkItemResolutionState.Completed, entity.ResolutionKind);
         Assert.Equal(WorkItemResolutionState.AutoCompletion, entity.ResolutionSource);
@@ -326,31 +326,16 @@ public sealed class ExtractedItemServiceTests
     }
 
     [Fact]
-    public async Task WorkItemActionService_DismissAsync_ResolvesMeetingAndRelatedExtractedItemsBySourceEventId()
+    public async Task EventWorkItemCommandService_DismissAsync_ResolvesMeetingById()
     {
         var factory = await CreateFactoryAsync(CancellationToken.None);
         var userId = Guid.NewGuid();
         var sourceEventId = "$evt-shared-meeting";
-        var extractedItemId = Guid.NewGuid();
         var meetingId = Guid.NewGuid();
         var scheduledFor = new DateTimeOffset(2026, 03, 17, 10, 00, 00, TimeSpan.Zero);
 
         await using (var dbContext = await factory.CreateDbContextAsync(CancellationToken.None))
         {
-            dbContext.ExtractedItems.Add(new ExtractedItemEntity
-            {
-                Id = extractedItemId,
-                UserId = userId,
-                Kind = ExtractedItemKind.Meeting,
-                Title = "Intro call",
-                Summary = "Call with product team",
-                SourceRoom = "!team:matrix.localhost",
-                SourceEventId = sourceEventId,
-                ObservedAt = scheduledFor.AddHours(-2),
-                DueAt = scheduledFor,
-                Confidence = 0.77
-            });
-
             dbContext.Meetings.Add(new MeetingEntity
             {
                 Id = meetingId,
@@ -369,22 +354,17 @@ public sealed class ExtractedItemServiceTests
             await dbContext.SaveChangesAsync(CancellationToken.None);
         }
 
-        var actionService = CreateActionService(factory);
-        var result = await actionService.DismissAsync(
+        var commandService = CreateEventCommandService(factory);
+        var result = await commandService.DismissAsync(
             userId,
-            WorkItemType.Event,
-            WorkItemActionKey.ForMeeting(meetingId),
+            meetingId,
             CancellationToken.None);
 
         Assert.True(result);
 
         await using var verificationContext = await factory.CreateDbContextAsync(CancellationToken.None);
-        var extracted = await verificationContext.ExtractedItems.SingleAsync(item => item.Id == extractedItemId, CancellationToken.None);
         var meeting = await verificationContext.Meetings.SingleAsync(item => item.Id == meetingId, CancellationToken.None);
 
-        Assert.NotNull(extracted.ResolvedAt);
-        Assert.Equal(WorkItemResolutionState.Dismissed, extracted.ResolutionKind);
-        Assert.Equal(WorkItemResolutionState.Manual, extracted.ResolutionSource);
         Assert.NotNull(meeting.ResolvedAt);
         Assert.Equal(WorkItemResolutionState.Dismissed, meeting.ResolutionKind);
         Assert.Equal(WorkItemResolutionState.Manual, meeting.ResolutionSource);
@@ -460,12 +440,12 @@ public sealed class ExtractedItemServiceTests
         return factory;
     }
 
-    private static ExtractedItemService CreateService(IDbContextFactory<SuperChatDbContext> factory)
+    private static WorkItemService CreateService(IDbContextFactory<SuperChatDbContext> factory)
     {
-        return new ExtractedItemService(
-            new ExtractedItemIngestionService(factory, CreateMeetingService(factory)),
-            new ExtractedItemQueryService(factory, new ExtractedItemAutoResolutionService(factory)),
-            new ExtractedItemManualResolutionService(factory));
+        return new WorkItemService(
+            new WorkItemIngestionService(factory, CreateMeetingService(factory)),
+            new WorkItemQueryService(factory, new WorkItemAutoResolutionService(factory)),
+            new WorkItemManualResolutionService(factory));
     }
 
     private static MeetingService CreateMeetingService(IDbContextFactory<SuperChatDbContext> factory)
@@ -476,21 +456,13 @@ public sealed class ExtractedItemServiceTests
             new MeetingManualResolutionService(factory));
     }
 
-    private static WorkItemActionService CreateActionService(IDbContextFactory<SuperChatDbContext> factory)
+    private static EventWorkItemCommandService CreateEventCommandService(IDbContextFactory<SuperChatDbContext> factory)
     {
-        var extractedItemService = CreateService(factory);
         var meetingService = CreateMeetingService(factory);
 
-        return new WorkItemActionService(
-        [
-            new RequestWorkItemTypeStrategy(extractedItemService, new ExtractedItemLookupService(factory)),
-            new EventWorkItemTypeStrategy(
-                extractedItemService,
-                meetingService,
-                new ExtractedItemLookupService(factory),
-                new MeetingLookupService(factory)),
-            new ActionItemWorkItemTypeStrategy(extractedItemService, new ExtractedItemLookupService(factory))
-        ]);
+        return new EventWorkItemCommandService(
+            meetingService,
+            new MeetingLookupService(factory));
     }
 
     private static PilotOptions CreatePilotOptions()

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using SuperChat.Api.Features.Auth;
 using SuperChat.Api.Security;
+using SuperChat.Api.Validation;
 using SuperChat.Contracts.ViewModels;
 using SuperChat.Infrastructure.Abstractions;
 
@@ -19,19 +20,10 @@ public static class ChatEndpoints
             IChatExperienceService chatExperienceService,
             CancellationToken cancellationToken) =>
         {
-            try
-            {
-                var answer = await chatExperienceService.AskAsync(httpContext.User.GetRequiredUserId(), request, cancellationToken);
-                return Results.Ok(answer);
-            }
-            catch (ArgumentException ex)
-            {
-                return Results.ValidationProblem(new Dictionary<string, string[]>
-                {
-                    ["question"] = [ex.Message]
-                });
-            }
-        });
+            var answer = await chatExperienceService.AskAsync(httpContext.User.GetRequiredUserId(), request, cancellationToken);
+            return Results.Ok(answer);
+        })
+        .ValidateRequest<ChatPromptRequest>();
 
         return group;
     }

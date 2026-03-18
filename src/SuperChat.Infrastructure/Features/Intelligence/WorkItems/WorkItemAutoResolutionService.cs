@@ -3,13 +3,13 @@ using SuperChat.Infrastructure.Persistence;
 
 namespace SuperChat.Infrastructure.Services;
 
-internal sealed class ExtractedItemAutoResolutionService(
+internal sealed class WorkItemAutoResolutionService(
     IDbContextFactory<SuperChatDbContext> dbContextFactory)
 {
     public async Task ResolveAsync(Guid userId, CancellationToken cancellationToken)
     {
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-        var candidates = await dbContext.ExtractedItems
+        var candidates = await dbContext.WorkItems
             .Where(item => item.UserId == userId && item.ResolvedAt == null)
             .ToListAsync(cancellationToken);
 
@@ -59,6 +59,7 @@ internal sealed class ExtractedItemAutoResolutionService(
             item.ResolvedAt = resolution.ResolvedAt;
             item.ResolutionKind = resolution.ResolutionKind;
             item.ResolutionSource = resolution.ResolutionSource;
+            item.UpdatedAt = resolution.ResolvedAt;
             changed = true;
         }
 
@@ -68,7 +69,7 @@ internal sealed class ExtractedItemAutoResolutionService(
         }
     }
 
-    private static bool IsLaterThanItem(NormalizedMessageEntity message, ExtractedItemEntity item)
+    private static bool IsLaterThanItem(NormalizedMessageEntity message, WorkItemEntity item)
     {
         if (message.SentAt > item.ObservedAt)
         {

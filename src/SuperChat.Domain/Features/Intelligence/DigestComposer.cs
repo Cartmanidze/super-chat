@@ -4,7 +4,7 @@ namespace SuperChat.Domain.Services;
 
 public static class DigestComposer
 {
-    public static IReadOnlyList<ExtractedItem> BuildToday(IEnumerable<ExtractedItem> items, DateTimeOffset now)
+    public static IReadOnlyList<WorkItemRecord> BuildToday(IEnumerable<WorkItemRecord> items, DateTimeOffset now)
     {
         var dayStart = new DateTimeOffset(now.Year, now.Month, now.Day, 0, 0, 0, now.Offset);
         var nextDayStart = dayStart.AddDays(1);
@@ -20,7 +20,7 @@ public static class DigestComposer
             .ToList();
     }
 
-    public static IReadOnlyList<ExtractedItem> BuildWaiting(IEnumerable<ExtractedItem> items)
+    public static IReadOnlyList<WorkItemRecord> BuildWaiting(IEnumerable<WorkItemRecord> items)
     {
         return items
             .Where(item => item.Kind == ExtractedItemKind.WaitingOn)

@@ -4,7 +4,7 @@ using SuperChat.Infrastructure.Abstractions;
 namespace SuperChat.Infrastructure.Services;
 
 public sealed class SearchService(
-    IExtractedItemService extractedItemService,
+    IWorkItemService workItemService,
     IMessageNormalizationService messageNormalizationService,
     IRoomDisplayNameService roomDisplayNameService) : ISearchService
 {
@@ -16,8 +16,8 @@ public sealed class SearchService(
             return [];
         }
 
-        var extractedItems = await extractedItemService.GetForUserAsync(userId, cancellationToken);
-        var results = extractedItems
+        var workItems = await workItemService.GetForUserAsync(userId, cancellationToken);
+        var results = workItems
             .Where(item =>
                 item.Title.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
                 item.Summary.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||

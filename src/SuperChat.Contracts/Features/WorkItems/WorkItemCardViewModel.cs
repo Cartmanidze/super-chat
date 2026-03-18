@@ -7,7 +7,7 @@ namespace SuperChat.Contracts.ViewModels;
 [JsonDerivedType(typeof(EventWorkItemCardViewModel), "event")]
 [JsonDerivedType(typeof(ActionItemWorkItemCardViewModel), "actionItem")]
 public record WorkItemCardViewModel(
-    string? ActionKey,
+    Guid? Id,
     string Title,
     string Summary,
     string Kind,

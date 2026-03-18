@@ -24,6 +24,6 @@ internal static class EventChatResultItemViewModelMapper
             MeetingProvider: projection.MeetingProvider,
             MeetingJoinUrl: projection.MeetingJoinUrl);
 
-        return item with { ActionKey = projection.ActionKey };
+        return item with { Id = projection.Id };
     }
 }

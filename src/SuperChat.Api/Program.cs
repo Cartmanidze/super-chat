@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication;
+using FluentValidation;
 using SuperChat.Api.Features.Auth;
 using SuperChat.Api.Features.Chat;
 using SuperChat.Api.Features.Feedback;
@@ -19,6 +20,7 @@ builder.Services
         ApiSessionAuthenticationHandler.SchemeName,
         _ => { });
 builder.Services.AddAuthorization();
+builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 builder.Services.AddSuperChatBootstrap(builder.Configuration, enableBackgroundWorkers: false);
 
 var app = builder.Build();

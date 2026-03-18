@@ -5,7 +5,7 @@ using SuperChat.Infrastructure.Abstractions;
 namespace SuperChat.Infrastructure.Services;
 
 internal sealed class WorkItemStrategySnapshotProvider(
-    IExtractedItemService extractedItemService,
+    IWorkItemService workItemService,
     IMeetingService meetingService,
     IRoomDisplayNameService roomDisplayNameService,
     TimeProvider timeProvider,
@@ -18,13 +18,13 @@ internal sealed class WorkItemStrategySnapshotProvider(
             timeProvider.GetUtcNow(),
             WorkItemTimeZoneResolver.Resolve(logger, pilotOptions.TodayTimeZoneId));
 
-        var extractedItems = await extractedItemService.GetActiveForUserAsync(userId, cancellationToken);
+        var workItems = await workItemService.GetActiveForUserAsync(userId, cancellationToken);
         var meetings = await meetingService.GetUpcomingAsync(userId, now.AddHours(-1), 50, cancellationToken);
-        var sourceRooms = extractedItems
+        var sourceRooms = workItems
             .Select(item => item.SourceRoom)
             .Concat(meetings.Select(item => item.SourceRoom));
         var roomNames = await roomDisplayNameService.ResolveManyAsync(userId, sourceRooms, cancellationToken);
 
-        return new WorkItemStrategySnapshot(now, extractedItems, meetings, roomNames);
+        return new WorkItemStrategySnapshot(now, workItems, meetings, roomNames);
     }
 }

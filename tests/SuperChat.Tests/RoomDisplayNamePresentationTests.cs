@@ -13,8 +13,8 @@ public sealed class RoomDisplayNamePresentationTests
     {
         var userId = Guid.NewGuid();
         var service = new SearchService(
-            new StubExtractedItemService([
-                new ExtractedItem(
+            new StubWorkItemService([
+                new WorkItemRecord(
                     Guid.NewGuid(),
                     userId,
                     ExtractedItemKind.Task,
@@ -44,7 +44,7 @@ public sealed class RoomDisplayNamePresentationTests
     {
         var userId = Guid.NewGuid();
         var service = new SearchService(
-            new StubExtractedItemService([]),
+            new StubWorkItemService([]),
             new StubMessageNormalizationService([
                 new NormalizedMessage(
                     Guid.NewGuid(),
@@ -74,7 +74,7 @@ public sealed class RoomDisplayNamePresentationTests
     {
         var userId = Guid.NewGuid();
         var service = new SearchService(
-            new StubExtractedItemService([]),
+            new StubWorkItemService([]),
             new StubMessageNormalizationService([
                 new NormalizedMessage(
                     Guid.NewGuid(),
@@ -106,8 +106,8 @@ public sealed class RoomDisplayNamePresentationTests
         var userId = Guid.NewGuid();
         var now = new DateTimeOffset(2026, 03, 12, 12, 00, 00, TimeSpan.Zero);
         var service = new DigestService(
-            new StubExtractedItemService([
-                new ExtractedItem(
+            new StubWorkItemService([
+                new WorkItemRecord(
                     Guid.NewGuid(),
                     userId,
                     ExtractedItemKind.Task,
@@ -161,29 +161,29 @@ public sealed class RoomDisplayNamePresentationTests
         }
     }
 
-    private sealed class StubExtractedItemService(IReadOnlyList<ExtractedItem> items) : IExtractedItemService
+    private sealed class StubWorkItemService(IReadOnlyList<WorkItemRecord> items) : IWorkItemService
     {
-        public Task AddRangeAsync(IEnumerable<ExtractedItem> items, CancellationToken cancellationToken)
+        public Task IngestRangeAsync(IEnumerable<ExtractedItem> items, CancellationToken cancellationToken)
         {
             throw new NotSupportedException();
         }
 
-        public Task<IReadOnlyList<ExtractedItem>> GetForUserAsync(Guid userId, CancellationToken cancellationToken)
+        public Task<IReadOnlyList<WorkItemRecord>> GetForUserAsync(Guid userId, CancellationToken cancellationToken)
         {
-            return Task.FromResult(items.Where(item => item.UserId == userId).ToList() as IReadOnlyList<ExtractedItem>);
+            return Task.FromResult(items.Where(item => item.UserId == userId).ToList() as IReadOnlyList<WorkItemRecord>);
         }
 
-        public Task<IReadOnlyList<ExtractedItem>> GetActiveForUserAsync(Guid userId, CancellationToken cancellationToken)
+        public Task<IReadOnlyList<WorkItemRecord>> GetActiveForUserAsync(Guid userId, CancellationToken cancellationToken)
         {
-            return Task.FromResult(items.Where(item => item.UserId == userId).ToList() as IReadOnlyList<ExtractedItem>);
+            return Task.FromResult(items.Where(item => item.UserId == userId).ToList() as IReadOnlyList<WorkItemRecord>);
         }
 
-        public Task<bool> CompleteAsync(Guid userId, Guid itemId, CancellationToken cancellationToken)
+        public Task<bool> CompleteAsync(Guid userId, Guid workItemId, CancellationToken cancellationToken)
         {
             throw new NotSupportedException();
         }
 
-        public Task<bool> DismissAsync(Guid userId, Guid itemId, CancellationToken cancellationToken)
+        public Task<bool> DismissAsync(Guid userId, Guid workItemId, CancellationToken cancellationToken)
         {
             throw new NotSupportedException();
         }

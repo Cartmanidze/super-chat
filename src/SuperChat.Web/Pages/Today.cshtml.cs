@@ -10,7 +10,7 @@ namespace SuperChat.Web.Pages;
 [Authorize]
 public sealed class TodayModel(
     IDigestService digestService,
-    IExtractedItemService extractedItemService,
+    IWorkItemService workItemService,
     IIntegrationConnectionService integrationConnectionService) : PageModel
 {
     private const string DefaultSectionId = "waiting";
@@ -74,7 +74,7 @@ public sealed class TodayModel(
         var waitingCards = await digestService.GetWaitingAsync(userId, cancellationToken);
         var meetingCards = await digestService.GetMeetingsAsync(userId, cancellationToken);
         var todayCards = await digestService.GetTodayAsync(userId, cancellationToken);
-        var commitments = (await extractedItemService.GetActiveForUserAsync(userId, cancellationToken))
+        var commitments = (await workItemService.GetActiveForUserAsync(userId, cancellationToken))
             .Where(item => item.Kind == ExtractedItemKind.Commitment)
             .OrderByDescending(item => item.DueAt ?? item.ObservedAt)
             .Take(8)

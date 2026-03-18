@@ -4,21 +4,21 @@ using SuperChat.Infrastructure.Persistence;
 
 namespace SuperChat.Infrastructure.Services;
 
-internal sealed class ExtractedItemQueryService(
+internal sealed class WorkItemQueryService(
     IDbContextFactory<SuperChatDbContext> dbContextFactory,
-    ExtractedItemAutoResolutionService autoResolutionService)
+    WorkItemAutoResolutionService autoResolutionService)
 {
-    public Task<IReadOnlyList<ExtractedItem>> GetForUserAsync(Guid userId, CancellationToken cancellationToken)
+    public Task<IReadOnlyList<WorkItemRecord>> GetForUserAsync(Guid userId, CancellationToken cancellationToken)
     {
         return GetItemsAsync(userId, unresolvedOnly: false, autoResolve: false, cancellationToken);
     }
 
-    public Task<IReadOnlyList<ExtractedItem>> GetActiveForUserAsync(Guid userId, CancellationToken cancellationToken)
+    public Task<IReadOnlyList<WorkItemRecord>> GetActiveForUserAsync(Guid userId, CancellationToken cancellationToken)
     {
         return GetItemsAsync(userId, unresolvedOnly: true, autoResolve: true, cancellationToken);
     }
 
-    private async Task<IReadOnlyList<ExtractedItem>> GetItemsAsync(
+    private async Task<IReadOnlyList<WorkItemRecord>> GetItemsAsync(
         Guid userId,
         bool unresolvedOnly,
         bool autoResolve,
@@ -30,7 +30,7 @@ internal sealed class ExtractedItemQueryService(
         }
 
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-        var entities = await dbContext.ExtractedItems
+        var entities = await dbContext.WorkItems
             .AsNoTracking()
             .Where(item => item.UserId == userId && (!unresolvedOnly || item.ResolvedAt == null))
             .ToListAsync(cancellationToken);

@@ -8,7 +8,7 @@ using SuperChat.Infrastructure.Abstractions;
 namespace SuperChat.Infrastructure.Services;
 
 public sealed class DigestService(
-    IExtractedItemService extractedItemService,
+    IWorkItemService workItemService,
     IMeetingService meetingService,
     IRoomDisplayNameService roomDisplayNameService,
     TimeProvider timeProvider,
@@ -17,7 +17,7 @@ public sealed class DigestService(
 {
     public async Task<IReadOnlyList<WorkItemCardViewModel>> GetTodayAsync(Guid userId, CancellationToken cancellationToken)
     {
-        var items = await extractedItemService.GetActiveForUserAsync(userId, cancellationToken);
+        var items = await workItemService.GetActiveForUserAsync(userId, cancellationToken);
         var now = TimeZoneInfo.ConvertTime(timeProvider.GetUtcNow(), WorkItemTimeZoneResolver.Resolve(logger, pilotOptions.TodayTimeZoneId));
         var cards = DigestComposer.BuildToday(items, now)
             .Select(item => item.ToWorkItemCardViewModel(now))
@@ -28,7 +28,7 @@ public sealed class DigestService(
 
     public async Task<IReadOnlyList<WorkItemCardViewModel>> GetWaitingAsync(Guid userId, CancellationToken cancellationToken)
     {
-        var items = await extractedItemService.GetActiveForUserAsync(userId, cancellationToken);
+        var items = await workItemService.GetActiveForUserAsync(userId, cancellationToken);
         var now = TimeZoneInfo.ConvertTime(timeProvider.GetUtcNow(), WorkItemTimeZoneResolver.Resolve(logger, pilotOptions.TodayTimeZoneId));
         var cards = DigestComposer.BuildWaiting(items)
             .Select(item => item.ToWorkItemCardViewModel(now))

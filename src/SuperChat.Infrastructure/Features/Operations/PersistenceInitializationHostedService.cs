@@ -118,6 +118,31 @@ public sealed class PersistenceInitializationHostedService(
                 updated_at timestamptz NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS work_items (
+                id uuid PRIMARY KEY,
+                user_id uuid NOT NULL,
+                kind text NOT NULL,
+                title text NOT NULL,
+                summary text NOT NULL,
+                source_room text NOT NULL,
+                source_event_id text NOT NULL,
+                person text NULL,
+                observed_at timestamptz NOT NULL,
+                due_at timestamptz NULL,
+                confidence double precision NOT NULL,
+                resolved_at timestamptz NULL,
+                resolution_kind text NULL,
+                resolution_source text NULL,
+                created_at timestamptz NOT NULL,
+                updated_at timestamptz NOT NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS ix_work_items_user_id_observed_at
+                ON work_items (user_id, observed_at);
+
+            CREATE INDEX IF NOT EXISTS ix_work_items_user_id_due_at
+                ON work_items (user_id, due_at);
+
             CREATE TABLE IF NOT EXISTS meetings (
                 id uuid PRIMARY KEY,
                 user_id uuid NOT NULL,
@@ -167,6 +192,114 @@ public sealed class PersistenceInitializationHostedService(
 
             ALTER TABLE extracted_items
             ADD COLUMN IF NOT EXISTS resolution_source text NULL;
+
+            INSERT INTO work_items (
+                id,
+                user_id,
+                kind,
+                title,
+                summary,
+                source_room,
+                source_event_id,
+                person,
+                observed_at,
+                due_at,
+                confidence,
+                resolved_at,
+                resolution_kind,
+                resolution_source,
+                created_at,
+                updated_at)
+            SELECT
+                item.id,
+                item.user_id,
+                item.kind,
+                item.title,
+                item.summary,
+                item.source_room,
+                item.source_event_id,
+                item.person,
+                item.observed_at,
+                item.due_at,
+                item.confidence,
+                item.resolved_at,
+                item.resolution_kind,
+                item.resolution_source,
+                item.observed_at,
+                item.observed_at
+            FROM extracted_items item
+            WHERE item.kind <> 'Meeting'
+            ON CONFLICT (id) DO UPDATE SET
+                kind = EXCLUDED.kind,
+                title = EXCLUDED.title,
+                summary = EXCLUDED.summary,
+                source_room = EXCLUDED.source_room,
+                source_event_id = EXCLUDED.source_event_id,
+                person = EXCLUDED.person,
+                observed_at = EXCLUDED.observed_at,
+                due_at = EXCLUDED.due_at,
+                confidence = EXCLUDED.confidence,
+                resolved_at = EXCLUDED.resolved_at,
+                resolution_kind = EXCLUDED.resolution_kind,
+                resolution_source = EXCLUDED.resolution_source,
+                updated_at = EXCLUDED.updated_at;
+
+            INSERT INTO meetings (
+                id,
+                user_id,
+                title,
+                summary,
+                source_room,
+                source_event_id,
+                person,
+                observed_at,
+                scheduled_for,
+                confidence,
+                meeting_provider,
+                meeting_join_url,
+                resolved_at,
+                resolution_kind,
+                resolution_source,
+                created_at,
+                updated_at)
+            SELECT
+                item.id,
+                item.user_id,
+                item.title,
+                item.summary,
+                item.source_room,
+                item.source_event_id,
+                item.person,
+                item.observed_at,
+                item.due_at,
+                item.confidence,
+                NULL,
+                NULL,
+                item.resolved_at,
+                item.resolution_kind,
+                item.resolution_source,
+                item.observed_at,
+                item.observed_at
+            FROM extracted_items item
+            WHERE item.kind = 'Meeting' AND item.due_at IS NOT NULL
+            ON CONFLICT (user_id, source_event_id) DO UPDATE SET
+                title = EXCLUDED.title,
+                summary = EXCLUDED.summary,
+                source_room = EXCLUDED.source_room,
+                person = EXCLUDED.person,
+                observed_at = EXCLUDED.observed_at,
+                scheduled_for = EXCLUDED.scheduled_for,
+                confidence = EXCLUDED.confidence,
+                resolved_at = COALESCE(meetings.resolved_at, EXCLUDED.resolved_at),
+                resolution_kind = COALESCE(meetings.resolution_kind, EXCLUDED.resolution_kind),
+                resolution_source = COALESCE(meetings.resolution_source, EXCLUDED.resolution_source),
+                updated_at = EXCLUDED.updated_at;
+
+            DELETE FROM extracted_items
+            WHERE kind <> 'Meeting';
+
+            DELETE FROM extracted_items
+            WHERE kind = 'Meeting' AND due_at IS NOT NULL;
 
             CREATE TABLE IF NOT EXISTS message_chunks (
                 id uuid PRIMARY KEY,

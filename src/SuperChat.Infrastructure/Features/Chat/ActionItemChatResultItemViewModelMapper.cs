@@ -22,6 +22,6 @@ internal static class ActionItemChatResultItemViewModelMapper
             UpdatedAt: projection.UpdatedAt,
             IsOverdue: projection.IsOverdue);
 
-        return item with { ActionKey = projection.ActionKey };
+        return item with { Id = projection.Id };
     }
 }

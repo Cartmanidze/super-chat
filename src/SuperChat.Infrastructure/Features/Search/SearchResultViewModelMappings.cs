@@ -5,7 +5,7 @@ namespace SuperChat.Infrastructure.Services;
 
 internal static class SearchResultViewModelMappings
 {
-    public static SearchResultViewModel ToSearchResultViewModel(this ExtractedItem item)
+    public static SearchResultViewModel ToSearchResultViewModel(this WorkItemRecord item)
     {
         return new SearchResultViewModel(
             item.Title,

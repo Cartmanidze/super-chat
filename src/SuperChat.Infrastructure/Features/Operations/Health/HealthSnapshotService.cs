@@ -16,7 +16,8 @@ public sealed class HealthSnapshotService(
         var invitedUsers = await db.PilotInvites.CountAsync(item => item.IsActive, cancellationToken);
         var knownUsers = await db.AppUsers.CountAsync(cancellationToken);
         var pendingMessages = await db.NormalizedMessages.CountAsync(item => !item.Processed, cancellationToken);
-        var extractedItems = await db.ExtractedItems.CountAsync(cancellationToken);
+        var extractedItems = await db.WorkItems.CountAsync(cancellationToken) +
+                             await db.Meetings.CountAsync(cancellationToken);
         var sessionExpirations = await db.ApiSessions
             .AsNoTracking()
             .Select(item => item.ExpiresAt)

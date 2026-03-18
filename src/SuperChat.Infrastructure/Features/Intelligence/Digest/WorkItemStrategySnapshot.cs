@@ -4,6 +4,6 @@ namespace SuperChat.Infrastructure.Services;
 
 internal sealed record WorkItemStrategySnapshot(
     DateTimeOffset Now,
-    IReadOnlyList<ExtractedItem> ExtractedItems,
+    IReadOnlyList<WorkItemRecord> WorkItems,
     IReadOnlyList<MeetingRecord> Meetings,
     IReadOnlyDictionary<string, string> RoomNames);
