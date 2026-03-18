@@ -6,7 +6,7 @@ public interface IHealthSnapshotService
 }
 
 public sealed record HealthSnapshot(
-    int AllowedEmailCount,
+    int ActiveInviteCount,
     int KnownUserCount,
     int PendingMessageCount,
     int ExtractedItemCount,

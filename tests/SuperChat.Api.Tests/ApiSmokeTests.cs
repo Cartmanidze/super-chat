@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using SuperChat.Contracts.ViewModels;
 using SuperChat.Infrastructure.Persistence;
 using SuperChat.Infrastructure.Services;
@@ -498,7 +499,6 @@ public sealed class ApiTestApplicationFactory : WebApplicationFactory<Program>
             {
                 ["ConnectionStrings:SuperChatDb"] = $"Data Source={_databasePath}",
                 ["Persistence:Provider"] = "Sqlite",
-                ["SuperChat:AllowedEmails:0"] = "pilot@example.com",
                 ["SuperChat:ApiSessionDays"] = "30",
                 ["SuperChat:DevSeedSampleData"] = "true"
             });
@@ -509,6 +509,31 @@ public sealed class ApiTestApplicationFactory : WebApplicationFactory<Program>
             services.RemoveAll(typeof(DbContextOptions<SuperChatDbContext>));
             services.AddDbContextFactory<SuperChatDbContext>(options => options.UseSqlite($"Data Source={_databasePath}"));
         });
+    }
+
+    protected override IHost CreateHost(IHostBuilder builder)
+    {
+        var host = base.CreateHost(builder);
+
+        using var scope = host.Services.CreateScope();
+        var dbContextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<SuperChatDbContext>>();
+        using var dbContext = dbContextFactory.CreateDbContext();
+        dbContext.Database.EnsureCreated();
+
+        if (!dbContext.PilotInvites.Any(item => item.Email == "pilot@example.com"))
+        {
+            dbContext.PilotInvites.Add(new PilotInviteEntity
+            {
+                Email = "pilot@example.com",
+                InvitedBy = "test",
+                InvitedAt = DateTimeOffset.UtcNow,
+                IsActive = true
+            });
+
+            dbContext.SaveChanges();
+        }
+
+        return host;
     }
 
     protected override void Dispose(bool disposing)

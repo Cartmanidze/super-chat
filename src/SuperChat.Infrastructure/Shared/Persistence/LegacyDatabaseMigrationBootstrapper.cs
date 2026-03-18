@@ -1,99 +1,155 @@
+using System.Reflection;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using SuperChat.Contracts.Configuration;
-using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Persistence;
 
-namespace SuperChat.Infrastructure.HostedServices;
+namespace SuperChat.Infrastructure.Persistence;
 
-public sealed class PersistenceInitializationHostedService(
-    IDbContextFactory<SuperChatDbContext> dbContextFactory,
-    IOptions<PersistenceOptions> persistenceOptions,
-    IOptions<PilotOptions> pilotOptions,
-    IWorkerRuntimeMonitor workerRuntimeMonitor,
-    ILogger<PersistenceInitializationHostedService> logger) : IHostedService
+public static class LegacyDatabaseMigrationBootstrapper
 {
-    private const string WorkerKey = "persistence-initialization";
-    private const string WorkerDisplayName = "Persistence Initialization";
-
-    public async Task StartAsync(CancellationToken cancellationToken)
+    public static async Task PrepareAsync(
+        SuperChatDbContext dbContext,
+        ILogger logger,
+        CancellationToken cancellationToken)
     {
-        workerRuntimeMonitor.RegisterWorker(WorkerKey, WorkerDisplayName);
-        if (!persistenceOptions.Value.AutoInitialize)
+        var migrations = dbContext.Database.GetMigrations().ToList();
+        if (migrations.Count == 0)
         {
-            logger.LogInformation("Persistence auto-initialization is disabled.");
-            workerRuntimeMonitor.MarkDisabled(WorkerKey, WorkerDisplayName, "Persistence auto-initialization is disabled.");
             return;
         }
+
+        if (await MigrationHistoryExistsAsync(dbContext, cancellationToken))
+        {
+            return;
+        }
+
+        if (!await LegacySchemaExistsAsync(dbContext, cancellationToken))
+        {
+            return;
+        }
+
+        logger.LogWarning("Legacy application schema detected without EF migration history. Applying compatibility upgrade and baselining migrations.");
+
+        if (dbContext.Database.IsNpgsql())
+        {
+            await UpgradeLegacyPostgresSchemaAsync(dbContext, cancellationToken);
+        }
+
+        await EnsureMigrationHistoryTableAsync(dbContext, cancellationToken);
+        await BaselineAllMigrationsAsync(dbContext, migrations, cancellationToken);
+
+        logger.LogInformation("Legacy schema was aligned and {MigrationCount} migrations were marked as applied.", migrations.Count);
+    }
+
+    private static async Task<bool> MigrationHistoryExistsAsync(SuperChatDbContext dbContext, CancellationToken cancellationToken)
+    {
+        var connection = dbContext.Database.GetDbConnection();
+        await connection.OpenAsync(cancellationToken);
 
         try
         {
-            workerRuntimeMonitor.MarkRunning(WorkerKey, WorkerDisplayName);
-            await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-            await dbContext.Database.EnsureCreatedAsync(cancellationToken);
-            await UpgradeSchemaAsync(dbContext, cancellationToken);
+            await using var command = connection.CreateCommand();
+            command.CommandText = dbContext.Database.IsSqlite()
+                ? "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = '__EFMigrationsHistory';"
+                : """
+                  SELECT COUNT(*)
+                  FROM information_schema.tables
+                  WHERE table_schema = 'public' AND table_name = '__EFMigrationsHistory';
+                  """;
 
-            var configuredInvites = pilotOptions.Value.AllowedEmails
-                .Select(email => email.Trim().ToLowerInvariant())
-                .Where(email => !string.IsNullOrWhiteSpace(email))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-            if (configuredInvites.Count == 0)
-            {
-                workerRuntimeMonitor.MarkSucceeded(WorkerKey, WorkerDisplayName, "Schema is ready. No bootstrap invites configured.");
-                return;
-            }
-
-            var existingInvites = await dbContext.PilotInvites
-                .Where(item => configuredInvites.Contains(item.Email))
-                .Select(item => item.Email)
-                .ToListAsync(cancellationToken);
-
-            var missingInvites = configuredInvites
-                .Except(existingInvites, StringComparer.OrdinalIgnoreCase)
-                .Select(email => new PilotInviteEntity
-                {
-                    Email = email,
-                    InvitedBy = "bootstrap",
-                    InvitedAt = DateTimeOffset.UtcNow,
-                    IsActive = true
-                })
-                .ToList();
-
-            if (missingInvites.Count == 0)
-            {
-                workerRuntimeMonitor.MarkSucceeded(WorkerKey, WorkerDisplayName, "Schema is ready. Bootstrap invites already exist.");
-                return;
-            }
-
-            dbContext.PilotInvites.AddRange(missingInvites);
-            await dbContext.SaveChangesAsync(cancellationToken);
-            workerRuntimeMonitor.MarkSucceeded(WorkerKey, WorkerDisplayName, $"Schema is ready. Seeded {missingInvites.Count} invites.");
-            logger.LogInformation("Seeded {InviteCount} pilot invites into persistence store.", missingInvites.Count);
+            var count = Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken));
+            return count > 0;
         }
-        catch (Exception exception)
+        finally
         {
-            workerRuntimeMonitor.MarkFailed(WorkerKey, WorkerDisplayName, exception);
-            throw;
+            await connection.CloseAsync();
         }
     }
 
-    public Task StopAsync(CancellationToken cancellationToken)
+    private static async Task<bool> LegacySchemaExistsAsync(SuperChatDbContext dbContext, CancellationToken cancellationToken)
     {
-        return Task.CompletedTask;
+        var connection = dbContext.Database.GetDbConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        try
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = dbContext.Database.IsSqlite()
+                ? "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'pilot_invites';"
+                : """
+                  SELECT COUNT(*)
+                  FROM information_schema.tables
+                  WHERE table_schema = 'public' AND table_name = 'pilot_invites';
+                  """;
+
+            var count = Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken));
+            return count > 0;
+        }
+        finally
+        {
+            await connection.CloseAsync();
+        }
     }
 
-    private static async Task UpgradeSchemaAsync(SuperChatDbContext dbContext, CancellationToken cancellationToken)
+    private static Task EnsureMigrationHistoryTableAsync(SuperChatDbContext dbContext, CancellationToken cancellationToken)
     {
-        if (!dbContext.Database.IsNpgsql())
-        {
-            return;
-        }
+        return dbContext.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS "__EFMigrationsHistory" (
+                "MigrationId" character varying(150) NOT NULL,
+                "ProductVersion" character varying(32) NOT NULL,
+                CONSTRAINT "PK___EFMigrationsHistory" PRIMARY KEY ("MigrationId")
+            );
+            """,
+            cancellationToken);
+    }
 
-        await dbContext.Database.ExecuteSqlRawAsync(
+    private static async Task BaselineAllMigrationsAsync(
+        SuperChatDbContext dbContext,
+        IReadOnlyList<string> migrations,
+        CancellationToken cancellationToken)
+    {
+        var productVersion = ResolveProductVersion();
+
+        foreach (var migrationId in migrations)
+        {
+            if (dbContext.Database.IsSqlite())
+            {
+                await dbContext.Database.ExecuteSqlRawAsync(
+                    """
+                    INSERT OR IGNORE INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+                    VALUES ({0}, {1});
+                    """,
+                    [migrationId, productVersion],
+                    cancellationToken);
+
+                continue;
+            }
+
+            await dbContext.Database.ExecuteSqlRawAsync(
+                """
+                INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+                VALUES ({0}, {1})
+                ON CONFLICT ("MigrationId") DO NOTHING;
+                """,
+                [migrationId, productVersion],
+                cancellationToken);
+        }
+    }
+
+    private static string ResolveProductVersion()
+    {
+        var informationalVersion = typeof(DbContext).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+            .InformationalVersion;
+
+        return string.IsNullOrWhiteSpace(informationalVersion)
+            ? "10.0.0"
+            : informationalVersion.Split('+', 2, StringSplitOptions.TrimEntries)[0];
+    }
+
+    private static Task UpgradeLegacyPostgresSchemaAsync(SuperChatDbContext dbContext, CancellationToken cancellationToken)
+    {
+        return dbContext.Database.ExecuteSqlRawAsync(
             """
             ALTER TABLE telegram_connections
             ADD COLUMN IF NOT EXISTS management_room_id text NULL;

@@ -114,7 +114,7 @@ app.MapGet("/health", async (
     {
         status = "ok",
         demoMode = pilotOptions.Value.DevSeedSampleData,
-        invitedUsers = snapshot.AllowedEmailCount,
+        invitedUsers = snapshot.ActiveInviteCount,
         knownUsers = snapshot.KnownUserCount,
         pendingMessages = snapshot.PendingMessageCount,
         extractedItems = snapshot.ExtractedItemCount,

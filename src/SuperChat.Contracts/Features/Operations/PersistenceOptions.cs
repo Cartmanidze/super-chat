@@ -10,5 +10,4 @@ public sealed class PersistenceOptions
 
     public string DatabaseName { get; set; } = "superchat_app";
 
-    public bool AutoInitialize { get; set; } = true;
 }

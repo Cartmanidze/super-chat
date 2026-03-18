@@ -33,12 +33,13 @@ PostgreSQL stays the source of truth for chunks and logs.
 3. Install `envsubst`, for example via `gettext-base`.
 4. Run `bash infra/prod/scripts/render-configs.sh`.
 5. Run `bash infra/prod/scripts/preflight.sh`.
-6. Run `bash infra/prod/scripts/deploy.sh`.
-7. Verify the dedicated bridge host serves the mautrix public site under `/public/`.
+6. Run `bash infra/prod/scripts/migrate-db.sh`.
+7. Run `bash infra/prod/scripts/deploy.sh`.
+8. Verify the dedicated bridge host serves the mautrix public site under `/public/`.
 
 ## GitHub Actions deploy
 
-The CI workflow can deploy the app layer automatically after a successful `main` build. The deploy job pushes the checked-out commit into the server bare repository and then runs `bash infra/prod/scripts/deploy-app.sh` on the VPS, so only `superchat-web` and `superchat-api` are rebuilt automatically.
+The CI workflow can deploy the app layer automatically after a successful `main` build. The deploy job pushes the checked-out commit into the server bare repository, runs `bash infra/prod/scripts/migrate-db.sh`, and then runs `bash infra/prod/scripts/deploy-app.sh` on the VPS.
 
 The app workflow now skips its production deploy step when the pushed change requires a full-stack rollout. This avoids double-deploying the same commit when `deploy-full-stack.yml` is already responsible for the change.
 
@@ -84,6 +85,6 @@ Important:
 - `infra/prod/caddy/Caddyfile.template` is the only source for Caddy config; runtime `Caddyfile` is generated.
 - `infra/prod/synapse/homeserver.yaml.template`, `infra/prod/synapse/telegram-registration.yaml.template`, and `infra/prod/mautrix/config.yaml.template` are the source templates; runtime `.yaml` files are generated artifacts.
 - `infra/prod/synapse/telegram-doublepuppet-registration.yaml.template` enables mautrix double-puppeting for the homeserver domain, which is required if you want the bridge to mirror the logged-in user's own Telegram messages reliably.
-- The automated GitHub deploy updates `superchat-web` and `superchat-api` only; Qdrant, the optional `embedding-service`, Synapse, mautrix-telegram, Postgres, and Caddy stay on the manual/full-stack deploy path.
+- The automated GitHub deploy updates `superchat-web`, `superchat-api`, and the one-off `superchat-db-migrator` image only; Qdrant, the optional `embedding-service`, Synapse, mautrix-telegram, Postgres, and Caddy stay on the manual/full-stack deploy path.
 - This gets the VPS stack running, but the app-side Telegram connect flow is still bootstrap logic until the real management-room and `/sync` integration lands.
 - These are still bootstrap templates, not a full hardened ops package with monitoring, backups, or secret rotation.

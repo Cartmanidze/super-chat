@@ -1,4 +1,3 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -147,30 +146,8 @@ public static class ServiceCollectionExtensions
         services.AddDbContextFactory<SuperChatDbContext>((serviceProvider, optionsBuilder) =>
         {
             var persistence = serviceProvider.GetRequiredService<IOptions<PersistenceOptions>>().Value;
-            var connectionString = configuration.GetConnectionString("SuperChatDb");
-
-            if (string.IsNullOrWhiteSpace(connectionString))
-            {
-                connectionString = persistence.ConnectionString;
-            }
-
-            if (string.IsNullOrWhiteSpace(connectionString) && persistence.Provider.Equals("Sqlite", StringComparison.OrdinalIgnoreCase))
-            {
-                connectionString = $"Data Source={persistence.DatabaseName}.db";
-            }
-
-            if (string.IsNullOrWhiteSpace(connectionString))
-            {
-                connectionString = "Host=localhost;Port=5432;Database=superchat_app;Username=postgres;Password=postgres";
-            }
-
-            if (IsSqliteConnectionString(connectionString) || persistence.Provider.Equals("Sqlite", StringComparison.OrdinalIgnoreCase))
-            {
-                optionsBuilder.UseSqlite(connectionString);
-                return;
-            }
-
-            optionsBuilder.UseNpgsql(connectionString);
+            var connectionString = SuperChatDbContextConfiguration.ResolveConnectionString(configuration, persistence);
+            SuperChatDbContextConfiguration.Configure(optionsBuilder, connectionString, persistence.Provider);
         });
 
         services.AddSingleton<IAuthFlowService, AuthFlowService>();
@@ -221,7 +198,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IChatExperienceService, ChatExperienceService>();
         services.AddSingleton<IFeedbackService, FeedbackService>();
         services.AddSingleton<IHealthSnapshotService, HealthSnapshotService>();
-        services.AddHostedService<PersistenceInitializationHostedService>();
         services.AddHostedService<QdrantInitializationHostedService>();
 
         if (enableBackgroundWorkers)
@@ -236,11 +212,5 @@ public static class ServiceCollectionExtensions
         services.AddHealthChecks().AddCheck<BootstrapHealthCheck>("bootstrap");
 
         return services;
-    }
-
-    private static bool IsSqliteConnectionString(string connectionString)
-    {
-        return connectionString.Contains("Data Source=", StringComparison.OrdinalIgnoreCase) ||
-               connectionString.EndsWith(".db", StringComparison.OrdinalIgnoreCase);
     }
 }

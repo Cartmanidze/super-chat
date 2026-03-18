@@ -12,12 +12,11 @@ public sealed class AuthFlowServiceTests
     {
         var options = new PilotOptions
         {
-            AllowedEmails = ["pilot@example.com"],
             BaseUrl = "https://localhost:8080",
             MagicLinkMinutes = 15
         };
 
-        var factory = await CreateFactoryAsync(options, CancellationToken.None);
+        var factory = await CreateFactoryAsync(["pilot@example.com"], CancellationToken.None);
         var matrix = new BootstrapMatrixProvisioningService(factory, new MatrixOptions(), TimeProvider.System);
         var service = new AuthFlowService(factory, matrix, options, TimeProvider.System);
 
@@ -32,12 +31,11 @@ public sealed class AuthFlowServiceTests
     {
         var options = new PilotOptions
         {
-            AllowedEmails = ["pilot@example.com"],
             BaseUrl = "https://localhost:8080",
             MagicLinkMinutes = 15
         };
 
-        var factory = await CreateFactoryAsync(options, CancellationToken.None);
+        var factory = await CreateFactoryAsync(["pilot@example.com"], CancellationToken.None);
         var matrix = new BootstrapMatrixProvisioningService(factory, new MatrixOptions { UserIdPrefix = "superchat" }, TimeProvider.System);
         var service = new AuthFlowService(factory, matrix, options, TimeProvider.System);
 
@@ -53,7 +51,29 @@ public sealed class AuthFlowServiceTests
         Assert.StartsWith("@superchat-pilot", identity!.MatrixUserId, StringComparison.Ordinal);
     }
 
-    private static async Task<IDbContextFactory<SuperChatDbContext>> CreateFactoryAsync(PilotOptions options, CancellationToken cancellationToken)
+    [Fact]
+    public async Task RequestMagicLink_AllowsConfiguredAdminWithoutInvite()
+    {
+        var options = new PilotOptions
+        {
+            BaseUrl = "https://localhost:8080",
+            MagicLinkMinutes = 15,
+            AdminEmails = ["admin@example.com"]
+        };
+
+        var factory = await CreateFactoryAsync([], CancellationToken.None);
+        var matrix = new BootstrapMatrixProvisioningService(factory, new MatrixOptions(), TimeProvider.System);
+        var service = new AuthFlowService(factory, matrix, options, TimeProvider.System);
+
+        var result = await service.RequestMagicLinkAsync("admin@example.com", CancellationToken.None);
+
+        Assert.True(result.Accepted);
+        Assert.NotNull(result.DevelopmentLink);
+    }
+
+    private static async Task<IDbContextFactory<SuperChatDbContext>> CreateFactoryAsync(
+        IReadOnlyList<string> invitedEmails,
+        CancellationToken cancellationToken)
     {
         var dbContextOptions = new DbContextOptionsBuilder<SuperChatDbContext>()
             .UseInMemoryDatabase($"superchat-auth-{Guid.NewGuid():N}")
@@ -63,7 +83,7 @@ public sealed class AuthFlowServiceTests
         await using var dbContext = await factory.CreateDbContextAsync(cancellationToken);
         await dbContext.Database.EnsureCreatedAsync(cancellationToken);
 
-        dbContext.PilotInvites.AddRange(options.AllowedEmails.Select(email => new PilotInviteEntity
+        dbContext.PilotInvites.AddRange(invitedEmails.Select(email => new PilotInviteEntity
         {
             Email = email.Trim().ToLowerInvariant(),
             InvitedBy = "test",

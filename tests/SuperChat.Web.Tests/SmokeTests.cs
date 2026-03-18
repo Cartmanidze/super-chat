@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using SuperChat.Infrastructure.Persistence;
 
 namespace SuperChat.Web.Tests;
@@ -77,7 +78,6 @@ public sealed class WebTestApplicationFactory : WebApplicationFactory<Program>
             {
                 ["ConnectionStrings:SuperChatDb"] = $"Data Source={_databasePath}",
                 ["Persistence:Provider"] = "Sqlite",
-                ["SuperChat:AllowedEmails:0"] = "pilot@example.com",
                 ["SuperChat:AdminEmails:0"] = "admin@example.com",
                 ["SuperChat:DevSeedSampleData"] = "true"
             });
@@ -88,6 +88,18 @@ public sealed class WebTestApplicationFactory : WebApplicationFactory<Program>
             services.RemoveAll(typeof(DbContextOptions<SuperChatDbContext>));
             services.AddDbContextFactory<SuperChatDbContext>(options => options.UseSqlite($"Data Source={_databasePath}"));
         });
+    }
+
+    protected override IHost CreateHost(IHostBuilder builder)
+    {
+        var host = base.CreateHost(builder);
+
+        using var scope = host.Services.CreateScope();
+        var dbContextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<SuperChatDbContext>>();
+        using var dbContext = dbContextFactory.CreateDbContext();
+        dbContext.Database.EnsureCreated();
+
+        return host;
     }
 
     protected override void Dispose(bool disposing)

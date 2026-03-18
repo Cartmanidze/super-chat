@@ -81,6 +81,20 @@ services:
       TEXT_ENRICHMENT_HEIDELTIME_DOCUMENT_TYPE: ${TEXT_ENRICHMENT_HEIDELTIME_DOCUMENT_TYPE:-colloquial}
       TEXT_ENRICHMENT_LOG_LEVEL: ${TEXT_ENRICHMENT_LOG_LEVEL:-INFO}
 
+  superchat-db-migrator:
+    image: ${SUPERCHAT_DB_MIGRATOR_IMAGE:-ghcr.io/cartmanidze/superchat-db-migrator:main}
+    profiles:
+      - ops
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__SuperChatDb: ${SUPERCHAT_PERSISTENCE_CONNECTION}
+      Persistence__Provider: Postgres
+      Persistence__ConnectionString: ${SUPERCHAT_PERSISTENCE_CONNECTION}
+
   superchat-web:
     image: ${SUPERCHAT_WEB_IMAGE:-ghcr.io/cartmanidze/superchat-web:main}
     restart: unless-stopped
@@ -95,7 +109,6 @@ services:
       ConnectionStrings__SuperChatDb: ${SUPERCHAT_PERSISTENCE_CONNECTION}
       Persistence__Provider: Postgres
       Persistence__ConnectionString: ${SUPERCHAT_PERSISTENCE_CONNECTION}
-      Persistence__AutoInitialize: "true"
       Chunking__Enabled: ${CHUNKING_ENABLED:-true}
       Chunking__PollSeconds: ${CHUNKING_POLL_SECONDS:-5}
       Chunking__MaxGapMinutes: ${CHUNKING_MAX_GAP_MINUTES:-15}
@@ -115,8 +128,6 @@ services:
       ChatAnswering__MaxContextCharacters: ${CHAT_ANSWERING_MAX_CONTEXT_CHARACTERS:-4800}
       ChatAnswering__MaxOutputTokens: ${CHAT_ANSWERING_MAX_OUTPUT_TOKENS:-500}
       SuperChat__BaseUrl: ${SUPERCHAT_BASE_URL}
-      SuperChat__AllowedEmails__0: ${SUPERCHAT_ALLOWED_EMAILS__0}
-      SuperChat__AllowedEmails__1: ${SUPERCHAT_ALLOWED_EMAILS__1}
       SuperChat__AdminEmails__0: ${SUPERCHAT_ADMIN_EMAILS__0:-}
       SuperChat__AdminPasswordHash: ${SUPERCHAT_ADMIN_PASSWORD_HASH:-}
       SuperChat__MagicLinkMinutes: ${SUPERCHAT_MAGIC_LINK_MINUTES}
@@ -174,7 +185,6 @@ services:
       ConnectionStrings__SuperChatDb: ${SUPERCHAT_PERSISTENCE_CONNECTION}
       Persistence__Provider: Postgres
       Persistence__ConnectionString: ${SUPERCHAT_PERSISTENCE_CONNECTION}
-      Persistence__AutoInitialize: "true"
       Chunking__Enabled: ${CHUNKING_ENABLED:-true}
       Chunking__PollSeconds: ${CHUNKING_POLL_SECONDS:-5}
       Chunking__MaxGapMinutes: ${CHUNKING_MAX_GAP_MINUTES:-15}
@@ -194,8 +204,6 @@ services:
       ChatAnswering__MaxContextCharacters: ${CHAT_ANSWERING_MAX_CONTEXT_CHARACTERS:-4800}
       ChatAnswering__MaxOutputTokens: ${CHAT_ANSWERING_MAX_OUTPUT_TOKENS:-500}
       SuperChat__BaseUrl: ${SUPERCHAT_BASE_URL}
-      SuperChat__AllowedEmails__0: ${SUPERCHAT_ALLOWED_EMAILS__0}
-      SuperChat__AllowedEmails__1: ${SUPERCHAT_ALLOWED_EMAILS__1}
       SuperChat__AdminEmails__0: ${SUPERCHAT_ADMIN_EMAILS__0:-}
       SuperChat__AdminPasswordHash: ${SUPERCHAT_ADMIN_PASSWORD_HASH:-}
       SuperChat__MagicLinkMinutes: ${SUPERCHAT_MAGIC_LINK_MINUTES}

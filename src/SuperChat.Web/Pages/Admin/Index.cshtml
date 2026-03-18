@@ -14,7 +14,7 @@
       <p class="section-kicker">Admin</p>
       <h1>Воркеры и доступы</h1>
       <p class="page-intro">
-        Здесь собраны статусы фоновых процессов и pilot allowlist для magic link.
+        Здесь собраны статусы фоновых процессов и список pilot-инвайтов для magic link.
         Время на странице показывается в timezone <strong>@Model.DisplayTimeZoneId</strong>.
       </p>
     </div>
@@ -126,7 +126,7 @@
         <div>
           <p class="section-kicker">Allowlist</p>
           <h2>Добавить email в magic link</h2>
-          <p>Новый email сразу попадает в `pilot_invites` и может запросить вход.</p>
+          <p>Новый email сразу попадает в `pilot_invites` и может запросить вход. Конфиговый bootstrap-список больше не используется.</p>
         </div>
       </div>
 
@@ -144,7 +144,7 @@
       <div class="section-headline">
         <div>
           <p class="section-kicker">Invites</p>
-          <h2>Текущий allowlist</h2>
+          <h2>Текущий список инвайтов</h2>
           <p>Активные адреса могут сразу запрашивать magic link.</p>
         </div>
         <span class="count-pill">@activeInvites</span>

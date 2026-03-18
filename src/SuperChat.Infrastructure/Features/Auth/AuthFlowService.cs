@@ -29,11 +29,14 @@ public sealed class AuthFlowService(
         var normalizedEmail = NormalizeEmail(email);
 
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-        var isAllowed = await dbContext.PilotInvites
+        var isAllowedInvite = await dbContext.PilotInvites
             .AsNoTracking()
             .AnyAsync(item => item.Email == normalizedEmail && item.IsActive, cancellationToken);
+        var isConfiguredAdmin = pilotOptions.AdminEmails.Any(candidate =>
+            !string.IsNullOrWhiteSpace(candidate) &&
+            string.Equals(candidate.Trim(), normalizedEmail, StringComparison.OrdinalIgnoreCase));
 
-        if (!isAllowed)
+        if (!isAllowedInvite && !isConfiguredAdmin)
         {
             return new MagicLinkRequestResult(false, MagicLinkRequestStatus.NotInvited, "This email is not invited to the pilot yet.", null);
         }
