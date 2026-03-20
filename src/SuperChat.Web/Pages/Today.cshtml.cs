@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using SuperChat.Domain.Features.Integrations;
 using SuperChat.Domain.Features.Intelligence;
+using SuperChat.Contracts.Features.WorkItems;
 using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Infrastructure.Features.Integrations;
 using SuperChat.Infrastructure.Features.Intelligence.Digest;
@@ -13,7 +15,10 @@ namespace SuperChat.Web.Pages;
 public sealed class TodayModel(
     IDigestService digestService,
     IWorkItemService workItemService,
-    IIntegrationConnectionService integrationConnectionService) : PageModel
+    IIntegrationConnectionService integrationConnectionService,
+    IRequestWorkItemCommandService requestWorkItemCommandService,
+    IActionItemWorkItemCommandService actionItemWorkItemCommandService,
+    IEventWorkItemCommandService eventWorkItemCommandService) : PageModel
 {
     private const string DefaultSectionId = "waiting";
 
@@ -120,6 +125,90 @@ public sealed class TodayModel(
         SelectedSectionId = ActiveSection.Id;
     }
 
+    public async Task<IActionResult> OnPostCompleteAsync(
+        Guid? id,
+        WorkItemType? type,
+        string? section,
+        CancellationToken cancellationToken)
+    {
+        if (id is not null && type is not null)
+        {
+            await ExecuteActionAsync(id.Value, type.Value, complete: true, cancellationToken);
+        }
+
+        return RedirectToCurrentSection(section);
+    }
+
+    public async Task<IActionResult> OnPostDismissAsync(
+        Guid? id,
+        WorkItemType? type,
+        string? section,
+        CancellationToken cancellationToken)
+    {
+        if (id is not null && type is not null)
+        {
+            await ExecuteActionAsync(id.Value, type.Value, complete: false, cancellationToken);
+        }
+
+        return RedirectToCurrentSection(section);
+    }
+
+    private async Task ExecuteActionAsync(
+        Guid id,
+        WorkItemType type,
+        bool complete,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.GetUserId();
+
+        switch (type)
+        {
+            case WorkItemType.Request:
+                if (complete)
+                {
+                    await requestWorkItemCommandService.CompleteAsync(userId, id, cancellationToken);
+                }
+                else
+                {
+                    await requestWorkItemCommandService.DismissAsync(userId, id, cancellationToken);
+                }
+
+                break;
+
+            case WorkItemType.ActionItem:
+                if (complete)
+                {
+                    await actionItemWorkItemCommandService.CompleteAsync(userId, id, cancellationToken);
+                }
+                else
+                {
+                    await actionItemWorkItemCommandService.DismissAsync(userId, id, cancellationToken);
+                }
+
+                break;
+
+            case WorkItemType.Event:
+                if (complete)
+                {
+                    await eventWorkItemCommandService.CompleteAsync(userId, id, cancellationToken);
+                }
+                else
+                {
+                    await eventWorkItemCommandService.DismissAsync(userId, id, cancellationToken);
+                }
+
+                break;
+        }
+    }
+
+    private RedirectToPageResult RedirectToCurrentSection(string? section)
+    {
+        return RedirectToPage("/Today", new
+        {
+            section = NormalizeSectionId(section)
+        });
+    }
+
     private TodaySection ResolveActiveSection(string? selectedSectionId)
     {
         return Sections.FirstOrDefault(section =>
@@ -154,6 +243,8 @@ public sealed class TodayModel(
     }
 
     public sealed record TodayCard(
+        Guid? Id,
+        WorkItemType? Type,
         string Title,
         string Summary,
         string ChatLabel,
@@ -163,5 +254,7 @@ public sealed class TodayModel(
         double Confidence)
     {
         public int ConfidencePercent => (int)Math.Round(Math.Clamp(Confidence, 0d, 1d) * 100, MidpointRounding.AwayFromZero);
+
+        public bool SupportsActions => Id is not null && Type is not null;
     }
 }

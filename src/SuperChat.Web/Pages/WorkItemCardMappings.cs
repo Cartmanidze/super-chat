@@ -11,6 +11,8 @@ internal static class WorkItemCardMappings
         var searchQuery = BuildSearchQuery(card.Title, card.Summary, card.SourceRoom);
 
         return new TodayModel.TodayCard(
+            card.Id,
+            card.Type,
             card.Title,
             card.Summary,
             card.SourceRoom,
@@ -29,6 +31,8 @@ internal static class WorkItemCardMappings
                 : "Нужна проверка";
 
         return new TodayModel.TodayCard(
+            item.Id,
+            WorkItemType.ActionItem,
             item.Title,
             item.Summary,
             item.Person ?? item.SourceRoom,

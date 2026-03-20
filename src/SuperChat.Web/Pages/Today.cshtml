@@ -114,8 +114,21 @@
 
                 <div class="signal-actions">
                   <a class="action-link" asp-page="/Search/Index" asp-route-query="@card.SearchQuery">Открыть</a>
-                  <a class="action-link" asp-page="/Feedback/Index">Готово</a>
-                  <a class="action-link" asp-page="/Feedback/Index">Скрыть</a>
+                  @if (card.SupportsActions)
+                  {
+                    <form method="post" asp-page-handler="Complete" class="action-form">
+                      <input type="hidden" name="id" value="@card.Id" />
+                      <input type="hidden" name="type" value="@card.Type" />
+                      <input type="hidden" name="section" value="@activeLane.Id" />
+                      <button type="submit" class="action-link">Готово</button>
+                    </form>
+                    <form method="post" asp-page-handler="Dismiss" class="action-form">
+                      <input type="hidden" name="id" value="@card.Id" />
+                      <input type="hidden" name="type" value="@card.Type" />
+                      <input type="hidden" name="section" value="@activeLane.Id" />
+                      <button type="submit" class="action-link">Скрыть</button>
+                    </form>
+                  }
                   <a class="action-link action-link-muted" asp-page="/Feedback/Index">Не полезно</a>
                 </div>
               </article>
