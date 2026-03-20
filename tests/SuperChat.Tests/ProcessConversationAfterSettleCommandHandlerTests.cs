@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Logging.Abstractions;
-using SuperChat.Contracts.Features.Admin;
 using SuperChat.Contracts.Features.Operations;
 using SuperChat.Domain.Features.Intelligence;
 using SuperChat.Domain.Features.Messaging;
@@ -46,14 +45,12 @@ public sealed class ProcessConversationAfterSettleCommandHandlerTests
                 0.92)
         ]);
         var workItemService = new RecordingWorkItemService();
-        var workerRuntimeMonitor = new WorkerRuntimeMonitor(new FixedTimeProvider(message.IngestedAt.AddMinutes(5)));
 
         var handler = new ProcessConversationAfterSettleCommandHandler(
             normalizationService,
             extractionService,
             workItemService,
             new FixedTimeProvider(message.IngestedAt.AddMinutes(5)),
-            workerRuntimeMonitor,
             NullLogger<ProcessConversationAfterSettleCommandHandler>.Instance);
 
         await handler.Handle(new ProcessConversationAfterSettleCommand(userId, "telegram", roomId));
@@ -61,9 +58,6 @@ public sealed class ProcessConversationAfterSettleCommandHandlerTests
         Assert.Equal([message.Id], normalizationService.MarkedProcessedIds);
         Assert.Single(workItemService.IngestedItems);
         Assert.Single(workItemService.IngestedItems[0]);
-        Assert.Equal(
-            WorkerRuntimeState.Succeeded,
-            workerRuntimeMonitor.GetStatuses().Single(item => item.Key == PipelineWorkerRegistry.ExtractionWorkerKey).State);
     }
 
     private sealed class RecordingMessageNormalizationService(IReadOnlyList<NormalizedMessage> pendingMessages) : IMessageNormalizationService

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SuperChat.Domain.Features.Messaging;
+using SuperChat.Infrastructure.Diagnostics;
 using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Infrastructure.Shared.Persistence;
 
@@ -91,6 +92,7 @@ public sealed class MessageNormalizationService(
 
         if (exists)
         {
+            SuperChatMetrics.NormalizedMessagesDuplicateTotal.WithLabels("telegram").Inc();
             return false;
         }
 
@@ -123,10 +125,12 @@ public sealed class MessageNormalizationService(
                     sentAt,
                     cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
+                SuperChatMetrics.NormalizedMessagesStoredTotal.WithLabels("telegram").Inc();
                 return true;
             }
             catch (DbUpdateException)
             {
+                SuperChatMetrics.NormalizedMessagesDuplicateTotal.WithLabels("telegram").Inc();
                 return false;
             }
         }
@@ -141,10 +145,12 @@ public sealed class MessageNormalizationService(
                 roomId,
                 sentAt,
                 cancellationToken);
+            SuperChatMetrics.NormalizedMessagesStoredTotal.WithLabels("telegram").Inc();
             return true;
         }
         catch (DbUpdateException)
         {
+            SuperChatMetrics.NormalizedMessagesDuplicateTotal.WithLabels("telegram").Inc();
             return false;
         }
     }

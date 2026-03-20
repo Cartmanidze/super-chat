@@ -1,5 +1,6 @@
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication;
+using Prometheus;
 using SuperChat.Api.Features.Auth;
 using SuperChat.Api.Features.Chat;
 using SuperChat.Api.Features.Feedback;
@@ -33,6 +34,7 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseHttpMetrics();
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -47,6 +49,7 @@ api.MapWorkItemEndpoints();
 api.MapSearchEndpoints();
 api.MapFeedbackEndpoints();
 
+app.MapMetrics();
 app.Run();
 
 namespace SuperChat.Api

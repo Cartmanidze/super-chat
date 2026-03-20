@@ -1,0 +1,27 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets:
+          - prometheus:9090
+
+  - job_name: superchat-web
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - superchat-web:8080
+
+  - job_name: superchat-api
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - superchat-api:8080
+
+  - job_name: qdrant
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - qdrant:6333

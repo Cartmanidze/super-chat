@@ -1,10 +1,7 @@
 @page "/admin"
-@using SuperChat.Contracts.Features.Admin
 @model SuperChat.Web.Pages.Admin.IndexModel
 @{
   ViewData["Title"] = "Админка";
-  var runningWorkers = Model.WorkerStatuses.Count(item => item.State == WorkerRuntimeState.Running);
-  var failedWorkers = Model.WorkerStatuses.Count(item => item.State == WorkerRuntimeState.Failed);
   var activeInvites = Model.Invites.Count(item => item.IsActive);
 }
 
@@ -12,29 +9,26 @@
   <div class="page-hero insight-hero">
     <div class="page-hero-copy">
       <p class="section-kicker">Admin</p>
-      <h1>Воркеры и доступы</h1>
+      <h1>Доступы и операции</h1>
       <p class="page-intro">
-        Здесь собраны статусы фоновых процессов и список pilot-инвайтов для magic link.
+        Здесь остались pilot-инвайты и базовые административные операции.
+        Операционные метрики и дашборды теперь живут в Grafana/Prometheus.
         Время на странице показывается в timezone <strong>@Model.DisplayTimeZoneId</strong>.
       </p>
     </div>
 
     <div class="metric-grid">
       <article class="metric-card">
-        <small>Всего воркеров</small>
-        <strong>@Model.WorkerStatuses.Count</strong>
-      </article>
-      <article class="metric-card">
-        <small>Сейчас выполняются</small>
-        <strong>@runningWorkers</strong>
-      </article>
-      <article class="metric-card">
-        <small>С ошибкой</small>
-        <strong>@failedWorkers</strong>
+        <small>Всего инвайтов</small>
+        <strong>@Model.Invites.Count</strong>
       </article>
       <article class="metric-card">
         <small>Активных email</small>
         <strong>@activeInvites</strong>
+      </article>
+      <article class="metric-card">
+        <small>Timezone</small>
+        <strong>@Model.DisplayTimeZoneId</strong>
       </article>
     </div>
   </div>
@@ -54,71 +48,6 @@
       <span>@Model.ErrorMessage</span>
     </div>
   }
-
-  <section class="premium-card settings-card settings-card-wide">
-    <div class="section-headline">
-      <div>
-        <p class="section-kicker">Workers</p>
-        <h2>Статусы фоновых сервисов</h2>
-        <p>Для каждого воркера видны последнее начало, последнее завершение и результат последнего цикла.</p>
-      </div>
-      <span class="count-pill">@Model.WorkerStatuses.Count</span>
-    </div>
-
-    @if (Model.WorkerStatuses.Count == 0)
-    {
-      <div class="empty-card">
-        <h2>Статусы ещё не появились</h2>
-        <p>Hosted services зарегистрируют себя после старта приложения.</p>
-      </div>
-    }
-    else
-    {
-      <div class="signal-list signal-list-focus">
-        @foreach (var worker in Model.WorkerStatuses)
-        {
-          <article class="signal-card signal-card-focus">
-            <div class="signal-head">
-              <div>
-                <h3>@worker.DisplayName</h3>
-                <p class="signal-meta">Ключ: @worker.Key</p>
-              </div>
-              <span class="status-badge @Model.GetStateBadgeCss(worker.State)">
-                @Model.DescribeState(worker.State)
-              </span>
-            </div>
-
-            <dl class="detail-grid">
-              <div class="detail-row">
-                <dt>Последний старт</dt>
-                <dd>@Model.FormatTimestamp(worker.LastStartedAt)</dd>
-              </div>
-              <div class="detail-row">
-                <dt>Последнее завершение</dt>
-                <dd>@Model.FormatTimestamp(worker.LastFinishedAt)</dd>
-              </div>
-            </dl>
-
-            @if (!string.IsNullOrWhiteSpace(worker.Details))
-            {
-              <div class="inline-alert">
-                <strong>Последний результат</strong>
-                <span>@worker.Details</span>
-              </div>
-            }
-
-            @if (!string.IsNullOrWhiteSpace(worker.ErrorMessage))
-            {
-              <div class="inline-alert inline-alert-error">
-                <strong>Последняя ошибка</strong>
-                <span>@worker.ErrorMessage</span>
-              </div>
-            }
-          </article>
-        }
-      </div>
-    }
-  </section>
 
   <div class="settings-grid">
     <section class="premium-card settings-card">

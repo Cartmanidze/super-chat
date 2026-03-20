@@ -35,8 +35,19 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
         var content = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("\"status\":\"ok\"", content, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("\"activeSessions\":", content, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("{\"status\":\"ok\"}", content);
+    }
+
+    [Fact]
+    public async Task MetricsEndpoint_ExposesApplicationMetrics()
+    {
+        using var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/metrics");
+        var content = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("superchat_pipeline_commands_total", content, StringComparison.Ordinal);
     }
 
     [Fact]

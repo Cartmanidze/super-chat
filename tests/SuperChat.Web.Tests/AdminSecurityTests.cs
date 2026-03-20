@@ -126,7 +126,6 @@ public sealed class AdminSecurityTests : IClassFixture<WebTestApplicationFactory
     {
         var model = new IndexModel(
             new FakePilotInviteAdminService(),
-            new FakeWorkerRuntimeMonitor(),
             Options.Create(new PilotOptions
             {
                 AdminEmails = ["admin@example.com"]
@@ -154,34 +153,6 @@ public sealed class AdminSecurityTests : IClassFixture<WebTestApplicationFactory
         public Task<AdminInviteMutationResult> AddInviteAsync(string email, string invitedBy, CancellationToken cancellationToken)
         {
             return Task.FromResult(new AdminInviteMutationResult(true, "ok"));
-        }
-    }
-
-    private sealed class FakeWorkerRuntimeMonitor : IWorkerRuntimeMonitor
-    {
-        public void RegisterWorker(string key, string displayName)
-        {
-        }
-
-        public void MarkRunning(string key, string displayName, string? details = null)
-        {
-        }
-
-        public void MarkSucceeded(string key, string displayName, string? details = null)
-        {
-        }
-
-        public void MarkFailed(string key, string displayName, Exception exception, string? details = null)
-        {
-        }
-
-        public void MarkDisabled(string key, string displayName, string? details = null)
-        {
-        }
-
-        public IReadOnlyList<WorkerRuntimeStatusViewModel> GetStatuses()
-        {
-            return [];
         }
     }
 }

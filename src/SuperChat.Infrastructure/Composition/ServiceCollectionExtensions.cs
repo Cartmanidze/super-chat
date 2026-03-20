@@ -27,7 +27,6 @@ using SuperChat.Infrastructure.Features.Intelligence.Retrieval;
 using SuperChat.Infrastructure.Features.Intelligence.WorkItems;
 using SuperChat.Infrastructure.Features.Messaging;
 using SuperChat.Infrastructure.Features.Operations;
-using SuperChat.Infrastructure.Features.Operations.Health;
 using SuperChat.Infrastructure.Features.Search;
 using SuperChat.Infrastructure.Shared.Persistence;
 using QdrantSdk = Qdrant.Client.QdrantClient;
@@ -41,6 +40,7 @@ public static class ServiceCollectionExtensions
         IConfiguration configuration,
         bool enableBackgroundWorkers = true)
     {
+        SuperChatMetrics.Initialize();
         services.AddMemoryCache();
 
         services
@@ -159,7 +159,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ITelegramConnectionService, TelegramConnectionService>();
         services.AddSingleton<IIntegrationConnectionService, IntegrationConnectionService>();
         services.AddSingleton<IRoomDisplayNameService, MatrixRoomDisplayNameService>();
-        services.AddSingleton<IWorkerRuntimeMonitor, WorkerRuntimeMonitor>();
         services.AddSingleton<IncomingMessageFilter>();
         services.AddSingleton<IMessageNormalizationService, MessageNormalizationService>();
         services.AddSingleton<IChatTemplateCatalog, ChatTemplateCatalog>();
@@ -199,8 +198,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ISearchService, SearchService>();
         services.AddSingleton<IChatExperienceService, ChatExperienceService>();
         services.AddSingleton<IFeedbackService, FeedbackService>();
-        services.AddSingleton<IHealthSnapshotService, HealthSnapshotService>();
-
         if (enableBackgroundWorkers)
         {
             services.AddHostedService<MatrixSyncBackgroundService>();

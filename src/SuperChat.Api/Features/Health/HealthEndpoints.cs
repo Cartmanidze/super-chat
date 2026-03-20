@@ -1,9 +1,4 @@
-﻿using Microsoft.Extensions.Options;
-using SuperChat.Contracts.Features.Auth;
-using SuperChat.Contracts.Features.Integrations.Telegram;
-using SuperChat.Contracts.Features.Intelligence.Extraction;
-using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Features.Operations.Health;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace SuperChat.Api.Features.Health;
 
@@ -12,26 +7,18 @@ public static class HealthEndpoints
     public static RouteGroupBuilder MapHealthEndpoints(this RouteGroupBuilder api)
     {
         api.MapGet("/health", async (
-            IHealthSnapshotService healthSnapshotService,
-            IOptions<PilotOptions> pilotOptions,
-            IOptions<DeepSeekOptions> deepSeekOptions,
-            IOptions<TelegramBridgeOptions> telegramOptions,
+            HealthCheckService healthCheckService,
             CancellationToken cancellationToken) =>
         {
-            var snapshot = await healthSnapshotService.GetAsync(cancellationToken);
+            var report = await healthCheckService.CheckHealthAsync(cancellationToken);
+            var statusCode = report.Status == HealthStatus.Healthy
+                ? StatusCodes.Status200OK
+                : StatusCodes.Status503ServiceUnavailable;
 
             return Results.Json(new
             {
-                status = "ok",
-                demoMode = pilotOptions.Value.DevSeedSampleData,
-                invitedUsers = snapshot.ActiveInviteCount,
-                knownUsers = snapshot.KnownUserCount,
-                pendingMessages = snapshot.PendingMessageCount,
-                extractedItems = snapshot.ExtractedItemCount,
-                activeSessions = snapshot.ActiveSessionCount,
-                aiModel = deepSeekOptions.Value.Model,
-                bridgeBot = telegramOptions.Value.BotUserId
-            });
+                status = report.Status == HealthStatus.Healthy ? "ok" : "error"
+            }, statusCode: statusCode);
         });
 
         return api;

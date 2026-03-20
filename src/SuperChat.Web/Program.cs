@@ -1,11 +1,11 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Localization;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
+using Prometheus;
 using SuperChat.Contracts.Features.Auth;
-using SuperChat.Contracts.Features.Integrations.Telegram;
-using SuperChat.Contracts.Features.Intelligence.Extraction;
 using SuperChat.Infrastructure.Composition;
-using SuperChat.Infrastructure.Features.Operations.Health;
 using SuperChat.Web.Localization;
 using SuperChat.Web.Security;
 
@@ -77,6 +77,7 @@ app.UseRequestLocalization(localizationOptions);
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
+app.UseHttpMetrics();
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -102,27 +103,11 @@ app.MapGet("/localization/set-language", (
     return Results.LocalRedirect(IsSafeLocalReturnUrl(returnUrl) ? returnUrl! : "/");
 });
 
-app.MapGet("/health", async (
-    IHealthSnapshotService healthSnapshotService,
-    IOptions<PilotOptions> pilotOptions,
-    IOptions<DeepSeekOptions> deepSeekOptions,
-    IOptions<TelegramBridgeOptions> telegramOptions,
-    CancellationToken cancellationToken) =>
+app.MapHealthChecks("/health", new HealthCheckOptions
 {
-    var snapshot = await healthSnapshotService.GetAsync(cancellationToken);
-    return Results.Json(new
-    {
-        status = "ok",
-        demoMode = pilotOptions.Value.DevSeedSampleData,
-        invitedUsers = snapshot.ActiveInviteCount,
-        knownUsers = snapshot.KnownUserCount,
-        pendingMessages = snapshot.PendingMessageCount,
-        extractedItems = snapshot.ExtractedItemCount,
-        aiModel = deepSeekOptions.Value.Model,
-        bridgeBot = telegramOptions.Value.BotUserId
-    });
+    ResponseWriter = WriteHealthResponseAsync
 });
-
+app.MapMetrics();
 app.MapRazorPages();
 app.Run();
 
@@ -132,6 +117,15 @@ static bool IsSafeLocalReturnUrl(string? returnUrl)
            returnUrl.StartsWith("/", StringComparison.Ordinal) &&
            !returnUrl.StartsWith("//", StringComparison.Ordinal) &&
            !returnUrl.StartsWith("/\\", StringComparison.Ordinal);
+}
+
+static Task WriteHealthResponseAsync(HttpContext context, HealthReport report)
+{
+    context.Response.ContentType = "application/json; charset=utf-8";
+    return context.Response.WriteAsJsonAsync(new
+    {
+        status = report.Status == HealthStatus.Healthy ? "ok" : "error"
+    });
 }
 
 namespace SuperChat.Web

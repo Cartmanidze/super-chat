@@ -5,18 +5,18 @@ using Npgsql;
 using Rebus.Bus;
 using Rebus.Config.Outbox;
 using Rebus.Transport;
-using SuperChat.Domain.Features.Intelligence;
 using SuperChat.Contracts.Features.Intelligence.Retrieval;
 using SuperChat.Contracts.Features.Operations;
+using SuperChat.Domain.Features.Intelligence;
 using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Infrastructure.Diagnostics;
 using SuperChat.Infrastructure.Shared.Persistence;
 
 namespace SuperChat.Infrastructure.Features.Operations;
 
 internal sealed class RebusPipelineCommandScheduler(
     IBus bus,
-    IOptions<ChunkingOptions> chunkingOptions,
-    IWorkerRuntimeMonitor workerRuntimeMonitor) : IPipelineCommandScheduler
+    IOptions<ChunkingOptions> chunkingOptions) : IPipelineCommandScheduler
 {
     public bool RequiresTransactionalDispatch => true;
 
@@ -28,8 +28,6 @@ internal sealed class RebusPipelineCommandScheduler(
         DateTimeOffset sentAt,
         CancellationToken cancellationToken)
     {
-        PipelineWorkerRegistry.RegisterAll(workerRuntimeMonitor);
-
         if (dbContext.Database.CurrentTransaction is not IDbContextTransaction currentTransaction)
         {
             throw new InvalidOperationException("Normalized message dispatch requires an active database transaction.");
@@ -56,6 +54,8 @@ internal sealed class RebusPipelineCommandScheduler(
             userId,
             matrixRoomId,
             sentAt.AddMinutes(-Math.Max(1, chunkingOptions.Value.MaxGapMinutes))));
+        SuperChatMetrics.PipelineDispatchTotal.WithLabels("transactional", "process_conversation_after_settle").Inc();
+        SuperChatMetrics.PipelineDispatchTotal.WithLabels("transactional", "rebuild_conversation_chunks").Inc();
 
         await rebusTransactionScope.CompleteAsync();
     }
@@ -63,8 +63,7 @@ internal sealed class RebusPipelineCommandScheduler(
 
 internal sealed class NonTransactionalRebusPipelineCommandScheduler(
     IBus bus,
-    IOptions<ChunkingOptions> chunkingOptions,
-    IWorkerRuntimeMonitor workerRuntimeMonitor) : IPipelineCommandScheduler
+    IOptions<ChunkingOptions> chunkingOptions) : IPipelineCommandScheduler
 {
     public bool RequiresTransactionalDispatch => false;
 
@@ -76,8 +75,6 @@ internal sealed class NonTransactionalRebusPipelineCommandScheduler(
         DateTimeOffset sentAt,
         CancellationToken cancellationToken)
     {
-        PipelineWorkerRegistry.RegisterAll(workerRuntimeMonitor);
-
         await bus.DeferLocal(
             ConversationWindowSettlement.SettleDelay,
             new ProcessConversationAfterSettleCommand(userId, source, matrixRoomId));
@@ -85,6 +82,8 @@ internal sealed class NonTransactionalRebusPipelineCommandScheduler(
             userId,
             matrixRoomId,
             sentAt.AddMinutes(-Math.Max(1, chunkingOptions.Value.MaxGapMinutes))));
+        SuperChatMetrics.PipelineDispatchTotal.WithLabels("non_transactional", "process_conversation_after_settle").Inc();
+        SuperChatMetrics.PipelineDispatchTotal.WithLabels("non_transactional", "rebuild_conversation_chunks").Inc();
     }
 }
 

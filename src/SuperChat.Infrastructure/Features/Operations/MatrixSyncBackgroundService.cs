@@ -7,10 +7,12 @@ using SuperChat.Contracts.Features.Integrations.Telegram;
 using SuperChat.Domain.Features.Integrations;
 using SuperChat.Domain.Features.Integrations.Telegram;
 using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Infrastructure.Diagnostics;
 using SuperChat.Infrastructure.Features.Integrations;
 using SuperChat.Infrastructure.Features.Integrations.Matrix;
 using SuperChat.Infrastructure.Features.Messaging;
 using SuperChat.Infrastructure.Shared.Persistence;
+using System.Diagnostics;
 
 namespace SuperChat.Infrastructure.Features.Operations;
 
@@ -24,41 +26,41 @@ public sealed class MatrixSyncBackgroundService(
     IOptions<PilotOptions> pilotOptions,
     IOptions<TelegramBridgeOptions> bridgeOptions,
     TimeProvider timeProvider,
-    IWorkerRuntimeMonitor workerRuntimeMonitor,
     ILogger<MatrixSyncBackgroundService> logger) : BackgroundService
 {
-    private const string WorkerKey = "matrix-sync";
-    private const string WorkerDisplayName = "Matrix Sync";
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        workerRuntimeMonitor.RegisterWorker(WorkerKey, WorkerDisplayName);
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(4));
 
         while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken))
         {
+            var mode = pilotOptions.Value.DevSeedSampleData ? "development" : "production";
+            var result = "succeeded";
+            var stopwatch = Stopwatch.StartNew();
+
             try
             {
-                workerRuntimeMonitor.MarkRunning(
-                    WorkerKey,
-                    WorkerDisplayName,
-                    pilotOptions.Value.DevSeedSampleData ? "Development seed mode." : "Production sync tick.");
-
                 if (pilotOptions.Value.DevSeedSampleData)
                 {
                     var seedStats = await RunDevelopmentSeedAsync(stoppingToken);
-                    workerRuntimeMonitor.MarkSucceeded(
-                        WorkerKey,
-                        WorkerDisplayName,
-                        $"Mode=Development, Users={seedStats.UsersProcessed}, Messages={seedStats.MessagesIngested}");
+                    if (seedStats.MessagesIngested > 0)
+                    {
+                        SuperChatMetrics.MatrixSyncMessagesIngestedTotal.WithLabels(mode).Inc(seedStats.MessagesIngested);
+                    }
+
+                    SuperChatMetrics.MatrixSyncTicksTotal.WithLabels(mode, result).Inc();
+                    SuperChatMetrics.MatrixSyncTickDurationSeconds.WithLabels(mode, result).Observe(stopwatch.Elapsed.TotalSeconds);
                     continue;
                 }
 
                 var syncStats = await RunRealSyncAsync(stoppingToken);
-                workerRuntimeMonitor.MarkSucceeded(
-                    WorkerKey,
-                    WorkerDisplayName,
-                    $"Mode=Production, Users={syncStats.UsersProcessed}, Rooms={syncStats.RoomsObserved}, Messages={syncStats.MessagesIngested}, Joined={syncStats.InvitedRoomsJoined}");
+                if (syncStats.MessagesIngested > 0)
+                {
+                    SuperChatMetrics.MatrixSyncMessagesIngestedTotal.WithLabels(mode).Inc(syncStats.MessagesIngested);
+                }
+
+                SuperChatMetrics.MatrixSyncTicksTotal.WithLabels(mode, result).Inc();
+                SuperChatMetrics.MatrixSyncTickDurationSeconds.WithLabels(mode, result).Observe(stopwatch.Elapsed.TotalSeconds);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -66,7 +68,9 @@ public sealed class MatrixSyncBackgroundService(
             }
             catch (Exception ex)
             {
-                workerRuntimeMonitor.MarkFailed(WorkerKey, WorkerDisplayName, ex);
+                result = "failed";
+                SuperChatMetrics.MatrixSyncTicksTotal.WithLabels(mode, result).Inc();
+                SuperChatMetrics.MatrixSyncTickDurationSeconds.WithLabels(mode, result).Observe(stopwatch.Elapsed.TotalSeconds);
                 logger.LogWarning(ex, "Matrix sync tick failed.");
             }
         }

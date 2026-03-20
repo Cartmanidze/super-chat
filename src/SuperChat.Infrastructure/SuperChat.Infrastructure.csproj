@@ -22,6 +22,7 @@
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.0" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
+    <PackageReference Include="prometheus-net" Version="8.2.1" />
     <PackageReference Include="Qdrant.Client" Version="1.17.0" />
     <PackageReference Include="Rebus.PostgreSql" Version="9.1.1" />
     <PackageReference Include="Rebus.ServiceProvider" Version="10.7.2" />

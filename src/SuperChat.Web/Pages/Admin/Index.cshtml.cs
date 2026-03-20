@@ -10,7 +10,6 @@ namespace SuperChat.Web.Pages.Admin;
 
 public sealed class IndexModel(
     IPilotInviteAdminService pilotInviteAdminService,
-    IWorkerRuntimeMonitor workerRuntimeMonitor,
     IOptions<PilotOptions> pilotOptions) : PageModel
 {
     private TimeZoneInfo _displayTimeZone = TimeZoneInfo.Utc;
@@ -23,8 +22,6 @@ public sealed class IndexModel(
 
     [TempData]
     public string? ErrorMessage { get; set; }
-
-    public IReadOnlyList<WorkerRuntimeStatusViewModel> WorkerStatuses { get; private set; } = [];
 
     public IReadOnlyList<AdminInviteViewModel> Invites { get; private set; } = [];
 
@@ -63,36 +60,11 @@ public sealed class IndexModel(
         return RedirectToPage();
     }
 
-    public string DescribeState(WorkerRuntimeState state)
-    {
-        return state switch
-        {
-            WorkerRuntimeState.NotStarted => "Не запускался",
-            WorkerRuntimeState.Running => "Выполняется",
-            WorkerRuntimeState.Succeeded => "Успешно",
-            WorkerRuntimeState.Failed => "Ошибка",
-            WorkerRuntimeState.Disabled => "Отключён",
-            _ => state.ToString()
-        };
-    }
-
-    public string GetStateBadgeCss(WorkerRuntimeState state)
-    {
-        return state switch
-        {
-            WorkerRuntimeState.Succeeded => "status-success",
-            WorkerRuntimeState.Running => "status-warning",
-            WorkerRuntimeState.Failed => "status-danger",
-            WorkerRuntimeState.Disabled => "status-neutral",
-            _ => "status-neutral"
-        };
-    }
-
     public string FormatTimestamp(DateTimeOffset? value)
     {
         if (value is null)
         {
-            return "Ещё не было";
+            return "Еще не было";
         }
 
         return TimeZoneInfo.ConvertTime(value.Value, _displayTimeZone).ToString("dd.MM.yyyy HH:mm:ss");
@@ -102,7 +74,6 @@ public sealed class IndexModel(
     {
         _displayTimeZone = ResolveTimeZone(pilotOptions.Value.TodayTimeZoneId);
         DisplayTimeZoneId = _displayTimeZone.Id;
-        WorkerStatuses = workerRuntimeMonitor.GetStatuses();
         Invites = await pilotInviteAdminService.GetInvitesAsync(cancellationToken);
     }
 

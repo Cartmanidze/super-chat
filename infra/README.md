@@ -37,6 +37,7 @@ PostgreSQL stays the source of truth for chunks and logs.
    - this starts Postgres and Qdrant if needed, applies EF Core migrations, bootstraps the Qdrant memory collection, and fails the deploy if Qdrant bootstrap cannot complete
 7. Run `bash infra/prod/scripts/deploy.sh`.
 8. Verify the dedicated bridge host serves the mautrix public site under `/public/`.
+9. Open Grafana on `https://<GRAFANA_HOST>` and confirm the provisioned `SuperChat Overview` and `SuperChat Pipeline` dashboards are present.
 
 ## GitHub Actions deploy
 
@@ -84,8 +85,10 @@ Important:
 - `infra/prod/` assumes `SuperChat.Web` and `SuperChat.Api` run as separate containers.
 - `infra/prod/` expects a dedicated bridge host such as `bridge.example.com` for mautrix public login pages.
 - `infra/prod/caddy/Caddyfile.template` is the only source for Caddy config; runtime `Caddyfile` is generated.
+- `infra/prod/prometheus/prometheus.yml` configures scraping for the web host, API host, Prometheus itself, and Qdrant.
+- `infra/prod/grafana/provisioning/**` and `infra/prod/grafana/dashboards/**` provision Grafana automatically on container start.
 - `infra/prod/synapse/homeserver.yaml.template`, `infra/prod/synapse/telegram-registration.yaml.template`, and `infra/prod/mautrix/config.yaml.template` are the source templates; runtime `.yaml` files are generated artifacts.
 - `infra/prod/synapse/telegram-doublepuppet-registration.yaml.template` enables mautrix double-puppeting for the homeserver domain, which is required if you want the bridge to mirror the logged-in user's own Telegram messages reliably.
 - The automated GitHub deploy updates `superchat-web`, `superchat-api`, and the one-off `superchat-db-migrator` image only; Qdrant, the optional `embedding-service`, Synapse, mautrix-telegram, Postgres, and Caddy stay on the manual/full-stack deploy path, although `migrate-db.sh` now also reuses the running Qdrant service to ensure the target collection exists and stops the deploy when that bootstrap fails.
 - This gets the VPS stack running, but the app-side Telegram connect flow is still bootstrap logic until the real management-room and `/sync` integration lands.
-- These are still bootstrap templates, not a full hardened ops package with monitoring, backups, or secret rotation.
+- The VPS stack now includes Prometheus and Grafana with provisioned dashboards, but backups and secret rotation are still out of scope.

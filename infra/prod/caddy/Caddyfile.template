@@ -3,10 +3,14 @@
 }
 
 ${SUPERCHAT_WEB_HOST} {
+  @metrics path /metrics
+  respond @metrics 404
   reverse_proxy superchat-web:8080
 }
 
 ${SUPERCHAT_API_HOST} {
+  @metrics path /metrics
+  respond @metrics 404
   reverse_proxy superchat-api:8080
 }
 
@@ -17,4 +21,8 @@ ${MATRIX_SERVER_NAME} {
 ${TELEGRAM_BRIDGE_HOST} {
   redir / /public/ 308
   reverse_proxy mautrix-telegram:29317
+}
+
+${GRAFANA_HOST} {
+  reverse_proxy grafana:3000
 }
