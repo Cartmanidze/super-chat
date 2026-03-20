@@ -1,11 +1,13 @@
-﻿using Microsoft.EntityFrameworkCore;
-using SuperChat.Domain.Model;
+using Microsoft.EntityFrameworkCore;
+using SuperChat.Domain.Features.Messaging;
 using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Persistence;
+using SuperChat.Infrastructure.Shared.Persistence;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Messaging;
 
-public sealed class MessageNormalizationService(IDbContextFactory<SuperChatDbContext> dbContextFactory) : IMessageNormalizationService
+public sealed class MessageNormalizationService(
+    IDbContextFactory<SuperChatDbContext> dbContextFactory,
+    IPipelineCommandScheduler pipelineCommandScheduler) : IMessageNormalizationService
 {
     public async Task<IReadOnlyList<NormalizedMessage>> GetPendingMessagesAsync(CancellationToken cancellationToken)
     {
@@ -14,6 +16,28 @@ public sealed class MessageNormalizationService(IDbContextFactory<SuperChatDbCon
             .AsNoTracking()
             .Where(item => !item.Processed)
             .OrderBy(item => item.SentAt)
+            .ThenBy(item => item.IngestedAt)
+            .ThenBy(item => item.Id)
+            .Select(item => item.ToDomain())
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<NormalizedMessage>> GetPendingMessagesForConversationAsync(
+        Guid userId,
+        string source,
+        string matrixRoomId,
+        CancellationToken cancellationToken)
+    {
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        return await dbContext.NormalizedMessages
+            .AsNoTracking()
+            .Where(item => item.UserId == userId &&
+                           item.Source == source &&
+                           item.MatrixRoomId == matrixRoomId &&
+                           !item.Processed)
+            .OrderBy(item => item.SentAt)
+            .ThenBy(item => item.IngestedAt)
+            .ThenBy(item => item.Id)
             .Select(item => item.ToDomain())
             .ToListAsync(cancellationToken);
     }
@@ -84,9 +108,39 @@ public sealed class MessageNormalizationService(IDbContextFactory<SuperChatDbCon
             Processed = false
         });
 
+        if (pipelineCommandScheduler.RequiresTransactionalDispatch)
+        {
+            await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+
+            try
+            {
+                await dbContext.SaveChangesAsync(cancellationToken);
+                await pipelineCommandScheduler.DispatchNormalizedMessageStoredAsync(
+                    dbContext,
+                    userId,
+                    "telegram",
+                    roomId,
+                    sentAt,
+                    cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+                return true;
+            }
+            catch (DbUpdateException)
+            {
+                return false;
+            }
+        }
+
         try
         {
             await dbContext.SaveChangesAsync(cancellationToken);
+            await pipelineCommandScheduler.DispatchNormalizedMessageStoredAsync(
+                dbContext,
+                userId,
+                "telegram",
+                roomId,
+                sentAt,
+                cancellationToken);
             return true;
         }
         catch (DbUpdateException)

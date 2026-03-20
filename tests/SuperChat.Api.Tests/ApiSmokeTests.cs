@@ -9,9 +9,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
-using SuperChat.Contracts.ViewModels;
-using SuperChat.Infrastructure.Persistence;
-using SuperChat.Infrastructure.Services;
+using SuperChat.Contracts.Features.WorkItems;
+using SuperChat.Domain.Features.Intelligence;
+using SuperChat.Infrastructure.Shared.Persistence;
 
 namespace SuperChat.Api.Tests;
 
@@ -202,7 +202,7 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
             {
                 Id = itemId,
                 UserId = userId,
-                Kind = SuperChat.Domain.Model.ExtractedItemKind.WaitingOn,
+                Kind = ExtractedItemKind.WaitingOn,
                 Title = "Reply to Marina",
                 Summary = "Need to answer Marina today.",
                 SourceRoom = "!sales:matrix.localhost",
@@ -313,7 +313,7 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
             {
                 Id = itemId,
                 UserId = userId,
-                Kind = SuperChat.Domain.Model.ExtractedItemKind.Task,
+                Kind = ExtractedItemKind.Task,
                 Title = "Prepare deck",
                 Summary = "Need to send the deck today.",
                 SourceRoom = "!sales:matrix.localhost",
@@ -359,7 +359,7 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
                 {
                     Id = waitingId,
                     UserId = userId,
-                    Kind = SuperChat.Domain.Model.ExtractedItemKind.WaitingOn,
+                    Kind = ExtractedItemKind.WaitingOn,
                     Title = "Reply to Marina",
                     Summary = "Need to answer Marina today.",
                     SourceRoom = "!sales:matrix.localhost",
@@ -371,7 +371,7 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
                 {
                     Id = taskId,
                     UserId = userId,
-                    Kind = SuperChat.Domain.Model.ExtractedItemKind.Task,
+                    Kind = ExtractedItemKind.Task,
                     Title = "Prepare deck",
                     Summary = "Need to update the sales deck.",
                     SourceRoom = "!sales:matrix.localhost",

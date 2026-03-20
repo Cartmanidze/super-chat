@@ -6,10 +6,13 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
-using SuperChat.Infrastructure.Persistence;
+using SuperChat.Infrastructure.Shared.Persistence;
+
+using Xunit;
 
 namespace SuperChat.Web.Tests;
 
+[Collection("web-host")]
 public sealed class SmokeTests : IClassFixture<WebTestApplicationFactory>
 {
     private readonly HttpClient _client;
@@ -65,9 +68,37 @@ public sealed class SmokeTests : IClassFixture<WebTestApplicationFactory>
     }
 }
 
-public sealed class WebTestApplicationFactory : WebApplicationFactory<Program>
+[Collection("web-host")]
+public sealed class PipelineEnabledSmokeTests : IClassFixture<PipelineEnabledWebTestApplicationFactory>
+{
+    private readonly HttpClient _client;
+
+    public PipelineEnabledSmokeTests(PipelineEnabledWebTestApplicationFactory factory)
+    {
+        _client = factory.CreateClient();
+    }
+
+    [Fact]
+    public async Task HealthEndpoint_ReturnsHealthy_WhenPipelineMessagingEnabledOnSqlite()
+    {
+        var response = await _client.GetAsync("/health");
+        var content = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("\"status\":\"ok\"", content, StringComparison.OrdinalIgnoreCase);
+    }
+}
+
+[CollectionDefinition("web-host", DisableParallelization = true)]
+public sealed class WebHostCollectionDefinition
+{
+}
+
+public class WebTestApplicationFactory : WebApplicationFactory<Program>
 {
     private readonly string _databasePath = Path.Combine(Path.GetTempPath(), $"superchat-web-{Guid.NewGuid():N}.db");
+
+    protected virtual bool PipelineMessagingEnabled => false;
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -78,6 +109,7 @@ public sealed class WebTestApplicationFactory : WebApplicationFactory<Program>
             {
                 ["ConnectionStrings:SuperChatDb"] = $"Data Source={_databasePath}",
                 ["Persistence:Provider"] = "Sqlite",
+                ["PipelineMessaging:Enabled"] = PipelineMessagingEnabled ? "true" : "false",
                 ["SuperChat:AdminEmails:0"] = "admin@example.com",
                 ["SuperChat:DevSeedSampleData"] = "true"
             });
@@ -92,7 +124,24 @@ public sealed class WebTestApplicationFactory : WebApplicationFactory<Program>
 
     protected override IHost CreateHost(IHostBuilder builder)
     {
-        var host = base.CreateHost(builder);
+        var previousPipelineEnabled = Environment.GetEnvironmentVariable("PipelineMessaging__Enabled");
+        var previousPersistenceProvider = Environment.GetEnvironmentVariable("Persistence__Provider");
+        var previousConnectionString = Environment.GetEnvironmentVariable("ConnectionStrings__SuperChatDb");
+        Environment.SetEnvironmentVariable("PipelineMessaging__Enabled", PipelineMessagingEnabled ? "true" : "false");
+        Environment.SetEnvironmentVariable("Persistence__Provider", "Sqlite");
+        Environment.SetEnvironmentVariable("ConnectionStrings__SuperChatDb", $"Data Source={_databasePath}");
+
+        IHost host;
+        try
+        {
+            host = base.CreateHost(builder);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("PipelineMessaging__Enabled", previousPipelineEnabled);
+            Environment.SetEnvironmentVariable("Persistence__Provider", previousPersistenceProvider);
+            Environment.SetEnvironmentVariable("ConnectionStrings__SuperChatDb", previousConnectionString);
+        }
 
         using var scope = host.Services.CreateScope();
         var dbContextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<SuperChatDbContext>>();
@@ -122,4 +171,9 @@ public sealed class WebTestApplicationFactory : WebApplicationFactory<Program>
         {
         }
     }
+}
+
+public sealed class PipelineEnabledWebTestApplicationFactory : WebTestApplicationFactory
+{
+    protected override bool PipelineMessagingEnabled => true;
 }

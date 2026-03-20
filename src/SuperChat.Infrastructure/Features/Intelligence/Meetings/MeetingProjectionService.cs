@@ -1,11 +1,12 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using SuperChat.Contracts.Configuration;
-using SuperChat.Domain.Model;
+using SuperChat.Contracts.Features.Auth;
+using SuperChat.Contracts.Features.Intelligence.Meetings;
+using SuperChat.Domain.Features.Intelligence;
 using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Persistence;
+using SuperChat.Infrastructure.Shared.Persistence;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Intelligence.Meetings;
 
 public sealed class MeetingProjectionService(
     IDbContextFactory<SuperChatDbContext> dbContextFactory,
@@ -47,6 +48,30 @@ public sealed class MeetingProjectionService(
         }
 
         return aggregate;
+    }
+
+    public async Task<MeetingProjectionRunResult> ProjectConversationMeetingsAsync(
+        Guid userId,
+        string matrixRoomId,
+        CancellationToken cancellationToken)
+    {
+        var options = meetingProjectionOptions.Value;
+        if (!options.Enabled)
+        {
+            return MeetingProjectionRunResult.Empty;
+        }
+
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var result = await RebuildRoomMeetingsAsync(
+            dbContext,
+            userId,
+            matrixRoomId,
+            MeetingTimeSupport.ResolveReferenceTimeZone(pilotOptions.TodayTimeZoneId),
+            timeProvider.GetUtcNow(),
+            cancellationToken);
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return result;
     }
 
     internal static bool ShouldProcessUser(DateTimeOffset latestUpdatedAt, MeetingProjectionCheckpointEntity? checkpoint)
@@ -213,6 +238,96 @@ public sealed class MeetingProjectionService(
             1,
             roomsRebuilt,
             meetingsProjected);
+    }
+
+    private static async Task<MeetingProjectionRunResult> RebuildRoomMeetingsAsync(
+        SuperChatDbContext dbContext,
+        Guid userId,
+        string roomId,
+        TimeZoneInfo referenceTimeZone,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var roomChunks = await dbContext.MessageChunks
+            .AsNoTracking()
+            .Where(item => item.UserId == userId && item.ChatId == roomId)
+            .OrderBy(item => item.TsFrom)
+            .ThenBy(item => item.Id)
+            .ToListAsync(cancellationToken);
+
+        var projectedMeetings = roomChunks
+            .Select(item => item.ToMeetingCandidate(referenceTimeZone))
+            .OfType<MeetingRecord>()
+            .GroupBy(item => item.ToMeetingDeduplicationKey(), StringComparer.Ordinal)
+            .Select(group => group
+                .OrderByDescending(item => item.Confidence)
+                .ThenByDescending(item => item.ObservedAt)
+                .ThenBy(item => item.ScheduledFor)
+                .First())
+            .ToList();
+
+        var existingChunkMeetings = await dbContext.Meetings
+            .Where(item => item.UserId == userId &&
+                           item.SourceRoom == roomId &&
+                           EF.Functions.Like(item.SourceEventId, "chunk:%"))
+            .ToListAsync(cancellationToken);
+
+        var existingBySourceEventId = existingChunkMeetings.ToDictionary(
+            item => item.SourceEventId,
+            item => item,
+            StringComparer.Ordinal);
+
+        var retainedSourceEventIds = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var meeting in projectedMeetings)
+        {
+            retainedSourceEventIds.Add(meeting.SourceEventId);
+
+            if (existingBySourceEventId.TryGetValue(meeting.SourceEventId, out var existing))
+            {
+                existing.Title = meeting.Title;
+                existing.Summary = meeting.Summary;
+                existing.Person = meeting.Person;
+                existing.ObservedAt = MeetingTimeSupport.NormalizeToUtc(meeting.ObservedAt);
+                existing.ScheduledFor = MeetingTimeSupport.NormalizeToUtc(meeting.ScheduledFor);
+                existing.Confidence = meeting.Confidence;
+                existing.MeetingProvider = meeting.MeetingProvider;
+                existing.MeetingJoinUrl = meeting.MeetingJoinUrl?.ToString();
+                existing.UpdatedAt = now;
+                continue;
+            }
+
+            dbContext.Meetings.Add(new MeetingEntity
+            {
+                Id = meeting.Id,
+                UserId = meeting.UserId,
+                Title = meeting.Title,
+                Summary = meeting.Summary,
+                SourceRoom = meeting.SourceRoom,
+                SourceEventId = meeting.SourceEventId,
+                Person = meeting.Person,
+                ObservedAt = MeetingTimeSupport.NormalizeToUtc(meeting.ObservedAt),
+                ScheduledFor = MeetingTimeSupport.NormalizeToUtc(meeting.ScheduledFor),
+                Confidence = meeting.Confidence,
+                MeetingProvider = meeting.MeetingProvider,
+                MeetingJoinUrl = meeting.MeetingJoinUrl?.ToString(),
+                CreatedAt = now,
+                UpdatedAt = now
+            });
+        }
+
+        var staleMeetings = existingChunkMeetings
+            .Where(item => !retainedSourceEventIds.Contains(item.SourceEventId))
+            .ToList();
+
+        if (staleMeetings.Count > 0)
+        {
+            dbContext.Meetings.RemoveRange(staleMeetings);
+        }
+
+        return roomChunks.Count == 0 && existingChunkMeetings.Count == 0
+            ? MeetingProjectionRunResult.Empty
+            : new MeetingProjectionRunResult(1, 1, projectedMeetings.Count);
     }
 
     private sealed record UserLatestChunk(Guid UserId, DateTimeOffset LatestUpdatedAt);

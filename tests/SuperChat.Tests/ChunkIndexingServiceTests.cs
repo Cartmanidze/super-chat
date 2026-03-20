@@ -1,10 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using SuperChat.Contracts.Configuration;
+using SuperChat.Contracts.Features.Intelligence.Retrieval;
 using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Persistence;
-using SuperChat.Infrastructure.Services;
+using SuperChat.Infrastructure.Features.Intelligence.Retrieval;
+using SuperChat.Infrastructure.Shared.Persistence;
 
 namespace SuperChat.Tests;
 
@@ -171,6 +171,83 @@ public sealed class ChunkIndexingServiceTests
         var result = ChunkIndexingService.ResolveEmbeddingVersion(embedding);
 
         Assert.Equal("mock:BAAI/bge-m3", result);
+    }
+
+    [Fact]
+    public async Task IndexConversationChunksAsync_OnlyIndexesRequestedRoom()
+    {
+        var userId = Guid.NewGuid();
+        var now = new DateTimeOffset(2026, 03, 13, 12, 00, 00, TimeSpan.Zero);
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+
+        await SeedChunksAsync(
+            factory,
+            [
+                new MessageChunkEntity
+                {
+                    Id = Guid.Parse("33333333-3333-3333-3333-333333333333"),
+                    UserId = userId,
+                    Source = "telegram",
+                    Provider = "telegram",
+                    Transport = "matrix_bridge",
+                    ChatId = "!target:matrix.localhost",
+                    Kind = "dialog_chunk",
+                    Text = "Alice: target room",
+                    MessageCount = 1,
+                    TsFrom = now.AddMinutes(-10),
+                    TsTo = now.AddMinutes(-10),
+                    ContentHash = "hash-target",
+                    ChunkVersion = 1,
+                    CreatedAt = now.AddMinutes(-10),
+                    UpdatedAt = now.AddMinutes(-10)
+                },
+                new MessageChunkEntity
+                {
+                    Id = Guid.Parse("44444444-4444-4444-4444-444444444444"),
+                    UserId = userId,
+                    Source = "telegram",
+                    Provider = "telegram",
+                    Transport = "matrix_bridge",
+                    ChatId = "!other:matrix.localhost",
+                    Kind = "dialog_chunk",
+                    Text = "Alice: other room",
+                    MessageCount = 1,
+                    TsFrom = now.AddMinutes(-9),
+                    TsTo = now.AddMinutes(-9),
+                    ContentHash = "hash-other",
+                    ChunkVersion = 1,
+                    CreatedAt = now.AddMinutes(-9),
+                    UpdatedAt = now.AddMinutes(-9)
+                }
+            ],
+            CancellationToken.None);
+
+        var service = CreateService(
+            factory,
+            new RecordingEmbeddingService(),
+            new RecordingQdrantClient(),
+            new ChunkIndexingOptions
+            {
+                Enabled = true,
+                BatchSize = 10
+            },
+            new FixedTimeProvider(now));
+
+        var result = await service.IndexConversationChunksAsync(userId, "!target:matrix.localhost", CancellationToken.None);
+
+        Assert.Equal(1, result.ChunksSelected);
+        Assert.Equal(1, result.ChunksIndexed);
+
+        await using var dbContext = await factory.CreateDbContextAsync(CancellationToken.None);
+        var targetChunk = await dbContext.MessageChunks.SingleAsync(
+            item => item.ChatId == "!target:matrix.localhost",
+            CancellationToken.None);
+        var otherChunk = await dbContext.MessageChunks.SingleAsync(
+            item => item.ChatId == "!other:matrix.localhost",
+            CancellationToken.None);
+
+        Assert.NotNull(targetChunk.IndexedAt);
+        Assert.Null(otherChunk.IndexedAt);
     }
 
     private static ChunkIndexingService CreateService(

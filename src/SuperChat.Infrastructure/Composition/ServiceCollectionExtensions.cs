@@ -2,14 +2,37 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using QdrantSdk = Qdrant.Client.QdrantClient;
-using SuperChat.Contracts.Configuration;
+using Rebus.Config;
+using Rebus.ServiceProvider;
+using Rebus.Transport.InMem;
+using SuperChat.Contracts.Features.Auth;
+using SuperChat.Contracts.Features.Integrations.Matrix;
+using SuperChat.Contracts.Features.Integrations.Telegram;
+using SuperChat.Contracts.Features.Intelligence.Extraction;
+using SuperChat.Contracts.Features.Intelligence.Meetings;
+using SuperChat.Contracts.Features.Intelligence.Retrieval;
+using SuperChat.Contracts.Features.Operations;
 using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Health;
-using SuperChat.Infrastructure.HostedServices;
-using SuperChat.Infrastructure.Persistence;
+using SuperChat.Infrastructure.Diagnostics;
+using SuperChat.Infrastructure.Features.Auth;
+using SuperChat.Infrastructure.Features.Chat;
+using SuperChat.Infrastructure.Features.Feedback;
+using SuperChat.Infrastructure.Features.Integrations;
+using SuperChat.Infrastructure.Features.Integrations.Matrix;
+using SuperChat.Infrastructure.Features.Integrations.Telegram;
+using SuperChat.Infrastructure.Features.Intelligence.Digest;
+using SuperChat.Infrastructure.Features.Intelligence.Extraction;
+using SuperChat.Infrastructure.Features.Intelligence.Meetings;
+using SuperChat.Infrastructure.Features.Intelligence.Retrieval;
+using SuperChat.Infrastructure.Features.Intelligence.WorkItems;
+using SuperChat.Infrastructure.Features.Messaging;
+using SuperChat.Infrastructure.Features.Operations;
+using SuperChat.Infrastructure.Features.Operations.Health;
+using SuperChat.Infrastructure.Features.Search;
+using SuperChat.Infrastructure.Shared.Persistence;
+using QdrantSdk = Qdrant.Client.QdrantClient;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Composition;
 
 public static class ServiceCollectionExtensions
 {
@@ -59,6 +82,9 @@ public static class ServiceCollectionExtensions
         services
             .AddOptions<PersistenceOptions>()
             .Bind(configuration.GetSection(PersistenceOptions.SectionName));
+        services
+            .AddOptions<PipelineMessagingOptions>()
+            .Bind(configuration.GetSection(PipelineMessagingOptions.SectionName));
         services
             .AddOptions<TelegramBridgeOptions>()
             .Bind(configuration.GetSection(TelegramBridgeOptions.SectionName));
@@ -178,10 +204,61 @@ public static class ServiceCollectionExtensions
         if (enableBackgroundWorkers)
         {
             services.AddHostedService<MatrixSyncBackgroundService>();
-            services.AddHostedService<ChunkBuilderBackgroundService>();
-            services.AddHostedService<ChunkIndexingBackgroundService>();
-            services.AddHostedService<MeetingProjectionBackgroundService>();
-            services.AddHostedService<ExtractionBackgroundService>();
+        }
+
+        var pipelineMessagingOptions = configuration.GetSection(PipelineMessagingOptions.SectionName).Get<PipelineMessagingOptions>() ?? new PipelineMessagingOptions();
+        var persistenceOptions = configuration.GetSection(PersistenceOptions.SectionName).Get<PersistenceOptions>() ?? new PersistenceOptions();
+        var canUseRebusPipeline = enableBackgroundWorkers && pipelineMessagingOptions.Enabled;
+        if (canUseRebusPipeline)
+        {
+            var usePostgresTransport = string.Equals(persistenceOptions.Provider, "Postgres", StringComparison.OrdinalIgnoreCase);
+            if (!usePostgresTransport)
+            {
+                services.AddSingleton<InMemNetwork>();
+            }
+
+            services.AddRebus(
+                (configurer, serviceProvider) =>
+                {
+                    if (usePostgresTransport)
+                    {
+                        var connectionString = SuperChatDbContextConfiguration.ResolveConnectionString(configuration, persistenceOptions);
+                        configurer.Transport(transport => transport.UsePostgreSql(
+                            connectionString,
+                            pipelineMessagingOptions.TransportTableName,
+                            pipelineMessagingOptions.InputQueueName,
+                            expiredMessagesCleanupInterval: null,
+                            schemaName: null));
+                    }
+                    else
+                    {
+                        configurer.Transport(transport => transport.UseInMemoryTransport(
+                            serviceProvider.GetRequiredService<InMemNetwork>(),
+                            pipelineMessagingOptions.InputQueueName));
+                    }
+
+                    configurer.Options(options =>
+                    {
+                        options.SetNumberOfWorkers(Math.Max(1, pipelineMessagingOptions.Workers));
+                        options.SetMaxParallelism(Math.Max(1, pipelineMessagingOptions.MaxParallelism));
+                    });
+
+                    return configurer;
+                },
+                isDefaultBus: true);
+            services.AutoRegisterHandlersFromAssemblyOf<ProcessConversationAfterSettleCommandHandler>();
+            if (usePostgresTransport)
+            {
+                services.AddSingleton<IPipelineCommandScheduler, RebusPipelineCommandScheduler>();
+            }
+            else
+            {
+                services.AddSingleton<IPipelineCommandScheduler, NonTransactionalRebusPipelineCommandScheduler>();
+            }
+        }
+        else
+        {
+            services.AddSingleton<IPipelineCommandScheduler, NoOpPipelineCommandScheduler>();
         }
 
         services.AddHealthChecks().AddCheck<BootstrapHealthCheck>("bootstrap");

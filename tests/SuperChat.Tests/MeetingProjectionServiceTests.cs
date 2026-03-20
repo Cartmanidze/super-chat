@@ -1,8 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using SuperChat.Contracts.Configuration;
-using SuperChat.Infrastructure.Persistence;
-using SuperChat.Infrastructure.Services;
+using SuperChat.Contracts.Features.Auth;
+using SuperChat.Contracts.Features.Intelligence.Meetings;
+using SuperChat.Infrastructure.Features.Intelligence.Meetings;
+using SuperChat.Infrastructure.Shared.Persistence;
 
 namespace SuperChat.Tests;
 
@@ -263,6 +264,57 @@ public sealed class MeetingProjectionServiceTests
             .ToListAsync(CancellationToken.None);
 
         Assert.Empty(remainingChunkMeetings);
+    }
+
+    [Fact]
+    public async Task ProjectConversationMeetingsAsync_OnlyProjectsRequestedRoom()
+    {
+        var userId = Guid.NewGuid();
+        var now = new DateTimeOffset(2026, 03, 13, 09, 30, 00, TimeSpan.Zero);
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+
+        await using (var dbContext = await factory.CreateDbContextAsync(CancellationToken.None))
+        {
+            dbContext.MessageChunks.AddRange(
+            [
+                CreateChunkEntity(
+                    Guid.Parse("f1f1f1f1-f1f1-f1f1-f1f1-f1f1f1f1f1f1"),
+                    userId,
+                    "!target:matrix.localhost",
+                    now.AddMinutes(-10),
+                    now,
+                    "target-hash",
+                    "Alex: созвон сегодня в 20:00 по мск"),
+                CreateChunkEntity(
+                    Guid.Parse("f2f2f2f2-f2f2-f2f2-f2f2-f2f2f2f2f2f2"),
+                    userId,
+                    "!other:matrix.localhost",
+                    now.AddMinutes(-9),
+                    now,
+                    "other-hash",
+                    "Alex: созвон завтра в 11")
+            ]);
+
+            await dbContext.SaveChangesAsync(CancellationToken.None);
+        }
+
+        var service = CreateService(factory, now);
+        var result = await service.ProjectConversationMeetingsAsync(
+            userId,
+            "!target:matrix.localhost",
+            CancellationToken.None);
+
+        Assert.Equal(1, result.UsersProcessed);
+        Assert.Equal(1, result.RoomsRebuilt);
+        Assert.Equal(1, result.MeetingsProjected);
+
+        await using var verificationDbContext = await factory.CreateDbContextAsync(CancellationToken.None);
+        var meetings = await verificationDbContext.Meetings
+            .OrderBy(item => item.SourceRoom)
+            .ToListAsync(CancellationToken.None);
+
+        Assert.Single(meetings);
+        Assert.Equal("!target:matrix.localhost", meetings[0].SourceRoom);
     }
 
     private static MeetingProjectionService CreateService(

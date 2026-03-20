@@ -1,9 +1,15 @@
 using Microsoft.Extensions.Logging.Abstractions;
-using SuperChat.Contracts.Configuration;
-using SuperChat.Contracts.ViewModels;
-using SuperChat.Domain.Model;
+using SuperChat.Contracts.Features.Auth;
+using SuperChat.Contracts.Features.Chat;
+using SuperChat.Contracts.Features.Search;
+using SuperChat.Contracts.Features.WorkItems;
+using SuperChat.Domain.Features.Chat;
+using SuperChat.Domain.Features.Messaging;
 using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Services;
+using SuperChat.Infrastructure.Features.Chat;
+using SuperChat.Infrastructure.Features.Intelligence.Digest;
+using SuperChat.Infrastructure.Features.Messaging;
+using SuperChat.Infrastructure.Features.Search;
 
 namespace SuperChat.Tests;
 
@@ -473,6 +479,15 @@ public sealed class ChatExperienceServiceTests
         }
 
         public Task<IReadOnlyList<NormalizedMessage>> GetPendingMessagesAsync(CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<IReadOnlyList<NormalizedMessage>> GetPendingMessagesForConversationAsync(
+            Guid userId,
+            string source,
+            string matrixRoomId,
+            CancellationToken cancellationToken)
         {
             throw new NotSupportedException();
         }

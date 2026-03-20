@@ -1,8 +1,11 @@
 using Microsoft.Extensions.Logging.Abstractions;
-using SuperChat.Contracts.Configuration;
-using SuperChat.Domain.Model;
+using SuperChat.Contracts.Features.Auth;
+using SuperChat.Domain.Features.Intelligence;
+using SuperChat.Domain.Features.Messaging;
 using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Services;
+using SuperChat.Infrastructure.Features.Intelligence.Digest;
+using SuperChat.Infrastructure.Features.Messaging;
+using SuperChat.Infrastructure.Features.Search;
 
 namespace SuperChat.Tests;
 
@@ -204,6 +207,15 @@ public sealed class RoomDisplayNamePresentationTests
         }
 
         public Task<IReadOnlyList<NormalizedMessage>> GetPendingMessagesAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult(Array.Empty<NormalizedMessage>() as IReadOnlyList<NormalizedMessage>);
+        }
+
+        public Task<IReadOnlyList<NormalizedMessage>> GetPendingMessagesForConversationAsync(
+            Guid userId,
+            string source,
+            string matrixRoomId,
+            CancellationToken cancellationToken)
         {
             return Task.FromResult(Array.Empty<NormalizedMessage>() as IReadOnlyList<NormalizedMessage>);
         }

@@ -1,9 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using SuperChat.Contracts.Configuration;
-using SuperChat.Domain.Model;
-using SuperChat.Infrastructure.Persistence;
-using SuperChat.Infrastructure.Services;
+using SuperChat.Contracts.Features.Intelligence.Retrieval;
+using SuperChat.Domain.Features.Messaging;
+using SuperChat.Infrastructure.Features.Intelligence.Retrieval;
+using SuperChat.Infrastructure.Shared.Persistence;
 
 namespace SuperChat.Tests;
 
@@ -131,6 +131,45 @@ public sealed class ChunkBuilderServiceTests
         Assert.Equal(normalizedMessages[^1].IngestedAt, checkpoint.LastObservedIngestedAt);
         Assert.Equal(normalizedMessages[^1].Id, checkpoint.LastObservedMessageId);
         Assert.All(normalizedMessages, item => Assert.False(item.Processed));
+    }
+
+    [Fact]
+    public async Task BuildConversationChunksAsync_RebuildsOnlyRequestedRoom()
+    {
+        var userId = Guid.NewGuid();
+        var targetRoomId = "!target:matrix.localhost";
+        var otherRoomId = "!other:matrix.localhost";
+        var baseTime = new DateTimeOffset(2026, 03, 13, 10, 00, 00, TimeSpan.Zero);
+        var options = new ChunkingOptions
+        {
+            Enabled = true,
+            MaxGapMinutes = 15,
+            MaxMessagesPerChunk = 8,
+            MaxChunkCharacters = 1600
+        };
+
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        await SeedMessagesAsync(factory, userId, targetRoomId, baseTime, count: 2, startingIndex: 1, CancellationToken.None);
+        await SeedMessagesAsync(factory, userId, otherRoomId, baseTime, count: 2, startingIndex: 101, CancellationToken.None);
+
+        var service = CreateService(factory, options);
+        var result = await service.BuildConversationChunksAsync(
+            userId,
+            targetRoomId,
+            baseTime.AddMinutes(-options.MaxGapMinutes),
+            CancellationToken.None);
+
+        Assert.Equal(1, result.UsersProcessed);
+        Assert.Equal(1, result.RoomsRebuilt);
+        Assert.Equal(1, result.ChunksWritten);
+
+        await using var dbContext = await factory.CreateDbContextAsync(CancellationToken.None);
+        var chunks = await dbContext.MessageChunks
+            .OrderBy(item => item.ChatId)
+            .ToListAsync(CancellationToken.None);
+
+        Assert.Single(chunks);
+        Assert.Equal(targetRoomId, chunks[0].ChatId);
     }
 
     private static ChunkBuilderService CreateService(

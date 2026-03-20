@@ -3,6 +3,11 @@ namespace SuperChat.Infrastructure.Abstractions;
 public interface IMeetingProjectionService
 {
     Task<MeetingProjectionRunResult> ProjectPendingChunkMeetingsAsync(CancellationToken cancellationToken);
+
+    Task<MeetingProjectionRunResult> ProjectConversationMeetingsAsync(
+        Guid userId,
+        string matrixRoomId,
+        CancellationToken cancellationToken);
 }
 
 public sealed record MeetingProjectionRunResult(

@@ -1,6 +1,6 @@
-﻿using SuperChat.Domain.Model;
+﻿using SuperChat.Domain.Features.Messaging;
 
-namespace SuperChat.Infrastructure.Abstractions;
+namespace SuperChat.Infrastructure.Features.Messaging;
 
 public interface IMessageNormalizationService
 {
@@ -14,6 +14,12 @@ public interface IMessageNormalizationService
         CancellationToken cancellationToken);
 
     Task<IReadOnlyList<NormalizedMessage>> GetPendingMessagesAsync(CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<NormalizedMessage>> GetPendingMessagesForConversationAsync(
+        Guid userId,
+        string source,
+        string matrixRoomId,
+        CancellationToken cancellationToken);
 
     Task<IReadOnlyList<NormalizedMessage>> GetRecentMessagesAsync(Guid userId, int take, CancellationToken cancellationToken);
 

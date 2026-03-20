@@ -3,6 +3,12 @@ namespace SuperChat.Infrastructure.Abstractions;
 public interface IChunkBuilderService
 {
     Task<ChunkBuildRunResult> BuildPendingChunksAsync(CancellationToken cancellationToken);
+
+    Task<ChunkBuildRunResult> BuildConversationChunksAsync(
+        Guid userId,
+        string matrixRoomId,
+        DateTimeOffset rebuildFrom,
+        CancellationToken cancellationToken);
 }
 
 public sealed record ChunkBuildRunResult(

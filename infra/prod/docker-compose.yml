@@ -129,6 +129,11 @@ services:
       ChunkIndexing__BatchSize: ${CHUNK_INDEXING_BATCH_SIZE:-20}
       MeetingProjection__Enabled: ${MEETING_PROJECTION_ENABLED:-true}
       MeetingProjection__PollSeconds: ${MEETING_PROJECTION_POLL_SECONDS:-15}
+      PipelineMessaging__Enabled: ${PIPELINE_MESSAGING_ENABLED:-true}
+      PipelineMessaging__InputQueueName: ${PIPELINE_MESSAGING_INPUT_QUEUE_NAME:-superchat-pipeline}
+      PipelineMessaging__TransportTableName: ${PIPELINE_MESSAGING_TRANSPORT_TABLE_NAME:-rebus_messages}
+      PipelineMessaging__Workers: ${PIPELINE_MESSAGING_WORKERS:-1}
+      PipelineMessaging__MaxParallelism: ${PIPELINE_MESSAGING_MAX_PARALLELISM:-1}
       Retrieval__Enabled: ${RETRIEVAL_ENABLED:-true}
       Retrieval__PrefetchLimit: ${RETRIEVAL_PREFETCH_LIMIT:-24}
       Retrieval__ResultLimit: ${RETRIEVAL_RESULT_LIMIT:-8}

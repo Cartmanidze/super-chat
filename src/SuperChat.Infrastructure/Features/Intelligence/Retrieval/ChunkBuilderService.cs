@@ -2,12 +2,12 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using SuperChat.Contracts.Configuration;
-using SuperChat.Domain.Model;
+using SuperChat.Contracts.Features.Intelligence.Retrieval;
+using SuperChat.Domain.Features.Messaging;
 using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Persistence;
+using SuperChat.Infrastructure.Shared.Persistence;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Intelligence.Retrieval;
 
 public sealed class ChunkBuilderService(
     IDbContextFactory<SuperChatDbContext> dbContextFactory,
@@ -49,6 +49,32 @@ public sealed class ChunkBuilderService(
         }
 
         return aggregate;
+    }
+
+    public async Task<ChunkBuildRunResult> BuildConversationChunksAsync(
+        Guid userId,
+        string matrixRoomId,
+        DateTimeOffset rebuildFrom,
+        CancellationToken cancellationToken)
+    {
+        var options = chunkingOptions.Value;
+        if (!options.Enabled)
+        {
+            return ChunkBuildRunResult.Empty;
+        }
+
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var result = await RebuildRoomAsync(
+            dbContext,
+            userId,
+            matrixRoomId,
+            rebuildFrom,
+            options,
+            timeProvider.GetUtcNow(),
+            cancellationToken);
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return result;
     }
 
     internal static bool ShouldProcessUser(DateTimeOffset latestIngestedAt, ChunkBuildCheckpointEntity? checkpoint)
@@ -232,6 +258,54 @@ public sealed class ChunkBuilderService(
             roomsRebuilt,
             chunksWritten,
             messagesConsidered);
+    }
+
+    private static async Task<ChunkBuildRunResult> RebuildRoomAsync(
+        SuperChatDbContext dbContext,
+        Guid userId,
+        string roomId,
+        DateTimeOffset rebuildFrom,
+        ChunkingOptions options,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var roomMessages = await dbContext.NormalizedMessages
+            .AsNoTracking()
+            .Where(item => item.UserId == userId &&
+                           item.MatrixRoomId == roomId &&
+                           item.SentAt >= rebuildFrom)
+            .OrderBy(item => item.SentAt)
+            .ThenBy(item => item.IngestedAt)
+            .ThenBy(item => item.Id)
+            .Select(item => item.ToDomain())
+            .ToListAsync(cancellationToken);
+
+        var overlappingChunks = await dbContext.MessageChunks
+            .Where(item => item.UserId == userId &&
+                           item.ChatId == roomId &&
+                           item.TsTo >= rebuildFrom)
+            .ToListAsync(cancellationToken);
+
+        if (overlappingChunks.Count > 0)
+        {
+            dbContext.MessageChunks.RemoveRange(overlappingChunks);
+        }
+
+        if (roomMessages.Count == 0)
+        {
+            return overlappingChunks.Count > 0
+                ? new ChunkBuildRunResult(1, 1, 0, 0)
+                : ChunkBuildRunResult.Empty;
+        }
+
+        var rebuiltChunks = BuildChunkEntities(userId, roomId, roomMessages, options, now);
+        dbContext.MessageChunks.AddRange(rebuiltChunks);
+
+        return new ChunkBuildRunResult(
+            1,
+            1,
+            rebuiltChunks.Count,
+            roomMessages.Count);
     }
 
     private static MessageChunkEntity CreateChunkEntity(

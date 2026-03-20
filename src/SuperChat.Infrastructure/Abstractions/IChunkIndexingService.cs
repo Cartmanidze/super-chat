@@ -3,6 +3,11 @@ namespace SuperChat.Infrastructure.Abstractions;
 public interface IChunkIndexingService
 {
     Task<ChunkIndexingRunResult> IndexPendingChunksAsync(CancellationToken cancellationToken);
+
+    Task<ChunkIndexingRunResult> IndexConversationChunksAsync(
+        Guid userId,
+        string matrixRoomId,
+        CancellationToken cancellationToken);
 }
 
 public sealed record ChunkIndexingRunResult(

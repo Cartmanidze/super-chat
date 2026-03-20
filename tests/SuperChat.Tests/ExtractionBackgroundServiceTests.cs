@@ -1,9 +1,9 @@
-using SuperChat.Domain.Model;
-using SuperChat.Infrastructure.HostedServices;
+using SuperChat.Domain.Features.Intelligence;
+using SuperChat.Domain.Features.Messaging;
 
 namespace SuperChat.Tests;
 
-public sealed class ExtractionBackgroundServiceTests
+public sealed class ConversationWindowSettlementTests
 {
     [Fact]
     public void BuildReadyConversationWindows_GroupsMessagesIntoThreeMinuteDialogs()
@@ -17,7 +17,7 @@ public sealed class ExtractionBackgroundServiceTests
             CreateMessage(userId, "!room:matrix.localhost", "$3", "Alex", "Третье сообщение", baseTime.AddMinutes(7), baseTime.AddMinutes(7))
         };
 
-        var windows = ExtractionBackgroundService.BuildReadyConversationWindows(
+        var windows = ConversationWindowSettlement.BuildReadyConversationWindows(
             messages,
             baseTime.AddMinutes(8));
 
@@ -42,7 +42,7 @@ public sealed class ExtractionBackgroundServiceTests
             baseTime,
             baseTime);
 
-        var windows = ExtractionBackgroundService.BuildReadyConversationWindows(
+        var windows = ConversationWindowSettlement.BuildReadyConversationWindows(
             [message],
             baseTime.AddSeconds(10));
 
