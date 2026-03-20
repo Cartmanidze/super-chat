@@ -41,6 +41,9 @@ public sealed class TodayHostTests : IClassFixture<WebTestApplicationFactory>
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("?handler=Complete", content, StringComparison.Ordinal);
         Assert.Contains("?handler=Dismiss", content, StringComparison.Ordinal);
+        Assert.Contains("class=\"signal-feedback\"", content, StringComparison.Ordinal);
+        Assert.Contains("class=\"signal-feedback-link\"", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("action-link action-link-muted", content, StringComparison.Ordinal);
     }
 
     private async Task SeedTodayDataAsync(Guid userId, string email, string token)
