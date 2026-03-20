@@ -21,6 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\SuperChat.DbMigrator\SuperChat.DbMigrator.csproj" />
     <ProjectReference Include="..\..\src\SuperChat.Web\SuperChat.Web.csproj" />
     <ProjectReference Include="..\..\src\SuperChat.Domain\SuperChat.Domain.csproj" />
     <ProjectReference Include="..\..\src\SuperChat.Infrastructure\SuperChat.Infrastructure.csproj" />

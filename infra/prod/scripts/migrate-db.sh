@@ -33,7 +33,7 @@ fi
 compose_base=(docker compose --env-file "$ENV_FILE" -f "$ROOT_DIR/docker-compose.yml")
 compose_ops=(docker compose --profile ops --env-file "$ENV_FILE" -f "$ROOT_DIR/docker-compose.yml")
 
-"${compose_base[@]}" up -d postgres
+"${compose_base[@]}" up -d postgres qdrant
 
 postgres_container=$("${compose_base[@]}" ps -q postgres)
 if [ -z "$postgres_container" ]; then
@@ -56,4 +56,11 @@ for attempt in $(seq 1 60); do
 done
 
 "${compose_base[@]}" pull superchat-db-migrator
-"${compose_ops[@]}" run --rm superchat-db-migrator
+echo "Running database migrations and Qdrant bootstrap via superchat-db-migrator..."
+if ! "${compose_ops[@]}" run --rm superchat-db-migrator; then
+  echo "superchat-db-migrator failed. Stopping deploy because EF Core migrations or Qdrant bootstrap did not complete successfully." >&2
+  echo "Review the superchat-db-migrator output above for the exact failure." >&2
+  exit 1
+fi
+
+echo "Database migrations and Qdrant bootstrap completed successfully."

@@ -89,11 +89,21 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      qdrant:
+        condition: service_started
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ConnectionStrings__SuperChatDb: ${SUPERCHAT_PERSISTENCE_CONNECTION}
       Persistence__Provider: Postgres
       Persistence__ConnectionString: ${SUPERCHAT_PERSISTENCE_CONNECTION}
+      Qdrant__BaseUrl: ${QDRANT_BASE_URL:-http://qdrant:6333}
+      Qdrant__GrpcPort: ${QDRANT_GRPC_PORT:-6334}
+      Qdrant__ApiKey: ${QDRANT_API_KEY}
+      Qdrant__AutoInitialize: ${QDRANT_AUTO_INITIALIZE:-true}
+      Qdrant__MemoryCollectionName: ${QDRANT_MEMORY_COLLECTION_NAME:-memory_bgem3_v1}
+      Qdrant__DenseVectorName: ${QDRANT_DENSE_VECTOR_NAME:-text-dense}
+      Qdrant__SparseVectorName: ${QDRANT_SPARSE_VECTOR_NAME:-text-sparse}
+      Qdrant__DenseVectorSize: ${QDRANT_DENSE_VECTOR_SIZE:-1024}
 
   superchat-web:
     image: ${SUPERCHAT_WEB_IMAGE:-ghcr.io/cartmanidze/superchat-web:main}
@@ -153,7 +163,6 @@ services:
       Qdrant__BaseUrl: ${QDRANT_BASE_URL:-http://qdrant:6333}
       Qdrant__GrpcPort: ${QDRANT_GRPC_PORT:-6334}
       Qdrant__ApiKey: ${QDRANT_API_KEY}
-      Qdrant__AutoInitialize: ${QDRANT_AUTO_INITIALIZE:-true}
       Qdrant__MemoryCollectionName: ${QDRANT_MEMORY_COLLECTION_NAME:-memory_bgem3_v1}
       Qdrant__DenseVectorName: ${QDRANT_DENSE_VECTOR_NAME:-text-dense}
       Qdrant__SparseVectorName: ${QDRANT_SPARSE_VECTOR_NAME:-text-sparse}
@@ -229,7 +238,6 @@ services:
       Qdrant__BaseUrl: ${QDRANT_BASE_URL:-http://qdrant:6333}
       Qdrant__GrpcPort: ${QDRANT_GRPC_PORT:-6334}
       Qdrant__ApiKey: ${QDRANT_API_KEY}
-      Qdrant__AutoInitialize: ${QDRANT_AUTO_INITIALIZE:-true}
       Qdrant__MemoryCollectionName: ${QDRANT_MEMORY_COLLECTION_NAME:-memory_bgem3_v1}
       Qdrant__DenseVectorName: ${QDRANT_DENSE_VECTOR_NAME:-text-dense}
       Qdrant__SparseVectorName: ${QDRANT_SPARSE_VECTOR_NAME:-text-sparse}

@@ -3,8 +3,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using SuperChat.DbMigrator;
 using SuperChat.Contracts.Configuration;
 using SuperChat.Infrastructure.Persistence;
+using SuperChat.Infrastructure.Services;
 
 var builder = Host.CreateApplicationBuilder(args);
 builder.Logging.AddSimpleConsole(options =>
@@ -15,6 +17,7 @@ builder.Logging.AddSimpleConsole(options =>
 builder.Services
     .AddOptions<PersistenceOptions>()
     .Bind(builder.Configuration.GetSection(PersistenceOptions.SectionName));
+builder.Services.AddSuperChatQdrant(builder.Configuration);
 builder.Services.AddDbContextFactory<SuperChatDbContext>((serviceProvider, optionsBuilder) =>
 {
     var persistence = serviceProvider.GetRequiredService<IOptions<PersistenceOptions>>().Value;
@@ -29,6 +32,7 @@ var logger = scope.ServiceProvider
     .GetRequiredService<ILoggerFactory>()
     .CreateLogger("SuperChat.DbMigrator");
 var dbContextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<SuperChatDbContext>>();
+var qdrantOptions = scope.ServiceProvider.GetRequiredService<IOptions<QdrantOptions>>().Value;
 var cancellationToken = scope.ServiceProvider.GetRequiredService<IHostApplicationLifetime>().ApplicationStopping;
 
 await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -38,13 +42,16 @@ var pendingMigrations = (await dbContext.Database.GetPendingMigrationsAsync(canc
 if (pendingMigrations.Count == 0)
 {
     logger.LogInformation("No pending EF Core migrations.");
-    return;
+}
+else
+{
+    logger.LogInformation(
+        "Applying {MigrationCount} pending EF Core migrations: {MigrationList}",
+        pendingMigrations.Count,
+        string.Join(", ", pendingMigrations));
+
+    await dbContext.Database.MigrateAsync(cancellationToken);
+    logger.LogInformation("Database migrations completed successfully.");
 }
 
-logger.LogInformation(
-    "Applying {MigrationCount} pending EF Core migrations: {MigrationList}",
-    pendingMigrations.Count,
-    string.Join(", ", pendingMigrations));
-
-await dbContext.Database.MigrateAsync(cancellationToken);
-logger.LogInformation("Database migrations completed successfully.");
+await QdrantBootstrapRunner.EnsureInitializedAsync(scope.ServiceProvider, qdrantOptions, logger, cancellationToken);

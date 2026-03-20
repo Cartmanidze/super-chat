@@ -54,9 +54,6 @@ public static class ServiceCollectionExtensions
             .AddOptions<PilotOptions>()
             .Bind(configuration.GetSection(PilotOptions.SectionName));
         services
-            .AddOptions<QdrantOptions>()
-            .Bind(configuration.GetSection(QdrantOptions.SectionName));
-        services
             .AddOptions<RetrievalOptions>()
             .Bind(configuration.GetSection(RetrievalOptions.SectionName));
         services
@@ -82,28 +79,7 @@ public static class ServiceCollectionExtensions
                 client.BaseAddress = baseUri;
             }
         });
-        services.AddSingleton<IQdrantSdkClient>(serviceProvider =>
-        {
-            var options = serviceProvider.GetRequiredService<IOptions<QdrantOptions>>().Value;
-            if (!Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var baseUri))
-            {
-                throw new InvalidOperationException("Qdrant base URL is not configured.");
-            }
-
-            var grpcUri = new UriBuilder(baseUri)
-            {
-                Port = options.GrpcPort > 0 ? options.GrpcPort : 6334
-            }.Uri;
-
-            var sdkClient = new QdrantSdk(
-                grpcUri,
-                string.IsNullOrWhiteSpace(options.ApiKey) ? string.Empty : options.ApiKey,
-                TimeSpan.FromSeconds(30),
-                serviceProvider.GetRequiredService<ILoggerFactory>());
-
-            return new QdrantSdkClientAdapter(sdkClient);
-        });
-        services.AddSingleton<IQdrantClient, QdrantClient>();
+        services.AddSuperChatQdrant(configuration);
         services.AddHttpClient<IEmbeddingService, EmbeddingServiceClient>((serviceProvider, client) =>
         {
             var options = serviceProvider.GetRequiredService<IOptions<EmbeddingOptions>>().Value;
@@ -198,7 +174,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IChatExperienceService, ChatExperienceService>();
         services.AddSingleton<IFeedbackService, FeedbackService>();
         services.AddSingleton<IHealthSnapshotService, HealthSnapshotService>();
-        services.AddHostedService<QdrantInitializationHostedService>();
 
         if (enableBackgroundWorkers)
         {
@@ -210,6 +185,41 @@ public static class ServiceCollectionExtensions
         }
 
         services.AddHealthChecks().AddCheck<BootstrapHealthCheck>("bootstrap");
+
+        return services;
+    }
+
+    public static IServiceCollection AddSuperChatQdrant(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services
+            .AddOptions<QdrantOptions>()
+            .Bind(configuration.GetSection(QdrantOptions.SectionName));
+
+        services.AddSingleton<IQdrantSdkClient>(serviceProvider =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<QdrantOptions>>().Value;
+            if (!Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var baseUri))
+            {
+                throw new InvalidOperationException("Qdrant base URL is not configured.");
+            }
+
+            var grpcUri = new UriBuilder(baseUri)
+            {
+                Port = options.GrpcPort > 0 ? options.GrpcPort : 6334
+            }.Uri;
+
+            var sdkClient = new QdrantSdk(
+                grpcUri,
+                string.IsNullOrWhiteSpace(options.ApiKey) ? string.Empty : options.ApiKey,
+                TimeSpan.FromSeconds(30),
+                serviceProvider.GetRequiredService<ILoggerFactory>());
+
+            return new QdrantSdkClientAdapter(sdkClient);
+        });
+        services.AddSingleton<IQdrantClient, QdrantClient>();
+        services.AddSingleton<QdrantInitializationService>();
 
         return services;
     }
