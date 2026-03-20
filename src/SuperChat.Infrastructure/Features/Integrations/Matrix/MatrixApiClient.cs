@@ -5,9 +5,9 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using SuperChat.Contracts.Configuration;
+using SuperChat.Contracts.Features.Integrations.Matrix;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Integrations.Matrix;
 
 public sealed partial class MatrixApiClient(
     HttpClient httpClient,

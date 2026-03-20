@@ -1,5 +1,5 @@
-using Microsoft.AspNetCore.Authentication;
 using FluentValidation;
+using Microsoft.AspNetCore.Authentication;
 using SuperChat.Api.Features.Auth;
 using SuperChat.Api.Features.Chat;
 using SuperChat.Api.Features.Feedback;
@@ -9,7 +9,7 @@ using SuperChat.Api.Features.Integrations.Telegram;
 using SuperChat.Api.Features.Me;
 using SuperChat.Api.Features.Search;
 using SuperChat.Api.Features.WorkItems;
-using SuperChat.Infrastructure.Services;
+using SuperChat.Infrastructure.Composition;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,7 +20,7 @@ builder.Services
         ApiSessionAuthenticationHandler.SchemeName,
         _ => { });
 builder.Services.AddAuthorization();
-builder.Services.AddValidatorsFromAssemblyContaining<Program>();
+builder.Services.AddValidatorsFromAssemblyContaining<SuperChat.Api.Program>();
 builder.Services.AddSuperChatBootstrap(builder.Configuration, enableBackgroundWorkers: false);
 
 var app = builder.Build();
@@ -49,4 +49,7 @@ api.MapFeedbackEndpoints();
 
 app.Run();
 
-public partial class Program;
+namespace SuperChat.Api
+{
+    public partial class Program;
+}

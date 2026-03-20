@@ -1,8 +1,8 @@
 using System.Globalization;
 using SuperChat.Contracts;
-using SuperChat.Domain.Model;
+using SuperChat.Domain.Features.Intelligence;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Intelligence.Extraction;
 
 internal static class DeepSeekStructuredItemMappings
 {

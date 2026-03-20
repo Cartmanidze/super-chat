@@ -1,6 +1,6 @@
-using SuperChat.Contracts.ViewModels;
+using SuperChat.Contracts.Features.Chat;
 
-namespace SuperChat.Infrastructure.Abstractions;
+namespace SuperChat.Infrastructure.Features.Chat;
 
 public interface IChatExperienceService
 {

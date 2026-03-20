@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using SuperChat.Contracts.Configuration;
+using SuperChat.Contracts.Features.Auth;
 
 namespace SuperChat.Web.Security;
 

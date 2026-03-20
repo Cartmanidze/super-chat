@@ -1,9 +1,9 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using SuperChat.Contracts.Configuration;
+using SuperChat.Contracts.Features.Intelligence.Retrieval;
 using SuperChat.Infrastructure.Abstractions;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Intelligence.Retrieval;
 
 public sealed class QdrantInitializationService(
     IQdrantClient qdrantClient,

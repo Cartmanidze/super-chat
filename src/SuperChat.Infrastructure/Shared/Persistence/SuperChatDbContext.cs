@@ -1,8 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using SuperChat.Domain.Model;
+using SuperChat.Domain.Features.Integrations.Telegram;
+using SuperChat.Domain.Features.Intelligence;
 
-namespace SuperChat.Infrastructure.Persistence;
+namespace SuperChat.Infrastructure.Shared.Persistence;
 
 public sealed class SuperChatDbContext(DbContextOptions<SuperChatDbContext> options) : DbContext(options)
 {

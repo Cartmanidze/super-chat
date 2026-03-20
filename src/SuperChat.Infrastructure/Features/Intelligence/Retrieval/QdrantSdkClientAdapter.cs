@@ -1,7 +1,7 @@
 using Qdrant.Client.Grpc;
 using QdrantSdk = Qdrant.Client.QdrantClient;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Intelligence.Retrieval;
 
 public interface IQdrantSdkClient
 {

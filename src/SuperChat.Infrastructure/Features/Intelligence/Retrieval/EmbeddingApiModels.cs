@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Intelligence.Retrieval;
 
 internal sealed record LocalEmbedRequestDto(
     [property: JsonPropertyName("text")] string Text);

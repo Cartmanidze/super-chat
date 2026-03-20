@@ -1,6 +1,6 @@
-using SuperChat.Domain.Model;
+using SuperChat.Domain.Features.Intelligence;
 
-namespace SuperChat.Infrastructure.Abstractions;
+namespace SuperChat.Infrastructure.Features.Intelligence.Extraction;
 
 public interface IAiStructuredExtractionService
 {

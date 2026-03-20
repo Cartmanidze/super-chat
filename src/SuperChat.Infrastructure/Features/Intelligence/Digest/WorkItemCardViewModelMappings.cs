@@ -1,7 +1,8 @@
-using SuperChat.Contracts.ViewModels;
-using SuperChat.Domain.Model;
+using SuperChat.Contracts.Features.WorkItems;
+using SuperChat.Domain.Features.Intelligence;
+using SuperChat.Infrastructure.Shared.Presentation;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Intelligence.Digest;
 
 internal static class WorkItemCardViewModelMappings
 {

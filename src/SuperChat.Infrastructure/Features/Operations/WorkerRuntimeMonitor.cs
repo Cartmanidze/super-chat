@@ -1,7 +1,7 @@
 using SuperChat.Contracts.Features.Admin;
 using SuperChat.Infrastructure.Abstractions;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Operations;
 
 public sealed class WorkerRuntimeMonitor(TimeProvider timeProvider) : IWorkerRuntimeMonitor
 {

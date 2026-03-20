@@ -1,8 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Persistence;
+using SuperChat.Infrastructure.Shared.Persistence;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Feedback;
 
 public sealed class FeedbackService(IDbContextFactory<SuperChatDbContext> dbContextFactory) : IFeedbackService
 {

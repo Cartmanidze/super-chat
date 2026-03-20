@@ -1,6 +1,6 @@
-using SuperChat.Contracts.ViewModels;
+using SuperChat.Contracts.Features.Search;
 
-namespace SuperChat.Infrastructure.Abstractions;
+namespace SuperChat.Infrastructure.Features.Search;
 
 public interface ISearchService
 {

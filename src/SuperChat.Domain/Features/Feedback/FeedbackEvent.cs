@@ -1,4 +1,4 @@
-namespace SuperChat.Domain.Model;
+namespace SuperChat.Domain.Features.Feedback;
 
 public sealed record FeedbackEvent(
     Guid Id,

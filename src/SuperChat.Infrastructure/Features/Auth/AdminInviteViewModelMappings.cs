@@ -1,7 +1,7 @@
 using SuperChat.Contracts.Features.Admin;
-using SuperChat.Infrastructure.Persistence;
+using SuperChat.Infrastructure.Shared.Persistence;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Auth;
 
 internal static class AdminInviteViewModelMappings
 {

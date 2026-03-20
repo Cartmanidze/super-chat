@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Localization;
 using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Infrastructure.Features.Auth;
 using SuperChat.Web.Localization;
 
 namespace SuperChat.Web.Pages.Auth;

@@ -2,10 +2,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using SuperChat.Contracts.Configuration;
+using SuperChat.Contracts.Features.Intelligence.Retrieval;
 using SuperChat.DbMigrator;
 using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Services;
+using SuperChat.Infrastructure.Features.Intelligence.Retrieval;
 
 namespace SuperChat.Tests;
 

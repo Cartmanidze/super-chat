@@ -1,6 +1,6 @@
-using SuperChat.Contracts.ViewModels;
+using SuperChat.Contracts.Features.WorkItems;
 
-namespace SuperChat.Infrastructure.Abstractions;
+namespace SuperChat.Infrastructure.Features.Intelligence.Digest;
 
 public interface IDigestService
 {

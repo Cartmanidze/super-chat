@@ -2,13 +2,17 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using SuperChat.Contracts.Configuration;
-using SuperChat.Domain.Model;
+using SuperChat.Contracts.Features.Auth;
+using SuperChat.Contracts.Features.Integrations.Telegram;
+using SuperChat.Domain.Features.Integrations;
+using SuperChat.Domain.Features.Integrations.Telegram;
 using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Persistence;
-using SuperChat.Infrastructure.Services;
+using SuperChat.Infrastructure.Features.Integrations;
+using SuperChat.Infrastructure.Features.Integrations.Matrix;
+using SuperChat.Infrastructure.Features.Messaging;
+using SuperChat.Infrastructure.Shared.Persistence;
 
-namespace SuperChat.Infrastructure.HostedServices;
+namespace SuperChat.Infrastructure.Features.Operations;
 
 public sealed class MatrixSyncBackgroundService(
     IIntegrationConnectionService integrationConnectionService,

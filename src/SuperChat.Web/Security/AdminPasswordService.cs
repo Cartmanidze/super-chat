@@ -1,6 +1,6 @@
 using System.Text;
 using Microsoft.Extensions.Options;
-using SuperChat.Contracts.Configuration;
+using SuperChat.Contracts.Features.Auth;
 
 namespace SuperChat.Web.Security;
 

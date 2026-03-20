@@ -2,10 +2,10 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using SuperChat.Contracts.Configuration;
+using SuperChat.Contracts.Features.Intelligence.Extraction;
 using SuperChat.Infrastructure.Abstractions;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Intelligence.Extraction;
 
 public sealed class TextEnrichmentClient(
     HttpClient httpClient,

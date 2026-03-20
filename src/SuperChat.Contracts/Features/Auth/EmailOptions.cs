@@ -1,4 +1,4 @@
-namespace SuperChat.Contracts.Configuration;
+namespace SuperChat.Contracts.Features.Auth;
 
 public sealed class EmailOptions
 {

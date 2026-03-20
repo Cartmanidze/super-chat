@@ -1,7 +1,7 @@
-using SuperChat.Contracts.ViewModels;
-using SuperChat.Domain.Model;
+using SuperChat.Contracts.Features.WorkItems;
+using SuperChat.Domain.Features.Intelligence;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Shared.Presentation;
 
 internal static class WorkItemPresentationMetadata
 {

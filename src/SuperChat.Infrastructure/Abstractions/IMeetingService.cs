@@ -1,4 +1,4 @@
-using SuperChat.Domain.Model;
+using SuperChat.Domain.Features.Intelligence;
 
 namespace SuperChat.Infrastructure.Abstractions;
 

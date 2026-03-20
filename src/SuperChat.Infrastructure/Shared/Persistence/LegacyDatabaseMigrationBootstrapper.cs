@@ -2,7 +2,7 @@ using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
-namespace SuperChat.Infrastructure.Persistence;
+namespace SuperChat.Infrastructure.Shared.Persistence;
 
 public static class LegacyDatabaseMigrationBootstrapper
 {

@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
+using SuperChat.Contracts.Features.WorkItems;
 
-namespace SuperChat.Contracts.ViewModels;
+namespace SuperChat.Contracts.Features.Chat;
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "modelType")]
 [JsonDerivedType(typeof(GenericChatResultItemViewModel), "generic")]

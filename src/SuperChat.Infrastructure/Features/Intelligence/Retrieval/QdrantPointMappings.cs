@@ -1,9 +1,9 @@
 using System.Globalization;
 using Qdrant.Client.Grpc;
-using SuperChat.Contracts.Configuration;
+using SuperChat.Contracts.Features.Intelligence.Retrieval;
 using SuperChat.Infrastructure.Abstractions;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Intelligence.Retrieval;
 
 internal static class QdrantPointMappings
 {

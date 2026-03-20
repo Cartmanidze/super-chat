@@ -1,12 +1,13 @@
-using SuperChat.Contracts.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using SuperChat.Contracts;
-using SuperChat.Domain.Model;
-using SuperChat.Domain.Services;
 using SuperChat.Infrastructure.Abstractions;
 using Microsoft.Extensions.Logging;
-using SuperChat.Infrastructure.Persistence;
-using SuperChat.Infrastructure.Services;
+using SuperChat.Contracts.Features.Auth;
+using SuperChat.Domain.Features.Intelligence;
+using SuperChat.Domain.Features.Messaging;
+using SuperChat.Infrastructure.Features.Intelligence.Extraction;
+using SuperChat.Infrastructure.Features.Intelligence.Meetings;
+using SuperChat.Infrastructure.Shared.Persistence;
 
 namespace SuperChat.Tests;
 

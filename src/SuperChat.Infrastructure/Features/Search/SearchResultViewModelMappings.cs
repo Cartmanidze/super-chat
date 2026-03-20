@@ -1,7 +1,9 @@
-using SuperChat.Contracts.ViewModels;
-using SuperChat.Domain.Model;
+using SuperChat.Contracts.Features.Search;
+using SuperChat.Domain.Features.Intelligence;
+using SuperChat.Domain.Features.Messaging;
+using SuperChat.Infrastructure.Features.Messaging;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Search;
 
 internal static class SearchResultViewModelMappings
 {

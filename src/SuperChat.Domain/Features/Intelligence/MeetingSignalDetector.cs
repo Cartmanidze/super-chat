@@ -1,8 +1,8 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
-using SuperChat.Domain.Model;
+using SuperChat.Domain.Features.Messaging;
 
-namespace SuperChat.Domain.Services;
+namespace SuperChat.Domain.Features.Intelligence;
 
 public static partial class MeetingSignalDetector
 {

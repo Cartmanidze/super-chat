@@ -1,9 +1,10 @@
 using Microsoft.EntityFrameworkCore;
-using SuperChat.Domain.Model;
+using SuperChat.Domain.Features.Intelligence;
 using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Persistence;
+using SuperChat.Infrastructure.Features.Intelligence.Extraction;
+using SuperChat.Infrastructure.Shared.Persistence;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Intelligence.WorkItems;
 
 internal sealed class WorkItemIngestionService(
     IDbContextFactory<SuperChatDbContext> dbContextFactory,

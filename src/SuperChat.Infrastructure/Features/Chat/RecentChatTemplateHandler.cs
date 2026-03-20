@@ -1,10 +1,11 @@
 using Microsoft.Extensions.Logging;
-using SuperChat.Contracts.Configuration;
-using SuperChat.Contracts.ViewModels;
-using SuperChat.Domain.Model;
+using SuperChat.Contracts.Features.Auth;
+using SuperChat.Contracts.Features.Chat;
+using SuperChat.Domain.Features.Chat;
 using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Infrastructure.Features.Messaging;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Chat;
 
 public sealed class RecentChatTemplateHandler(
     IMessageNormalizationService messageNormalizationService,

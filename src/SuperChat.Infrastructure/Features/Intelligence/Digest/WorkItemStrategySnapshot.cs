@@ -1,6 +1,6 @@
-using SuperChat.Domain.Model;
+using SuperChat.Domain.Features.Intelligence;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Intelligence.Digest;
 
 internal sealed record WorkItemStrategySnapshot(
     DateTimeOffset Now,

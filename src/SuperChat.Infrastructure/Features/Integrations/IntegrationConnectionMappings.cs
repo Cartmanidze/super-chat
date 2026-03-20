@@ -1,6 +1,7 @@
-using SuperChat.Domain.Model;
+using SuperChat.Domain.Features.Integrations;
+using SuperChat.Domain.Features.Integrations.Telegram;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Integrations;
 
 internal static class IntegrationConnectionMappings
 {

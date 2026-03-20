@@ -3,8 +3,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SuperChat.Contracts;
-using SuperChat.Contracts.Configuration;
-using SuperChat.Infrastructure.Services;
+using SuperChat.Contracts.Features.Intelligence.Extraction;
+using SuperChat.Infrastructure.Features.Chat;
 
 namespace SuperChat.Tests;
 

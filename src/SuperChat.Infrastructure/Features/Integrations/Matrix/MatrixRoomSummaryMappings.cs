@@ -1,4 +1,4 @@
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Integrations.Matrix;
 
 internal static class MatrixRoomSummaryMappings
 {

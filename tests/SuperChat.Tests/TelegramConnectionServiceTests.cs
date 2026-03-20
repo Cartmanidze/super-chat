@@ -2,11 +2,17 @@ using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using SuperChat.Contracts.Configuration;
-using SuperChat.Domain.Model;
+using SuperChat.Contracts.Features.Auth;
+using SuperChat.Contracts.Features.Integrations.Matrix;
+using SuperChat.Contracts.Features.Integrations.Telegram;
+using SuperChat.Domain.Features.Auth;
+using SuperChat.Domain.Features.Integrations.Matrix;
+using SuperChat.Domain.Features.Integrations.Telegram;
 using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Persistence;
-using SuperChat.Infrastructure.Services;
+using SuperChat.Infrastructure.Features.Integrations.Matrix;
+using SuperChat.Infrastructure.Features.Integrations.Telegram;
+using SuperChat.Infrastructure.Shared.Persistence;
+using MatrixApiClient = SuperChat.Infrastructure.Features.Integrations.Matrix.MatrixApiClient;
 
 namespace SuperChat.Tests;
 

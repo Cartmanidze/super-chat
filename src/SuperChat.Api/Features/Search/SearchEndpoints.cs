@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using SuperChat.Api.Features.Auth;
 using SuperChat.Api.Security;
 using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Infrastructure.Features.Search;
 
 namespace SuperChat.Api.Features.Search;
 

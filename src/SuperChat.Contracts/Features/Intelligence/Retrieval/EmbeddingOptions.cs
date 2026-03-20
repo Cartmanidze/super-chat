@@ -1,4 +1,4 @@
-namespace SuperChat.Contracts.Configuration;
+namespace SuperChat.Contracts.Features.Intelligence.Retrieval;
 
 public sealed class EmbeddingOptions
 {

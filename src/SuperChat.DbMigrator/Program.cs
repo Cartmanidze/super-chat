@@ -3,10 +3,11 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using SuperChat.Contracts.Features.Intelligence.Retrieval;
+using SuperChat.Contracts.Features.Operations;
 using SuperChat.DbMigrator;
-using SuperChat.Contracts.Configuration;
-using SuperChat.Infrastructure.Persistence;
-using SuperChat.Infrastructure.Services;
+using SuperChat.Infrastructure.Composition;
+using SuperChat.Infrastructure.Shared.Persistence;
 
 var builder = Host.CreateApplicationBuilder(args);
 builder.Logging.AddSimpleConsole(options =>

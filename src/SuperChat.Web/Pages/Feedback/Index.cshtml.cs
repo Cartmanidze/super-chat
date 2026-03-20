@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Localization;
 using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Infrastructure.Features.Feedback;
 using SuperChat.Web.Localization;
 using SuperChat.Web.Security;
 

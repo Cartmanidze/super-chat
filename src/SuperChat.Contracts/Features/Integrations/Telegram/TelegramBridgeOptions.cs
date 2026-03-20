@@ -1,4 +1,4 @@
-namespace SuperChat.Contracts.Configuration;
+namespace SuperChat.Contracts.Features.Integrations.Telegram;
 
 public sealed class TelegramBridgeOptions
 {

@@ -1,6 +1,8 @@
-using SuperChat.Contracts.ViewModels;
+using SuperChat.Contracts.Features.WorkItems;
+using SuperChat.Domain.Features.Intelligence;
+using SuperChat.Infrastructure.Shared.Presentation;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Intelligence.Digest;
 
 internal sealed class ActionItemWorkItemTypeStrategy : IWorkItemTypeStrategy
 {
@@ -17,7 +19,7 @@ internal sealed class ActionItemWorkItemTypeStrategy : IWorkItemTypeStrategy
             .ToList();
     }
 
-    private static bool IsActionItem(SuperChat.Domain.Model.WorkItemRecord item)
+    private static bool IsActionItem(WorkItemRecord item)
     {
         return WorkItemPresentationMetadata.ResolveType(item.Kind.ToString()) == WorkItemType.ActionItem;
     }

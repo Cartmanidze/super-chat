@@ -1,4 +1,4 @@
-namespace SuperChat.Domain.Model;
+namespace SuperChat.Domain.Features.Chat;
 
 public static class ChatPromptTemplate
 {

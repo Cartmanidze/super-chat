@@ -1,4 +1,4 @@
-namespace SuperChat.Domain.Model;
+namespace SuperChat.Domain.Features.Messaging;
 
 public sealed record NormalizedMessage(
     Guid Id,

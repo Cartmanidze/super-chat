@@ -2,7 +2,7 @@ using Qdrant.Client.Grpc;
 using SuperChat.Infrastructure.Abstractions;
 using static Qdrant.Client.Grpc.Conditions;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Intelligence.Retrieval;
 
 internal static class QdrantFilterMappings
 {

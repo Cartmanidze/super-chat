@@ -2,9 +2,9 @@ using System.Net.Mail;
 using Microsoft.EntityFrameworkCore;
 using SuperChat.Contracts.Features.Admin;
 using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Persistence;
+using SuperChat.Infrastructure.Shared.Persistence;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Auth;
 
 public sealed class PilotInviteAdminService(
     IDbContextFactory<SuperChatDbContext> dbContextFactory) : IPilotInviteAdminService

@@ -1,6 +1,6 @@
-using SuperChat.Contracts.ViewModels;
+using SuperChat.Contracts.Features.WorkItems;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Intelligence.Digest;
 
 internal sealed class EventWorkItemTypeStrategy : IWorkItemTypeStrategy
 {

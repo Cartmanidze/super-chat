@@ -1,4 +1,4 @@
-namespace SuperChat.Contracts.ViewModels;
+namespace SuperChat.Contracts.Features.Settings;
 
 public sealed record ConnectionStatusViewModel(
     string State,

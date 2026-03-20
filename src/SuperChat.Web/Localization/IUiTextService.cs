@@ -1,4 +1,5 @@
 ﻿using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Infrastructure.Features.Auth;
 
 namespace SuperChat.Web.Localization;
 

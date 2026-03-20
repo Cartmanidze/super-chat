@@ -1,6 +1,6 @@
-﻿using SuperChat.Domain.Model;
+﻿using SuperChat.Domain.Features.Auth;
 
-namespace SuperChat.Infrastructure.Abstractions;
+namespace SuperChat.Infrastructure.Features.Auth;
 
 public interface IAuthFlowService
 {

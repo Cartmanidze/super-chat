@@ -1,4 +1,4 @@
-namespace SuperChat.Contracts.Configuration;
+namespace SuperChat.Contracts.Features.Integrations.Matrix;
 
 public sealed class MatrixOptions
 {

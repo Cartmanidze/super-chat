@@ -1,4 +1,4 @@
-namespace SuperChat.Domain.Model;
+namespace SuperChat.Domain.Features.Integrations.Matrix;
 
 public sealed record MatrixIdentity(
     Guid UserId,

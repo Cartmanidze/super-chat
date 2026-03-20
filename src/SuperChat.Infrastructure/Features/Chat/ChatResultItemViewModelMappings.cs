@@ -1,8 +1,11 @@
-using SuperChat.Contracts.ViewModels;
-using SuperChat.Domain.Model;
+using SuperChat.Contracts.Features.Chat;
+using SuperChat.Contracts.Features.Search;
+using SuperChat.Contracts.Features.WorkItems;
+using SuperChat.Domain.Features.Messaging;
 using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Infrastructure.Shared.Presentation;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Chat;
 
 internal static class ChatResultItemViewModelMappings
 {

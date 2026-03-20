@@ -3,7 +3,7 @@ using System.Net.Http.Json;
 using Microsoft.Extensions.Logging;
 using SuperChat.Infrastructure.Abstractions;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Integrations.Telegram;
 
 public sealed class TelegramRoomInfoService(
     HttpClient httpClient,

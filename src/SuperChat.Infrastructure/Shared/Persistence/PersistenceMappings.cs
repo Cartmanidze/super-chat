@@ -1,6 +1,10 @@
-using SuperChat.Domain.Model;
+using SuperChat.Domain.Features.Auth;
+using SuperChat.Domain.Features.Integrations.Matrix;
+using SuperChat.Domain.Features.Integrations.Telegram;
+using SuperChat.Domain.Features.Intelligence;
+using SuperChat.Domain.Features.Messaging;
 
-namespace SuperChat.Infrastructure.Persistence;
+namespace SuperChat.Infrastructure.Shared.Persistence;
 
 internal static class PersistenceMappings
 {

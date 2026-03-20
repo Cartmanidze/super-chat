@@ -1,7 +1,8 @@
 using Microsoft.EntityFrameworkCore;
-using SuperChat.Infrastructure.Persistence;
+using SuperChat.Infrastructure.Shared.Persistence;
+using SuperChat.Infrastructure.Shared.Presentation;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Intelligence.WorkItems;
 
 internal sealed class WorkItemAutoResolutionService(
     IDbContextFactory<SuperChatDbContext> dbContextFactory)

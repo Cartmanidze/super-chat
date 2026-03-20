@@ -1,4 +1,4 @@
-namespace SuperChat.Contracts.ViewModels;
+namespace SuperChat.Contracts.Features.Chat;
 
 public sealed record ChatAnswerViewModel(
     string Mode,

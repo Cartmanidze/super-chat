@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Integrations.Telegram;
 
 internal sealed record TelegramRoomInfoApiResponse(
     [property: JsonPropertyName("peer_type")] string? PeerType,

@@ -1,8 +1,8 @@
 using Microsoft.EntityFrameworkCore;
-using SuperChat.Domain.Model;
-using SuperChat.Infrastructure.Persistence;
+using SuperChat.Domain.Features.Intelligence;
+using SuperChat.Infrastructure.Shared.Persistence;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Intelligence.WorkItems;
 
 internal sealed class WorkItemLookupService(
     IDbContextFactory<SuperChatDbContext> dbContextFactory)

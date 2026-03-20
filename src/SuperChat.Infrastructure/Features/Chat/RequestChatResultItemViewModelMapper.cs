@@ -1,6 +1,7 @@
-using SuperChat.Contracts.ViewModels;
+using SuperChat.Contracts.Features.Chat;
+using SuperChat.Contracts.Features.WorkItems;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Chat;
 
 internal static class RequestChatResultItemViewModelMapper
 {

@@ -1,7 +1,8 @@
-using SuperChat.Domain.Model;
-using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Domain.Features.Auth;
+using SuperChat.Domain.Features.Integrations;
+using SuperChat.Infrastructure.Features.Integrations.Telegram;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Integrations;
 
 public sealed class IntegrationConnectionService(
     ITelegramConnectionService telegramConnectionService) : IIntegrationConnectionService

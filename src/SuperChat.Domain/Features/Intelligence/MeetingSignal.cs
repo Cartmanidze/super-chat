@@ -1,4 +1,4 @@
-namespace SuperChat.Domain.Model;
+namespace SuperChat.Domain.Features.Intelligence;
 
 public sealed record MeetingSignal(
     string Title,

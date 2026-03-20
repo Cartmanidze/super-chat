@@ -1,10 +1,13 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using SuperChat.Contracts.Configuration;
-using SuperChat.Contracts.ViewModels;
-using SuperChat.Domain.Model;
-using SuperChat.Infrastructure.Persistence;
-using SuperChat.Infrastructure.Services;
+using SuperChat.Contracts.Features.Auth;
+using SuperChat.Contracts.Features.Intelligence.Meetings;
+using SuperChat.Domain.Features.Intelligence;
+using SuperChat.Infrastructure.Features.Intelligence.Digest;
+using SuperChat.Infrastructure.Features.Intelligence.Meetings;
+using SuperChat.Infrastructure.Features.Intelligence.WorkItems;
+using SuperChat.Infrastructure.Shared.Persistence;
+using SuperChat.Infrastructure.Shared.Presentation;
 
 namespace SuperChat.Tests;
 

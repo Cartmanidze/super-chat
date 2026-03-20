@@ -3,7 +3,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using SuperChat.Infrastructure.Abstractions;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Intelligence.Retrieval;
 
 internal static partial class LexicalSparseVectorBuilder
 {

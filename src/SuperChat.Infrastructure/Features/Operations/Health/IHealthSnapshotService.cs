@@ -1,4 +1,4 @@
-namespace SuperChat.Infrastructure.Abstractions;
+namespace SuperChat.Infrastructure.Features.Operations.Health;
 
 public interface IHealthSnapshotService
 {

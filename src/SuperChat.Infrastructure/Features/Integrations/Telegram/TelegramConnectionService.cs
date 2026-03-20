@@ -1,13 +1,15 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using System.Text.Json;
-using SuperChat.Contracts.Configuration;
-using SuperChat.Domain.Model;
-using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Persistence;
+using SuperChat.Contracts.Features.Auth;
+using SuperChat.Contracts.Features.Integrations.Telegram;
+using SuperChat.Domain.Features.Auth;
+using SuperChat.Domain.Features.Integrations.Telegram;
+using SuperChat.Infrastructure.Features.Integrations.Matrix;
+using SuperChat.Infrastructure.Shared.Persistence;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Integrations.Telegram;
 
 public sealed class TelegramConnectionService(
     IDbContextFactory<SuperChatDbContext> dbContextFactory,

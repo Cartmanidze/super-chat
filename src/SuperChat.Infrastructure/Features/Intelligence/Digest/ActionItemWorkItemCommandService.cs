@@ -1,6 +1,10 @@
+using SuperChat.Contracts.Features.WorkItems;
+using SuperChat.Domain.Features.Intelligence;
 using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Infrastructure.Features.Intelligence.WorkItems;
+using SuperChat.Infrastructure.Shared.Presentation;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Intelligence.Digest;
 
 internal sealed class ActionItemWorkItemCommandService(
     IWorkItemService workItemService,
@@ -27,8 +31,8 @@ internal sealed class ActionItemWorkItemCommandService(
                await resolveAsync(userId, actionItemId, cancellationToken);
     }
 
-    private static bool IsActionItem(SuperChat.Domain.Model.WorkItemRecord item)
+    private static bool IsActionItem(WorkItemRecord item)
     {
-        return WorkItemPresentationMetadata.ResolveType(item.Kind.ToString()) == SuperChat.Contracts.ViewModels.WorkItemType.ActionItem;
+        return WorkItemPresentationMetadata.ResolveType(item.Kind.ToString()) == WorkItemType.ActionItem;
     }
 }

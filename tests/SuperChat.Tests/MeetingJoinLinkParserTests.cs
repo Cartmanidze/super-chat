@@ -1,5 +1,5 @@
-using SuperChat.Contracts.ViewModels;
-using SuperChat.Infrastructure.Services;
+using SuperChat.Contracts.Features.WorkItems;
+using MeetingJoinLinkParser = SuperChat.Infrastructure.Shared.Presentation.MeetingJoinLinkParser;
 
 namespace SuperChat.Tests;
 

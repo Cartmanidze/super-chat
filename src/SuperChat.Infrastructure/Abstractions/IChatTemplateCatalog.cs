@@ -1,4 +1,4 @@
-using SuperChat.Contracts.ViewModels;
+using SuperChat.Contracts.Features.Chat;
 
 namespace SuperChat.Infrastructure.Abstractions;
 

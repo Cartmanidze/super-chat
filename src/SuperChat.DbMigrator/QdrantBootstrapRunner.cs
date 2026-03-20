@@ -1,7 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using SuperChat.Contracts.Configuration;
-using SuperChat.Infrastructure.Services;
+using SuperChat.Contracts.Features.Intelligence.Retrieval;
+using SuperChat.Infrastructure.Features.Intelligence.Retrieval;
 
 namespace SuperChat.DbMigrator;
 

@@ -1,6 +1,9 @@
 ﻿using Microsoft.Extensions.Options;
-using SuperChat.Contracts.Configuration;
+using SuperChat.Contracts.Features.Auth;
+using SuperChat.Contracts.Features.Integrations.Telegram;
+using SuperChat.Contracts.Features.Intelligence.Extraction;
 using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Infrastructure.Features.Operations.Health;
 
 namespace SuperChat.Api.Features.Health;
 

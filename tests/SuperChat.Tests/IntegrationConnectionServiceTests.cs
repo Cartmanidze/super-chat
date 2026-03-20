@@ -1,6 +1,9 @@
-using SuperChat.Domain.Model;
+using SuperChat.Domain.Features.Auth;
+using SuperChat.Domain.Features.Integrations;
+using SuperChat.Domain.Features.Integrations.Telegram;
 using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Services;
+using SuperChat.Infrastructure.Features.Integrations;
+using SuperChat.Infrastructure.Features.Integrations.Telegram;
 
 namespace SuperChat.Tests;
 

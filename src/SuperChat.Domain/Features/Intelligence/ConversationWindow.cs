@@ -1,4 +1,6 @@
-namespace SuperChat.Domain.Model;
+using SuperChat.Domain.Features.Messaging;
+
+namespace SuperChat.Domain.Features.Intelligence;
 
 public sealed record ConversationWindow(
     Guid UserId,

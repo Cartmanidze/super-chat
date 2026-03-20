@@ -1,8 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using SuperChat.Domain.Model;
+using SuperChat.Domain.Features.Integrations;
 using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Infrastructure.Features.Auth;
+using SuperChat.Infrastructure.Features.Integrations;
+using SuperChat.Infrastructure.Features.Integrations.Matrix;
 using SuperChat.Web.Security;
 
 namespace SuperChat.Web.Pages.Settings;

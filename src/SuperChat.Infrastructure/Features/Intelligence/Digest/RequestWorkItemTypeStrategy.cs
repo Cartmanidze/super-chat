@@ -1,6 +1,8 @@
-using SuperChat.Contracts.ViewModels;
+using SuperChat.Contracts.Features.WorkItems;
+using SuperChat.Domain.Features.Intelligence;
+using SuperChat.Infrastructure.Shared.Presentation;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Intelligence.Digest;
 
 internal sealed class RequestWorkItemTypeStrategy : IWorkItemTypeStrategy
 {
@@ -15,7 +17,7 @@ internal sealed class RequestWorkItemTypeStrategy : IWorkItemTypeStrategy
             .ToList();
     }
 
-    private static bool IsRequest(SuperChat.Domain.Model.WorkItemRecord item)
+    private static bool IsRequest(WorkItemRecord item)
     {
         return WorkItemPresentationMetadata.ResolveType(item.Kind.ToString()) == WorkItemType.Request;
     }

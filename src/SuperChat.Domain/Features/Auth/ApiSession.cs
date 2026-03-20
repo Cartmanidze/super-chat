@@ -1,4 +1,4 @@
-namespace SuperChat.Domain.Model;
+namespace SuperChat.Domain.Features.Auth;
 
 public sealed record ApiSession(
     Guid UserId,

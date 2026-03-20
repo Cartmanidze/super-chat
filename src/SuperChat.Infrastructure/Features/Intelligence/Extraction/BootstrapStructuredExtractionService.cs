@@ -1,9 +1,8 @@
 using Microsoft.Extensions.Options;
-using SuperChat.Contracts.Configuration;
-using SuperChat.Domain.Model;
-using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Contracts.Features.Intelligence.Extraction;
+using SuperChat.Domain.Features.Intelligence;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Intelligence.Extraction;
 
 public sealed class BootstrapStructuredExtractionService(
     HeuristicStructuredExtractionService heuristicService,

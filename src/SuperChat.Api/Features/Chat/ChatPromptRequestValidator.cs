@@ -1,6 +1,6 @@
 using FluentValidation;
-using SuperChat.Contracts.ViewModels;
-using SuperChat.Domain.Model;
+using SuperChat.Contracts.Features.Chat;
+using SuperChat.Domain.Features.Chat;
 using SuperChat.Infrastructure.Abstractions;
 
 namespace SuperChat.Api.Features.Chat;

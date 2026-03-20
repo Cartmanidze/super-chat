@@ -1,4 +1,4 @@
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Chat;
 
 internal sealed record RetrievedChatContext(
     string Title,

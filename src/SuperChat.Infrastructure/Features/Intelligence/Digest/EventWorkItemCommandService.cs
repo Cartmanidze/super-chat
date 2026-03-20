@@ -1,6 +1,7 @@
 using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Infrastructure.Features.Intelligence.Meetings;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Intelligence.Digest;
 
 internal sealed class EventWorkItemCommandService(
     IMeetingService meetingService,

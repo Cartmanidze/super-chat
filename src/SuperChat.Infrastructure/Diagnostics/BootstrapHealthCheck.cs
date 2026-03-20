@@ -1,10 +1,10 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
-using SuperChat.Contracts.Configuration;
-using SuperChat.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
+using SuperChat.Contracts.Features.Auth;
+using SuperChat.Infrastructure.Shared.Persistence;
 
-namespace SuperChat.Infrastructure.Health;
+namespace SuperChat.Infrastructure.Diagnostics;
 
 public sealed class BootstrapHealthCheck(
     IDbContextFactory<SuperChatDbContext> dbContextFactory,

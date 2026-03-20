@@ -1,4 +1,4 @@
-namespace SuperChat.Infrastructure.Abstractions;
+namespace SuperChat.Infrastructure.Features.Feedback;
 
 public interface IFeedbackService
 {

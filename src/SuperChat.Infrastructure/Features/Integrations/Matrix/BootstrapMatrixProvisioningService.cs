@@ -1,10 +1,10 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using SuperChat.Contracts.Configuration;
-using SuperChat.Domain.Model;
-using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Persistence;
+using SuperChat.Contracts.Features.Integrations.Matrix;
+using SuperChat.Domain.Features.Auth;
+using SuperChat.Domain.Features.Integrations.Matrix;
+using SuperChat.Infrastructure.Shared.Persistence;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Integrations.Matrix;
 
 public sealed class BootstrapMatrixProvisioningService(
     IDbContextFactory<SuperChatDbContext> dbContextFactory,

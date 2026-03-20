@@ -1,7 +1,7 @@
 using Qdrant.Client.Grpc;
 using SuperChat.Infrastructure.Abstractions;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Intelligence.Retrieval;
 
 internal static class QdrantChunkPayloadMappings
 {

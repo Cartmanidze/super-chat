@@ -1,8 +1,8 @@
-using SuperChat.Contracts.ViewModels;
-using SuperChat.Domain.Model;
+using SuperChat.Contracts.Features.Chat;
+using SuperChat.Domain.Features.Chat;
 using SuperChat.Infrastructure.Abstractions;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Chat;
 
 public sealed class ChatTemplateCatalog : IChatTemplateCatalog
 {

@@ -1,6 +1,6 @@
 using SuperChat.Infrastructure.Abstractions;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Intelligence.Extraction;
 
 internal static class TextEnrichmentResponseMappings
 {

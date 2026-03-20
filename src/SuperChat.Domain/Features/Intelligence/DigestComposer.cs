@@ -1,6 +1,4 @@
-using SuperChat.Domain.Model;
-
-namespace SuperChat.Domain.Services;
+namespace SuperChat.Domain.Features.Intelligence;
 
 public static class DigestComposer
 {

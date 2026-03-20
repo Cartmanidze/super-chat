@@ -1,4 +1,4 @@
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Intelligence.Meetings;
 
 internal static class MeetingTimeSupport
 {

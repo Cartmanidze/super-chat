@@ -1,7 +1,7 @@
-using SuperChat.Domain.Model;
+using SuperChat.Domain.Features.Intelligence;
 using SuperChat.Infrastructure.Abstractions;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Intelligence.WorkItems;
 
 internal sealed class WorkItemService(
     WorkItemIngestionService ingestionService,

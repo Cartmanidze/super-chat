@@ -1,11 +1,11 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
-using SuperChat.Domain.Model;
-using SuperChat.Domain.Services;
-using SuperChat.Infrastructure.Persistence;
+using SuperChat.Domain.Features.Intelligence;
+using SuperChat.Infrastructure.Shared.Persistence;
+using SuperChat.Infrastructure.Shared.Presentation;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Intelligence.Meetings;
 
 internal static class MeetingRecordMappings
 {

@@ -1,7 +1,8 @@
-﻿using SuperChat.Contracts.ViewModels;
+﻿using SuperChat.Contracts.Features.Search;
 using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Infrastructure.Features.Messaging;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Search;
 
 public sealed class SearchService(
     IWorkItemService workItemService,

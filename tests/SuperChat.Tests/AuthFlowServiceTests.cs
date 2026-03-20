@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
-using SuperChat.Contracts.Configuration;
-using SuperChat.Infrastructure.Persistence;
-using SuperChat.Infrastructure.Services;
+using SuperChat.Contracts.Features.Auth;
+using SuperChat.Contracts.Features.Integrations.Matrix;
+using SuperChat.Infrastructure.Features.Auth;
+using SuperChat.Infrastructure.Features.Integrations.Matrix;
+using SuperChat.Infrastructure.Shared.Persistence;
 
 namespace SuperChat.Tests;
 

@@ -1,4 +1,4 @@
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Intelligence.Extraction;
 
 internal sealed record TextEnrichmentRequestDto(
     string Text,

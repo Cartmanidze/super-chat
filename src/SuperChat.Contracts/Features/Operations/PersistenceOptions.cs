@@ -1,4 +1,4 @@
-﻿namespace SuperChat.Contracts.Configuration;
+﻿namespace SuperChat.Contracts.Features.Operations;
 
 public sealed class PersistenceOptions
 {

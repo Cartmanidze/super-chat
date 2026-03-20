@@ -1,4 +1,4 @@
-namespace SuperChat.Contracts.ViewModels;
+namespace SuperChat.Contracts.Features.Search;
 
 public sealed record SearchResultViewModel(
     string Title,

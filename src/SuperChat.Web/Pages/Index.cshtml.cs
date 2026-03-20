@@ -1,8 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using SuperChat.Contracts.ViewModels;
-using SuperChat.Domain.Model;
+using SuperChat.Contracts.Features.Chat;
+using SuperChat.Domain.Features.Chat;
+using SuperChat.Domain.Features.Integrations;
 using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Infrastructure.Features.Auth;
+using SuperChat.Infrastructure.Features.Chat;
+using SuperChat.Infrastructure.Features.Integrations;
 using SuperChat.Web.Localization;
 using SuperChat.Web.Security;
 

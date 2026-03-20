@@ -1,5 +1,5 @@
-using SuperChat.Contracts.Configuration;
-using SuperChat.Infrastructure.Services;
+using SuperChat.Contracts.Features.Operations;
+using IncomingMessageFilter = SuperChat.Infrastructure.Features.Messaging.IncomingMessageFilter;
 
 namespace SuperChat.Tests;
 

@@ -1,5 +1,5 @@
 using SuperChat.Contracts.Features.Admin;
-using SuperChat.Infrastructure.Services;
+using SuperChat.Infrastructure.Features.Operations;
 
 namespace SuperChat.Tests;
 

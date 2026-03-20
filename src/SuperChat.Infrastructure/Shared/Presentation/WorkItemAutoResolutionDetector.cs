@@ -1,8 +1,7 @@
-using SuperChat.Domain.Model;
-using SuperChat.Domain.Services;
-using SuperChat.Infrastructure.Persistence;
+using SuperChat.Domain.Features.Intelligence;
+using SuperChat.Infrastructure.Shared.Persistence;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Shared.Presentation;
 
 internal static class WorkItemAutoResolutionDetector
 {

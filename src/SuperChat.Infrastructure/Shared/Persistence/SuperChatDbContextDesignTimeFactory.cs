@@ -1,9 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
-using SuperChat.Contracts.Configuration;
+using SuperChat.Contracts.Features.Operations;
 
-namespace SuperChat.Infrastructure.Persistence;
+namespace SuperChat.Infrastructure.Shared.Persistence;
 
 public sealed class SuperChatDbContextDesignTimeFactory : IDesignTimeDbContextFactory<SuperChatDbContext>
 {

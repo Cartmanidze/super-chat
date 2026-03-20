@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace SuperChat.Contracts.ViewModels;
+namespace SuperChat.Contracts.Features.WorkItems;
 
 [JsonConverter(typeof(JsonStringEnumConverter<WorkItemType>))]
 public enum WorkItemType

@@ -1,9 +1,9 @@
-using SuperChat.Contracts.Configuration;
-using SuperChat.Domain.Model;
-using SuperChat.Domain.Services;
+using SuperChat.Contracts.Features.Auth;
+using SuperChat.Domain.Features.Intelligence;
+using SuperChat.Domain.Features.Messaging;
 using SuperChat.Infrastructure.Abstractions;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Intelligence.Extraction;
 
 public sealed class HeuristicStructuredExtractionService(
     PilotOptions pilotOptions,

@@ -1,8 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using SuperChat.Contracts.Configuration;
+using SuperChat.Contracts.Features.Operations;
 
-namespace SuperChat.Infrastructure.Persistence;
+namespace SuperChat.Infrastructure.Shared.Persistence;
 
 public static class SuperChatDbContextConfiguration
 {

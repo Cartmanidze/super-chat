@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Features.Intelligence.Digest;
 
 internal static class WorkItemTimeZoneResolver
 {

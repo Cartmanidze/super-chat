@@ -1,6 +1,6 @@
 using System.Net;
 using Microsoft.Extensions.Logging.Abstractions;
-using SuperChat.Infrastructure.Services;
+using SuperChat.Infrastructure.Features.Integrations.Telegram;
 
 namespace SuperChat.Tests;
 

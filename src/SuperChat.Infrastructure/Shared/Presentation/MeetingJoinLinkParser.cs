@@ -1,7 +1,7 @@
 using System.Text.RegularExpressions;
-using SuperChat.Contracts.ViewModels;
+using SuperChat.Contracts.Features.WorkItems;
 
-namespace SuperChat.Infrastructure.Services;
+namespace SuperChat.Infrastructure.Shared.Presentation;
 
 internal static partial class MeetingJoinLinkParser
 {

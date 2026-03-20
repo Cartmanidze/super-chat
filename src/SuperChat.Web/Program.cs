@@ -1,11 +1,11 @@
-using System.Globalization;
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.Extensions.Options;
-using SuperChat.Contracts.Configuration;
-using SuperChat.Infrastructure.Services;
-using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Contracts.Features.Auth;
+using SuperChat.Contracts.Features.Integrations.Telegram;
+using SuperChat.Contracts.Features.Intelligence.Extraction;
+using SuperChat.Infrastructure.Composition;
+using SuperChat.Infrastructure.Features.Operations.Health;
 using SuperChat.Web.Localization;
 using SuperChat.Web.Security;
 
@@ -134,4 +134,7 @@ static bool IsSafeLocalReturnUrl(string? returnUrl)
            !returnUrl.StartsWith("/\\", StringComparison.Ordinal);
 }
 
-public partial class Program;
+namespace SuperChat.Web
+{
+    public partial class Program;
+}

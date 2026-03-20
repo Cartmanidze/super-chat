@@ -1,8 +1,8 @@
 using System.Net;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using SuperChat.Contracts.Configuration;
-using SuperChat.Infrastructure.Services;
+using SuperChat.Contracts.Features.Integrations.Matrix;
+using MatrixApiClient = SuperChat.Infrastructure.Features.Integrations.Matrix.MatrixApiClient;
 
 namespace SuperChat.Tests;
 
