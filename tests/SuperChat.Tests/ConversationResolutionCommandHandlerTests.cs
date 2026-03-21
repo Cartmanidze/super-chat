@@ -61,12 +61,13 @@ public sealed class ConversationResolutionCommandHandlerTests
             new ConversationResolutionService(
                 factory,
                 new NoOpAiResolutionService(),
-                new WorkItemAutoResolutionService(factory),
-                new MeetingAutoResolutionService(factory),
+                new WorkItemAutoResolutionService(factory, NullLogger<WorkItemAutoResolutionService>.Instance),
+                new MeetingAutoResolutionService(factory, NullLogger<MeetingAutoResolutionService>.Instance),
                 Options.Create(new ResolutionOptions
                 {
                     UseLlm = false
-                })),
+                }),
+                NullLogger<ConversationResolutionService>.Instance),
             new FixedTimeProvider(observedAt.AddMinutes(10)),
             NullLogger<ResolveConversationItemsCommandHandler>.Instance);
 
@@ -136,12 +137,13 @@ public sealed class ConversationResolutionCommandHandlerTests
                         "deepseek-reasoner",
                         ["$evt-done"])
                 ]),
-                new WorkItemAutoResolutionService(factory),
-                new MeetingAutoResolutionService(factory),
+                new WorkItemAutoResolutionService(factory, NullLogger<WorkItemAutoResolutionService>.Instance),
+                new MeetingAutoResolutionService(factory, NullLogger<MeetingAutoResolutionService>.Instance),
                 Options.Create(new ResolutionOptions
                 {
                     UseLlm = true
-                })),
+                }),
+                NullLogger<ConversationResolutionService>.Instance),
             new FixedTimeProvider(observedAt.AddMinutes(10)),
             NullLogger<ResolveConversationItemsCommandHandler>.Instance);
 

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Infrastructure.Features.Messaging;
 using SuperChat.Infrastructure.Shared.Persistence;
@@ -12,7 +13,7 @@ public sealed class MessageNormalizationServiceTests
     {
         var scheduler = new RecordingPipelineCommandScheduler();
         var factory = await CreateFactoryAsync(CancellationToken.None);
-        var service = new MessageNormalizationService(factory, scheduler);
+        var service = new MessageNormalizationService(factory, scheduler, NullLogger<MessageNormalizationService>.Instance);
         var sentAt = new DateTimeOffset(2026, 03, 13, 10, 00, 00, TimeSpan.Zero);
 
         var stored = await service.TryStoreAsync(
@@ -39,7 +40,7 @@ public sealed class MessageNormalizationServiceTests
     {
         var scheduler = new RecordingPipelineCommandScheduler();
         var factory = await CreateFactoryAsync(CancellationToken.None);
-        var service = new MessageNormalizationService(factory, scheduler);
+        var service = new MessageNormalizationService(factory, scheduler, NullLogger<MessageNormalizationService>.Instance);
         var sentAt = new DateTimeOffset(2026, 03, 13, 10, 00, 00, TimeSpan.Zero);
         var userId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
 
@@ -88,10 +89,12 @@ public sealed class MessageNormalizationServiceTests
             Guid userId,
             string source,
             string matrixRoomId,
+            Guid normalizedMessageId,
+            string matrixEventId,
             DateTimeOffset sentAt,
             CancellationToken cancellationToken)
         {
-            Dispatches.Add(new RecordedDispatch(userId, source, matrixRoomId, sentAt));
+            Dispatches.Add(new RecordedDispatch(userId, source, matrixRoomId, normalizedMessageId, matrixEventId, sentAt));
             return Task.CompletedTask;
         }
     }
@@ -100,6 +103,8 @@ public sealed class MessageNormalizationServiceTests
         Guid UserId,
         string Source,
         string MatrixRoomId,
+        Guid NormalizedMessageId,
+        string MatrixEventId,
         DateTimeOffset SentAt);
 
     private sealed class TestDbContextFactory(DbContextOptions<SuperChatDbContext> options) : IDbContextFactory<SuperChatDbContext>

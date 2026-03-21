@@ -16,12 +16,19 @@ internal sealed class ResolveConversationItemsCommandHandler(
 
     public async Task Handle(ResolveConversationItemsCommand message)
     {
+        using var scope = MessagePipelineTrace.BeginScope(
+            logger,
+            message.UserId,
+            message.MatrixRoomId,
+            message.TriggerMessageId,
+            message.TriggerMatrixEventId);
         var stopwatch = Stopwatch.StartNew();
         var result = "succeeded";
         SuperChatMetrics.PipelineCommandsInProgress.WithLabels(CommandName).Inc();
 
         try
         {
+            logger.LogInformation("Pipeline command started. Command={CommandName}.", CommandName);
             await conversationResolutionService.ResolveConversationAsync(
                 message.UserId,
                 message.MatrixRoomId,
@@ -36,6 +43,11 @@ internal sealed class ResolveConversationItemsCommandHandler(
         }
         finally
         {
+            logger.LogInformation(
+                "Pipeline command completed. Command={CommandName}, Result={Result}, ElapsedMs={ElapsedMs}.",
+                CommandName,
+                result,
+                stopwatch.ElapsedMilliseconds);
             SuperChatMetrics.PipelineCommandsInProgress.WithLabels(CommandName).Dec();
             SuperChatMetrics.PipelineCommandsTotal.WithLabels(CommandName, result).Inc();
             SuperChatMetrics.PipelineCommandDurationSeconds.WithLabels(CommandName, result).Observe(stopwatch.Elapsed.TotalSeconds);
@@ -51,12 +63,22 @@ internal sealed class ResolveDueMeetingsCommandHandler(
 
     public async Task Handle(ResolveDueMeetingsCommand message)
     {
+        using var scope = MessagePipelineTrace.BeginScope(
+            logger,
+            message.UserId,
+            message.MatrixRoomId,
+            message.TriggerMessageId,
+            message.TriggerMatrixEventId);
         var stopwatch = Stopwatch.StartNew();
         var result = "succeeded";
         SuperChatMetrics.PipelineCommandsInProgress.WithLabels(CommandName).Inc();
 
         try
         {
+            logger.LogInformation(
+                "Pipeline command started. Command={CommandName}, ResolveAfter={ResolveAfter}.",
+                CommandName,
+                message.ResolveAfter);
             await conversationResolutionService.ResolveDueMeetingsAsync(
                 message.UserId,
                 message.MatrixRoomId,
@@ -71,6 +93,11 @@ internal sealed class ResolveDueMeetingsCommandHandler(
         }
         finally
         {
+            logger.LogInformation(
+                "Pipeline command completed. Command={CommandName}, Result={Result}, ElapsedMs={ElapsedMs}.",
+                CommandName,
+                result,
+                stopwatch.ElapsedMilliseconds);
             SuperChatMetrics.PipelineCommandsInProgress.WithLabels(CommandName).Dec();
             SuperChatMetrics.PipelineCommandsTotal.WithLabels(CommandName, result).Inc();
             SuperChatMetrics.PipelineCommandDurationSeconds.WithLabels(CommandName, result).Observe(stopwatch.Elapsed.TotalSeconds);

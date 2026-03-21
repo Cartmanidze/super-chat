@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SuperChat.Contracts.Features.Operations;
 using SuperChat.Domain.Features.Intelligence;
@@ -15,7 +16,8 @@ internal sealed class ConversationResolutionService(
     IAiResolutionService aiResolutionService,
     WorkItemAutoResolutionService workItemAutoResolutionService,
     MeetingAutoResolutionService meetingAutoResolutionService,
-    IOptions<ResolutionOptions> resolutionOptions)
+    IOptions<ResolutionOptions> resolutionOptions,
+    ILogger<ConversationResolutionService> logger)
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -26,10 +28,19 @@ internal sealed class ConversationResolutionService(
         CancellationToken cancellationToken)
     {
         var candidates = await LoadConversationCandidatesAsync(userId, matrixRoomId, now, cancellationToken);
+        logger.LogInformation(
+            "Loaded conversation resolution candidates. CandidateCount={CandidateCount}.",
+            candidates.Count);
         var aiDecisions = await aiResolutionService.ResolveAsync(candidates, cancellationToken);
+        logger.LogInformation(
+            "AI conversation resolution completed. DecisionCount={DecisionCount}.",
+            aiDecisions.Count);
         if (aiDecisions.Count > 0)
         {
-            await ApplyAiDecisionsAsync(userId, aiDecisions, cancellationToken);
+            var appliedCount = await ApplyAiDecisionsAsync(userId, aiDecisions, cancellationToken);
+            logger.LogInformation(
+                "Applied AI conversation resolution decisions. AppliedCount={AppliedCount}.",
+                appliedCount);
         }
 
         await workItemAutoResolutionService.ResolveConversationAsync(userId, matrixRoomId, cancellationToken);
@@ -43,10 +54,20 @@ internal sealed class ConversationResolutionService(
         CancellationToken cancellationToken)
     {
         var candidates = await LoadDueMeetingCandidatesAsync(userId, matrixRoomId, resolveAfter, cancellationToken);
+        logger.LogInformation(
+            "Loaded due meeting resolution candidates. CandidateCount={CandidateCount}, ResolveAfter={ResolveAfter}.",
+            candidates.Count,
+            resolveAfter);
         var aiDecisions = await aiResolutionService.ResolveAsync(candidates, cancellationToken);
+        logger.LogInformation(
+            "AI due meeting resolution completed. DecisionCount={DecisionCount}.",
+            aiDecisions.Count);
         if (aiDecisions.Count > 0)
         {
-            await ApplyAiDecisionsAsync(userId, aiDecisions, cancellationToken);
+            var appliedCount = await ApplyAiDecisionsAsync(userId, aiDecisions, cancellationToken);
+            logger.LogInformation(
+                "Applied AI due meeting resolution decisions. AppliedCount={AppliedCount}.",
+                appliedCount);
         }
 
         await meetingAutoResolutionService.ResolveDueMeetingsAsync(userId, matrixRoomId, resolveAfter, cancellationToken);
@@ -148,7 +169,7 @@ internal sealed class ConversationResolutionService(
         return SelectTopCandidates(candidates, resolveAfter, options.MaxCandidatesPerRequest);
     }
 
-    private async Task ApplyAiDecisionsAsync(
+    private async Task<int> ApplyAiDecisionsAsync(
         Guid userId,
         IReadOnlyList<AiResolutionDecisionResult> decisions,
         CancellationToken cancellationToken)
@@ -164,18 +185,23 @@ internal sealed class ConversationResolutionService(
             .ToListAsync(cancellationToken);
 
         var changed = false;
+        var appliedCount = 0;
         foreach (var decision in decisions)
         {
             var workItem = workItems.SingleOrDefault(item => item.Id == decision.CandidateId);
             if (workItem is not null)
             {
-                changed |= ApplyResolution(workItem, decision);
+                var applied = ApplyResolution(workItem, decision);
+                changed |= applied;
+                appliedCount += applied ? 1 : 0;
             }
 
             var meeting = meetings.SingleOrDefault(item => item.Id == decision.CandidateId);
             if (meeting is not null)
             {
-                changed |= ApplyResolution(meeting, decision);
+                var applied = ApplyResolution(meeting, decision);
+                changed |= applied;
+                appliedCount += applied ? 1 : 0;
             }
         }
 
@@ -183,6 +209,8 @@ internal sealed class ConversationResolutionService(
         {
             await dbContext.SaveChangesAsync(cancellationToken);
         }
+
+        return appliedCount;
     }
 
     private static bool ApplyResolution(WorkItemEntity entity, AiResolutionDecisionResult decision)

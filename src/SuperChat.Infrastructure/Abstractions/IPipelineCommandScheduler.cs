@@ -11,6 +11,8 @@ public interface IPipelineCommandScheduler
         Guid userId,
         string source,
         string matrixRoomId,
+        Guid normalizedMessageId,
+        string matrixEventId,
         DateTimeOffset sentAt,
         CancellationToken cancellationToken);
 }

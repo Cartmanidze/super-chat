@@ -1,14 +1,16 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SuperChat.Domain.Features.Messaging;
-using SuperChat.Infrastructure.Diagnostics;
 using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Infrastructure.Diagnostics;
 using SuperChat.Infrastructure.Shared.Persistence;
 
 namespace SuperChat.Infrastructure.Features.Messaging;
 
 public sealed class MessageNormalizationService(
     IDbContextFactory<SuperChatDbContext> dbContextFactory,
-    IPipelineCommandScheduler pipelineCommandScheduler) : IMessageNormalizationService
+    IPipelineCommandScheduler pipelineCommandScheduler,
+    ILogger<MessageNormalizationService> logger) : IMessageNormalizationService
 {
     public async Task<IReadOnlyList<NormalizedMessage>> GetPendingMessagesAsync(CancellationToken cancellationToken)
     {
@@ -92,13 +94,24 @@ public sealed class MessageNormalizationService(
 
         if (exists)
         {
+            using var duplicateScope = MessagePipelineTrace.BeginScope(logger, userId, roomId, triggerMatrixEventId: eventId);
+            logger.LogInformation(
+                "Skipped normalized message because it already exists. Source={Source}, SenderName={SenderName}, SentAt={SentAt}, TextLength={TextLength}, Preview={Preview}.",
+                "telegram",
+                senderName,
+                sentAt,
+                text.Length,
+                MessagePipelineTrace.CreatePreview(text));
             SuperChatMetrics.NormalizedMessagesDuplicateTotal.WithLabels("telegram").Inc();
             return false;
         }
 
+        var normalizedMessageId = Guid.NewGuid();
+        using var scope = MessagePipelineTrace.BeginScope(logger, userId, roomId, normalizedMessageId, eventId);
+
         dbContext.NormalizedMessages.Add(new NormalizedMessageEntity
         {
-            Id = Guid.NewGuid(),
+            Id = normalizedMessageId,
             UserId = userId,
             Source = "telegram",
             MatrixRoomId = roomId,
@@ -109,6 +122,14 @@ public sealed class MessageNormalizationService(
             IngestedAt = DateTimeOffset.UtcNow,
             Processed = false
         });
+
+        logger.LogInformation(
+            "Persisting normalized message. Source={Source}, SenderName={SenderName}, SentAt={SentAt}, TextLength={TextLength}, Preview={Preview}.",
+            "telegram",
+            senderName,
+            sentAt,
+            text.Length,
+            MessagePipelineTrace.CreatePreview(text));
 
         if (pipelineCommandScheduler.RequiresTransactionalDispatch)
         {
@@ -122,14 +143,22 @@ public sealed class MessageNormalizationService(
                     userId,
                     "telegram",
                     roomId,
+                    normalizedMessageId,
+                    eventId,
                     sentAt,
                     cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
+                logger.LogInformation(
+                    "Stored normalized message and dispatched pipeline commands transactionally. SentAt={SentAt}.",
+                    sentAt);
                 SuperChatMetrics.NormalizedMessagesStoredTotal.WithLabels("telegram").Inc();
                 return true;
             }
             catch (DbUpdateException)
             {
+                logger.LogInformation(
+                    "Skipped normalized message after transactional save attempt because it was already written concurrently. SentAt={SentAt}.",
+                    sentAt);
                 SuperChatMetrics.NormalizedMessagesDuplicateTotal.WithLabels("telegram").Inc();
                 return false;
             }
@@ -143,13 +172,21 @@ public sealed class MessageNormalizationService(
                 userId,
                 "telegram",
                 roomId,
+                normalizedMessageId,
+                eventId,
                 sentAt,
                 cancellationToken);
+            logger.LogInformation(
+                "Stored normalized message and dispatched pipeline commands. SentAt={SentAt}.",
+                sentAt);
             SuperChatMetrics.NormalizedMessagesStoredTotal.WithLabels("telegram").Inc();
             return true;
         }
         catch (DbUpdateException)
         {
+            logger.LogInformation(
+                "Skipped normalized message after save attempt because it was already written concurrently. SentAt={SentAt}.",
+                sentAt);
             SuperChatMetrics.NormalizedMessagesDuplicateTotal.WithLabels("telegram").Inc();
             return false;
         }

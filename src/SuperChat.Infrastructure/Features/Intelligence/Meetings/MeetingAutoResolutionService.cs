@@ -1,11 +1,13 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SuperChat.Infrastructure.Shared.Persistence;
 using SuperChat.Infrastructure.Shared.Presentation;
 
 namespace SuperChat.Infrastructure.Features.Intelligence.Meetings;
 
 internal sealed class MeetingAutoResolutionService(
-    IDbContextFactory<SuperChatDbContext> dbContextFactory)
+    IDbContextFactory<SuperChatDbContext> dbContextFactory,
+    ILogger<MeetingAutoResolutionService> logger)
 {
     public async Task ResolveAsync(
         Guid userId,
@@ -63,6 +65,12 @@ internal sealed class MeetingAutoResolutionService(
             .Where(item => item.ScheduledFor >= scheduledFrom)
             .ToList();
 
+        logger.LogInformation(
+            "Loaded meeting auto-resolution candidates. CandidateCount={CandidateCount}, MatrixRoomId={MatrixRoomId}, DueBeforeInclusive={DueBeforeInclusive}.",
+            candidates.Count,
+            matrixRoomId ?? "(all)",
+            dueBeforeInclusive);
+
         if (candidates.Count == 0)
         {
             return;
@@ -88,6 +96,7 @@ internal sealed class MeetingAutoResolutionService(
             .ToDictionary(group => group.Key, group => (IReadOnlyList<NormalizedMessageEntity>)group.ToList(), StringComparer.Ordinal);
 
         var changed = false;
+        var resolvedCount = 0;
         foreach (var meeting in candidates)
         {
             var roomMessages = messagesByRoom.GetValueOrDefault(meeting.SourceRoom);
@@ -113,11 +122,18 @@ internal sealed class MeetingAutoResolutionService(
             meeting.ResolutionSource = resolution.ResolutionSource;
             meeting.UpdatedAt = DateTimeOffset.UtcNow;
             changed = true;
+            resolvedCount++;
         }
 
         if (changed)
         {
             await dbContext.SaveChangesAsync(cancellationToken);
         }
+
+        logger.LogInformation(
+            "Completed meeting auto-resolution. CandidateCount={CandidateCount}, ResolvedCount={ResolvedCount}, MessageCount={MessageCount}.",
+            candidates.Count,
+            resolvedCount,
+            messages.Count);
     }
 }

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using Rebus.Bus;
@@ -16,7 +17,8 @@ namespace SuperChat.Infrastructure.Features.Operations;
 
 internal sealed class RebusPipelineCommandScheduler(
     IBus bus,
-    IOptions<ChunkingOptions> chunkingOptions) : IPipelineCommandScheduler
+    IOptions<ChunkingOptions> chunkingOptions,
+    ILogger<RebusPipelineCommandScheduler> logger) : IPipelineCommandScheduler
 {
     public bool RequiresTransactionalDispatch => true;
 
@@ -25,6 +27,8 @@ internal sealed class RebusPipelineCommandScheduler(
         Guid userId,
         string source,
         string matrixRoomId,
+        Guid normalizedMessageId,
+        string matrixEventId,
         DateTimeOffset sentAt,
         CancellationToken cancellationToken)
     {
@@ -46,24 +50,37 @@ internal sealed class RebusPipelineCommandScheduler(
 
         using var rebusTransactionScope = new RebusTransactionScope();
         rebusTransactionScope.UseOutbox(npgsqlConnection, npgsqlTransaction);
+        using var scope = MessagePipelineTrace.BeginScope(logger, userId, matrixRoomId, normalizedMessageId, matrixEventId);
+
+        var rebuildFrom = sentAt.AddMinutes(-Math.Max(1, chunkingOptions.Value.MaxGapMinutes));
+        logger.LogInformation(
+            "Dispatching transactional pipeline commands for normalized message. Source={Source}, SentAt={SentAt}, RebuildFrom={RebuildFrom}, SettleDelaySeconds={SettleDelaySeconds}.",
+            source,
+            sentAt,
+            rebuildFrom,
+            ConversationWindowSettlement.SettleDelay.TotalSeconds);
 
         await bus.DeferLocal(
             ConversationWindowSettlement.SettleDelay,
-            new ProcessConversationAfterSettleCommand(userId, source, matrixRoomId));
+            new ProcessConversationAfterSettleCommand(userId, source, matrixRoomId, normalizedMessageId, matrixEventId));
         await bus.SendLocal(new RebuildConversationChunksCommand(
             userId,
             matrixRoomId,
-            sentAt.AddMinutes(-Math.Max(1, chunkingOptions.Value.MaxGapMinutes))));
+            rebuildFrom,
+            normalizedMessageId,
+            matrixEventId));
         SuperChatMetrics.PipelineDispatchTotal.WithLabels("transactional", "process_conversation_after_settle").Inc();
         SuperChatMetrics.PipelineDispatchTotal.WithLabels("transactional", "rebuild_conversation_chunks").Inc();
 
         await rebusTransactionScope.CompleteAsync();
+        logger.LogInformation("Transactional pipeline commands dispatched successfully.");
     }
 }
 
 internal sealed class NonTransactionalRebusPipelineCommandScheduler(
     IBus bus,
-    IOptions<ChunkingOptions> chunkingOptions) : IPipelineCommandScheduler
+    IOptions<ChunkingOptions> chunkingOptions,
+    ILogger<NonTransactionalRebusPipelineCommandScheduler> logger) : IPipelineCommandScheduler
 {
     public bool RequiresTransactionalDispatch => false;
 
@@ -72,18 +89,33 @@ internal sealed class NonTransactionalRebusPipelineCommandScheduler(
         Guid userId,
         string source,
         string matrixRoomId,
+        Guid normalizedMessageId,
+        string matrixEventId,
         DateTimeOffset sentAt,
         CancellationToken cancellationToken)
     {
+        using var scope = MessagePipelineTrace.BeginScope(logger, userId, matrixRoomId, normalizedMessageId, matrixEventId);
+
+        var rebuildFrom = sentAt.AddMinutes(-Math.Max(1, chunkingOptions.Value.MaxGapMinutes));
+        logger.LogInformation(
+            "Dispatching non-transactional pipeline commands for normalized message. Source={Source}, SentAt={SentAt}, RebuildFrom={RebuildFrom}, SettleDelaySeconds={SettleDelaySeconds}.",
+            source,
+            sentAt,
+            rebuildFrom,
+            ConversationWindowSettlement.SettleDelay.TotalSeconds);
+
         await bus.DeferLocal(
             ConversationWindowSettlement.SettleDelay,
-            new ProcessConversationAfterSettleCommand(userId, source, matrixRoomId));
+            new ProcessConversationAfterSettleCommand(userId, source, matrixRoomId, normalizedMessageId, matrixEventId));
         await bus.SendLocal(new RebuildConversationChunksCommand(
             userId,
             matrixRoomId,
-            sentAt.AddMinutes(-Math.Max(1, chunkingOptions.Value.MaxGapMinutes))));
+            rebuildFrom,
+            normalizedMessageId,
+            matrixEventId));
         SuperChatMetrics.PipelineDispatchTotal.WithLabels("non_transactional", "process_conversation_after_settle").Inc();
         SuperChatMetrics.PipelineDispatchTotal.WithLabels("non_transactional", "rebuild_conversation_chunks").Inc();
+        logger.LogInformation("Non-transactional pipeline commands dispatched successfully.");
     }
 }
 
@@ -96,6 +128,8 @@ internal sealed class NoOpPipelineCommandScheduler : IPipelineCommandScheduler
         Guid userId,
         string source,
         string matrixRoomId,
+        Guid normalizedMessageId,
+        string matrixEventId,
         DateTimeOffset sentAt,
         CancellationToken cancellationToken)
     {

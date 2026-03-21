@@ -247,6 +247,13 @@ public sealed class MatrixSyncBackgroundService(
                 }
 
                 var senderName = DeriveSenderName(timelineEvent.Sender, target.MatrixUserId);
+                logger.LogInformation(
+                    "Accepted Matrix event for normalization. EventId={EventId}, SenderName={SenderName}, SentAt={SentAt}, BodyLength={BodyLength}, Preview={Preview}.",
+                    timelineEvent.EventId,
+                    senderName,
+                    timelineEvent.SentAt,
+                    timelineEvent.Body.Length,
+                    MessagePipelineTrace.CreatePreview(timelineEvent.Body));
                 var stored = await normalizationService.TryStoreAsync(
                     target.UserId,
                     room.RoomId,
@@ -258,6 +265,11 @@ public sealed class MatrixSyncBackgroundService(
 
                 if (stored)
                 {
+                    logger.LogInformation(
+                        "Matrix event entered message pipeline successfully. EventId={EventId}, SenderName={SenderName}, SentAt={SentAt}.",
+                        timelineEvent.EventId,
+                        senderName,
+                        timelineEvent.SentAt);
                     ingestedMessages++;
                     connected = true;
                 }

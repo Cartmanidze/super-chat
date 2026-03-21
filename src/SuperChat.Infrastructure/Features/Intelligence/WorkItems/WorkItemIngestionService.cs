@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SuperChat.Domain.Features.Intelligence;
 using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Infrastructure.Diagnostics;
 using SuperChat.Infrastructure.Features.Intelligence.Extraction;
 using SuperChat.Infrastructure.Shared.Persistence;
 
@@ -8,13 +10,21 @@ namespace SuperChat.Infrastructure.Features.Intelligence.WorkItems;
 
 internal sealed class WorkItemIngestionService(
     IDbContextFactory<SuperChatDbContext> dbContextFactory,
-    IMeetingService meetingService)
+    IMeetingService meetingService,
+    ILogger<WorkItemIngestionService> logger)
 {
     public async Task IngestRangeAsync(IEnumerable<ExtractedItem> items, CancellationToken cancellationToken)
     {
-        var filteredItems = items
+        var incomingItems = items.ToList();
+        var filteredItems = incomingItems
             .Where(ExtractedItemFilters.ShouldKeep)
             .ToList();
+
+        logger.LogInformation(
+            "Prepared extracted items for ingestion. IncomingItemCount={IncomingItemCount}, RetainedItemCount={RetainedItemCount}, ItemKinds={ItemKinds}.",
+            incomingItems.Count,
+            filteredItems.Count,
+            MessagePipelineTrace.SummarizeKinds(filteredItems));
 
         if (filteredItems.Count == 0)
         {
@@ -49,5 +59,9 @@ internal sealed class WorkItemIngestionService(
         }
 
         await meetingService.UpsertRangeAsync(filteredItems, cancellationToken);
+        logger.LogInformation(
+            "Completed extracted item ingestion. WorkItemCount={WorkItemCount}, MeetingCount={MeetingCount}.",
+            workItemEntities.Count,
+            filteredItems.Count(item => item.Kind == ExtractedItemKind.Meeting));
     }
 }

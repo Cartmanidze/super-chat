@@ -1,11 +1,13 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SuperChat.Infrastructure.Shared.Persistence;
 using SuperChat.Infrastructure.Shared.Presentation;
 
 namespace SuperChat.Infrastructure.Features.Intelligence.WorkItems;
 
 internal sealed class WorkItemAutoResolutionService(
-    IDbContextFactory<SuperChatDbContext> dbContextFactory)
+    IDbContextFactory<SuperChatDbContext> dbContextFactory,
+    ILogger<WorkItemAutoResolutionService> logger)
 {
     public async Task ResolveAsync(Guid userId, CancellationToken cancellationToken)
     {
@@ -37,6 +39,11 @@ internal sealed class WorkItemAutoResolutionService(
         var candidates = await candidatesQuery
             .ToListAsync(cancellationToken);
 
+        logger.LogInformation(
+            "Loaded work item auto-resolution candidates. CandidateCount={CandidateCount}, MatrixRoomId={MatrixRoomId}.",
+            candidates.Count,
+            matrixRoomId ?? "(all)");
+
         if (candidates.Count == 0)
         {
             return;
@@ -62,6 +69,7 @@ internal sealed class WorkItemAutoResolutionService(
             .ToDictionary(group => group.Key, group => (IReadOnlyList<NormalizedMessageEntity>)group.ToList(), StringComparer.Ordinal);
 
         var changed = false;
+        var resolvedCount = 0;
         foreach (var item in candidates)
         {
             var roomMessages = messagesByRoom.GetValueOrDefault(item.SourceRoom);
@@ -85,12 +93,19 @@ internal sealed class WorkItemAutoResolutionService(
             item.ResolutionSource = resolution.ResolutionSource;
             item.UpdatedAt = resolution.ResolvedAt;
             changed = true;
+            resolvedCount++;
         }
 
         if (changed)
         {
             await dbContext.SaveChangesAsync(cancellationToken);
         }
+
+        logger.LogInformation(
+            "Completed work item auto-resolution. CandidateCount={CandidateCount}, ResolvedCount={ResolvedCount}, MessageCount={MessageCount}.",
+            candidates.Count,
+            resolvedCount,
+            messages.Count);
     }
 
     private static bool IsLaterThanItem(NormalizedMessageEntity message, WorkItemEntity item)

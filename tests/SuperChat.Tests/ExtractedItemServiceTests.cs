@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SuperChat.Contracts.Features.Auth;
 using SuperChat.Contracts.Features.Intelligence.Meetings;
@@ -446,8 +447,8 @@ public sealed class ExtractedItemServiceTests
     private static WorkItemService CreateService(IDbContextFactory<SuperChatDbContext> factory)
     {
         return new WorkItemService(
-            new WorkItemIngestionService(factory, CreateMeetingService(factory)),
-            new WorkItemQueryService(factory, new WorkItemAutoResolutionService(factory)),
+            new WorkItemIngestionService(factory, CreateMeetingService(factory), NullLogger<WorkItemIngestionService>.Instance),
+            new WorkItemQueryService(factory, new WorkItemAutoResolutionService(factory, NullLogger<WorkItemAutoResolutionService>.Instance)),
             new WorkItemManualResolutionService(factory));
     }
 
@@ -455,7 +456,7 @@ public sealed class ExtractedItemServiceTests
     {
         return new MeetingService(
             new MeetingUpsertService(factory),
-            new MeetingUpcomingQueryService(factory, new MeetingAutoResolutionService(factory)),
+            new MeetingUpcomingQueryService(factory, new MeetingAutoResolutionService(factory, NullLogger<MeetingAutoResolutionService>.Instance)),
             new MeetingManualResolutionService(factory));
     }
 
