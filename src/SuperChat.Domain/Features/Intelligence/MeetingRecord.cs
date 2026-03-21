@@ -11,5 +11,9 @@ public sealed record MeetingRecord(
     DateTimeOffset ObservedAt,
     DateTimeOffset ScheduledFor,
     double Confidence,
+    string? ResolutionKind = null,
+    string? ResolutionSource = null,
+    ResolutionTrace? ResolutionTrace = null,
+    DateTimeOffset? ResolvedAt = null,
     string? MeetingProvider = null,
     Uri? MeetingJoinUrl = null);

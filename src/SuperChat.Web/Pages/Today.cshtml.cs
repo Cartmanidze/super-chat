@@ -18,7 +18,8 @@ public sealed class TodayModel(
     IIntegrationConnectionService integrationConnectionService,
     IRequestWorkItemCommandService requestWorkItemCommandService,
     IActionItemWorkItemCommandService actionItemWorkItemCommandService,
-    IEventWorkItemCommandService eventWorkItemCommandService) : PageModel
+    IEventWorkItemCommandService eventWorkItemCommandService,
+    TimeProvider timeProvider) : PageModel
 {
     private const string DefaultSectionId = "waiting";
 
@@ -58,6 +59,8 @@ public sealed class TodayModel(
         "Точки, где кто-то ждет от вас следующий шаг.",
         "Сейчас нет явных мест, где кто-то ждет ответ.");
 
+    public IReadOnlyList<ResolvedHistoryCard> RecentResolvedItems { get; private set; } = [];
+
     public IReadOnlyList<TodaySection> Sections => [
         WaitingSection,
         CommitmentsSection,
@@ -81,10 +84,18 @@ public sealed class TodayModel(
         var waitingCards = await digestService.GetWaitingAsync(userId, cancellationToken);
         var meetingCards = await digestService.GetMeetingsAsync(userId, cancellationToken);
         var todayCards = await digestService.GetTodayAsync(userId, cancellationToken);
-        var commitments = (await workItemService.GetActiveForUserAsync(userId, cancellationToken))
+        var allItems = await workItemService.GetForUserAsync(userId, cancellationToken);
+        var commitments = allItems
+            .Where(item => item.ResolvedAt is null)
             .Where(item => item.Kind == ExtractedItemKind.Commitment)
             .OrderByDescending(item => item.DueAt ?? item.ObservedAt)
             .Take(8)
+            .ToList();
+        RecentResolvedItems = ResolvedHistoryComposer.BuildRecentAutoResolved(
+                allItems,
+                timeProvider.GetUtcNow(),
+                6)
+            .Select(item => item.ToResolvedHistoryCard())
             .ToList();
 
         WaitingSection = new TodaySection(

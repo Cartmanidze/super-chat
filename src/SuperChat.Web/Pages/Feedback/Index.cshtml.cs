@@ -14,13 +14,13 @@ public sealed class IndexModel(
     IFeedbackService feedbackService,
     IStringLocalizer<SharedResource> localizer) : PageModel
 {
-    [BindProperty]
+    [BindProperty(SupportsGet = true)]
     public string Area { get; set; } = "today";
 
-    [BindProperty]
+    [BindProperty(SupportsGet = true)]
     public bool Useful { get; set; } = true;
 
-    [BindProperty]
+    [BindProperty(SupportsGet = true)]
     public string? Note { get; set; }
 
     public string StatusMessage { get; private set; } = string.Empty;

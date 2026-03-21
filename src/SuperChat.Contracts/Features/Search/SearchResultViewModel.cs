@@ -5,4 +5,6 @@ public sealed record SearchResultViewModel(
     string Summary,
     string Kind,
     string SourceRoom,
-    DateTimeOffset ObservedAt);
+    DateTimeOffset ObservedAt,
+    string? ResolutionNote = null,
+    double? ResolutionConfidence = null);

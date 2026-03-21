@@ -23,6 +23,7 @@ using SuperChat.Infrastructure.Features.Integrations.Telegram;
 using SuperChat.Infrastructure.Features.Intelligence.Digest;
 using SuperChat.Infrastructure.Features.Intelligence.Extraction;
 using SuperChat.Infrastructure.Features.Intelligence.Meetings;
+using SuperChat.Infrastructure.Features.Intelligence.Resolution;
 using SuperChat.Infrastructure.Features.Intelligence.Retrieval;
 using SuperChat.Infrastructure.Features.Intelligence.WorkItems;
 using SuperChat.Infrastructure.Features.Messaging;
@@ -85,6 +86,9 @@ public static class ServiceCollectionExtensions
         services
             .AddOptions<PipelineMessagingOptions>()
             .Bind(configuration.GetSection(PipelineMessagingOptions.SectionName));
+        services
+            .AddOptions<ResolutionOptions>()
+            .Bind(configuration.GetSection(ResolutionOptions.SectionName));
         services
             .AddOptions<TelegramBridgeOptions>()
             .Bind(configuration.GetSection(TelegramBridgeOptions.SectionName));
@@ -176,6 +180,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<MeetingUpcomingQueryService>();
         services.AddSingleton<MeetingManualResolutionService>();
         services.AddSingleton<IMeetingService, MeetingService>();
+        services.AddSingleton<ConversationResolutionService>();
         services.AddSingleton<WorkItemIngestionService>();
         services.AddSingleton<WorkItemAutoResolutionService>();
         services.AddSingleton<WorkItemLookupService>();
@@ -194,6 +199,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<HeuristicStructuredExtractionService>();
         services.AddSingleton<DeepSeekStructuredExtractionService>();
         services.AddSingleton<IAiStructuredExtractionService, BootstrapStructuredExtractionService>();
+        services.AddSingleton<IAiResolutionService, DeepSeekResolutionService>();
         services.AddSingleton<IDigestService, DigestService>();
         services.AddSingleton<ISearchService, SearchService>();
         services.AddSingleton<IChatExperienceService, ChatExperienceService>();

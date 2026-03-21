@@ -30,4 +30,24 @@
       }
     </div>
   }
+
+  @if (Model.RecentResolvedItems.Count > 0)
+  {
+    <div class="stack">
+      <div class="section-head">
+        <h2>Недавно закрыто автоматически</h2>
+        <p>Сигналы, которые уже не требуют ответа, но которые полезно быстро сверить.</p>
+      </div>
+
+      @foreach (var card in Model.RecentResolvedItems)
+      {
+        <article class="section-card">
+          <span class="pill">Авто-резолв</span>
+          <h2>@UiText.CardTitle(card.Title)</h2>
+          <p>@card.Summary</p>
+          <small>@card.ResolutionNote · @card.ResolvedAt.ToLocalTime().ToString("dd.MM, HH:mm")</small>
+        </article>
+      }
+    </div>
+  }
 </section>

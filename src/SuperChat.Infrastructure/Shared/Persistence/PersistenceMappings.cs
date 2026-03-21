@@ -1,3 +1,4 @@
+using System.Text.Json;
 using SuperChat.Domain.Features.Auth;
 using SuperChat.Domain.Features.Integrations.Matrix;
 using SuperChat.Domain.Features.Integrations.Telegram;
@@ -8,6 +9,8 @@ namespace SuperChat.Infrastructure.Shared.Persistence;
 
 internal static class PersistenceMappings
 {
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
     public static AppUser ToDomain(this AppUserEntity entity)
     {
         return new AppUser(entity.Id, entity.Email, entity.CreatedAt, entity.LastSeenAt);
@@ -82,7 +85,11 @@ internal static class PersistenceMappings
             entity.Person,
             entity.ObservedAt,
             entity.DueAt,
-            entity.Confidence);
+            entity.Confidence,
+            entity.ResolutionKind,
+            entity.ResolutionSource,
+            ToResolutionTrace(entity.ResolutionConfidence, entity.ResolutionModel, entity.ResolutionEvidenceJson),
+            entity.ResolvedAt);
     }
 
     public static MeetingRecord ToDomain(this MeetingEntity entity)
@@ -98,7 +105,32 @@ internal static class PersistenceMappings
             entity.ObservedAt,
             entity.ScheduledFor,
             entity.Confidence,
+            entity.ResolutionKind,
+            entity.ResolutionSource,
+            ToResolutionTrace(entity.ResolutionConfidence, entity.ResolutionModel, entity.ResolutionEvidenceJson),
+            entity.ResolvedAt,
             entity.MeetingProvider,
             string.IsNullOrWhiteSpace(entity.MeetingJoinUrl) ? null : new Uri(entity.MeetingJoinUrl, UriKind.Absolute));
+    }
+
+    private static ResolutionTrace? ToResolutionTrace(
+        double? confidence,
+        string? model,
+        string? evidenceJson)
+    {
+        if (confidence is null &&
+            string.IsNullOrWhiteSpace(model) &&
+            string.IsNullOrWhiteSpace(evidenceJson))
+        {
+            return null;
+        }
+
+        IReadOnlyList<string>? evidence = null;
+        if (!string.IsNullOrWhiteSpace(evidenceJson))
+        {
+            evidence = JsonSerializer.Deserialize<List<string>>(evidenceJson, JsonOptions);
+        }
+
+        return new ResolutionTrace(confidence, model, evidence);
     }
 }

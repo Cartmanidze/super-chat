@@ -75,7 +75,8 @@ public sealed class TodayPageActionTests
             new FakeIntegrationConnectionService(),
             requestCommands ?? new FakeRequestWorkItemCommandService(),
             actionItemCommands ?? new FakeActionItemWorkItemCommandService(),
-            eventCommands ?? new FakeEventWorkItemCommandService())
+            eventCommands ?? new FakeEventWorkItemCommandService(),
+            TimeProvider.System)
         {
             PageContext = new PageContext
             {

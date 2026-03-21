@@ -11,4 +11,8 @@ public sealed record WorkItemRecord(
     string? Person,
     DateTimeOffset ObservedAt,
     DateTimeOffset? DueAt,
-    double Confidence);
+    double Confidence,
+    string? ResolutionKind = null,
+    string? ResolutionSource = null,
+    ResolutionTrace? ResolutionTrace = null,
+    DateTimeOffset? ResolvedAt = null);

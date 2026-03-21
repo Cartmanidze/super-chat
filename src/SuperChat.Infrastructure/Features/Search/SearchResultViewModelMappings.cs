@@ -2,6 +2,7 @@ using SuperChat.Contracts.Features.Search;
 using SuperChat.Domain.Features.Intelligence;
 using SuperChat.Domain.Features.Messaging;
 using SuperChat.Infrastructure.Features.Messaging;
+using SuperChat.Infrastructure.Shared.Presentation;
 
 namespace SuperChat.Infrastructure.Features.Search;
 
@@ -14,7 +15,9 @@ internal static class SearchResultViewModelMappings
             item.Summary,
             item.Kind.ToString(),
             item.SourceRoom,
-            item.ObservedAt);
+            item.ObservedAt,
+            item.ToResolutionNote(),
+            item.ResolutionTrace?.Confidence);
     }
 
     public static SearchResultViewModel ToSearchResultViewModel(this NormalizedMessage message)
@@ -24,7 +27,9 @@ internal static class SearchResultViewModelMappings
             message.Text,
             "Message",
             message.MatrixRoomId,
-            message.SentAt);
+            message.SentAt,
+            null,
+            null);
     }
 
     public static SearchResultViewModel WithResolvedSourceRoom(

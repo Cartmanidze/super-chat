@@ -5,7 +5,7 @@
   var examples = new[]
   {
     "Что я обещал?",
-    "Кто ждёт ответа?",
+    "Кто ждет ответа?",
     "Какие встречи скоро?",
     "Где обсуждали цену?"
   };
@@ -17,7 +17,7 @@
       <p class="section-kicker">@T["Search.Eyebrow"]</p>
       <h1>Где это обсуждали?</h1>
       <p class="page-intro">
-        Ищите не по безликим дампам, а по рабочей памяти: по извлечённым сигналам, chat evidence и свежему контексту
+        Ищите не по безликим дампам, а по рабочей памяти: по извлеченным сигналам, chat evidence и свежему контексту
         из Telegram.
       </p>
     </div>
@@ -51,9 +51,9 @@
       {
         <div class="empty-card">
           <span class="status-badge status-neutral">Пустой запрос</span>
-          <h2>Введите тему, человека или фрагмент договорённости</h2>
+          <h2>Введите тему, человека или фрагмент договоренности</h2>
           <p>
-            Поиск сначала поднимает рабочие сигналы, а если их нет — показывает релевантные недавние сообщения.
+            Поиск сначала поднимает рабочие сигналы, а если их нет, показывает релевантные недавние сообщения.
           </p>
         </div>
       }
@@ -77,12 +77,18 @@
                      data-summary="@result.Summary"
                      data-kind="@UiText.Kind(result.Kind)"
                      data-source="@UiText.SourceRoom(result.SourceRoom)"
-                     data-time="@result.ObservedAt.ToLocalTime().ToString("dd.MM.yyyy, HH:mm")">
+                     data-time="@result.ObservedAt.ToLocalTime().ToString("dd.MM.yyyy, HH:mm")"
+                     data-resolution-note="@result.ResolutionNote"
+                     data-feedback-url="@Url.Page("/Feedback/Index", new { area = "search", useful = false, note = result.ResolutionNote })">
               <div class="evidence-head">
                 <strong>@UiText.CardTitle(result.Title)</strong>
                 <span>@result.ObservedAt.ToLocalTime().ToString("dd.MM, HH:mm")</span>
               </div>
               <p>@result.Summary</p>
+              @if (!string.IsNullOrWhiteSpace(result.ResolutionNote))
+              {
+                <p class="search-resolution-note">@result.ResolutionNote</p>
+              }
               <div class="evidence-footer">
                 <span class="signal-kind">@UiText.Kind(result.Kind)</span>
                 <small>@UiText.SourceRoom(result.SourceRoom)</small>
@@ -119,8 +125,19 @@
             <dt>Время</dt>
             <dd id="search-context-time">@first.ObservedAt.ToLocalTime().ToString("dd.MM.yyyy, HH:mm")</dd>
           </div>
+          <div id="search-context-resolution-row" hidden="@(string.IsNullOrWhiteSpace(first.ResolutionNote))">
+            <dt>Резолв</dt>
+            <dd id="search-context-resolution">@first.ResolutionNote</dd>
+          </div>
         </dl>
         <div class="context-actions">
+          <a id="search-context-feedback"
+             class="app-button app-button-secondary"
+             asp-page="/Feedback/Index"
+             asp-route-area="search"
+             asp-route-useful="false"
+             asp-route-note="@first.ResolutionNote"
+             hidden="@(string.IsNullOrWhiteSpace(first.ResolutionNote))">Пожаловаться на авто-резолв</a>
           <a class="app-button app-button-secondary" asp-page="/Feedback/Index">Не полезно</a>
           <a class="app-button app-button-ghost" asp-page="/Today">Открыть Today</a>
         </div>
@@ -145,6 +162,9 @@
         var kind = document.getElementById("search-context-kind");
         var source = document.getElementById("search-context-source");
         var time = document.getElementById("search-context-time");
+        var resolution = document.getElementById("search-context-resolution");
+        var resolutionRow = document.getElementById("search-context-resolution-row");
+        var feedback = document.getElementById("search-context-feedback");
 
         function selectCard(card) {
           cards.forEach(function (item) { item.classList.remove("is-selected"); });
@@ -154,6 +174,19 @@
           kind.textContent = card.dataset.kind || "";
           source.textContent = card.dataset.source || "";
           time.textContent = card.dataset.time || "";
+
+          var resolutionNote = card.dataset.resolutionNote || "";
+          if (resolutionNote) {
+            resolution.textContent = resolutionNote;
+            resolutionRow.hidden = false;
+            feedback.hidden = false;
+            feedback.setAttribute("href", card.dataset.feedbackUrl || "/feedback?area=search&useful=false");
+          } else {
+            resolution.textContent = "";
+            resolutionRow.hidden = true;
+            feedback.hidden = true;
+            feedback.setAttribute("href", "/feedback?area=search&useful=false");
+          }
         }
 
         cards.forEach(function (card) {

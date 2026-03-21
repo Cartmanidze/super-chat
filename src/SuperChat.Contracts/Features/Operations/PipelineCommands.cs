@@ -5,6 +5,15 @@ public sealed record ProcessConversationAfterSettleCommand(
     string Source,
     string MatrixRoomId);
 
+public sealed record ResolveConversationItemsCommand(
+    Guid UserId,
+    string MatrixRoomId);
+
+public sealed record ResolveDueMeetingsCommand(
+    Guid UserId,
+    string MatrixRoomId,
+    DateTimeOffset ResolveAfter);
+
 public sealed record RebuildConversationChunksCommand(
     Guid UserId,
     string MatrixRoomId,

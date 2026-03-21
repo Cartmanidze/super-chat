@@ -12,11 +12,51 @@ internal sealed class MeetingAutoResolutionService(
         DateTimeOffset fromInclusive,
         CancellationToken cancellationToken)
     {
+        await ResolveCoreAsync(userId, matrixRoomId: null, fromInclusive, dueBeforeInclusive: null, cancellationToken);
+    }
+
+    public async Task ResolveConversationAsync(
+        Guid userId,
+        string matrixRoomId,
+        DateTimeOffset fromInclusive,
+        CancellationToken cancellationToken)
+    {
+        await ResolveCoreAsync(userId, matrixRoomId, fromInclusive, dueBeforeInclusive: null, cancellationToken);
+    }
+
+    public async Task ResolveDueMeetingsAsync(
+        Guid userId,
+        string matrixRoomId,
+        DateTimeOffset dueBeforeInclusive,
+        CancellationToken cancellationToken)
+    {
+        await ResolveCoreAsync(userId, matrixRoomId, dueBeforeInclusive, dueBeforeInclusive, cancellationToken);
+    }
+
+    private async Task ResolveCoreAsync(
+        Guid userId,
+        string? matrixRoomId,
+        DateTimeOffset fromInclusive,
+        DateTimeOffset? dueBeforeInclusive,
+        CancellationToken cancellationToken)
+    {
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         var scheduledFrom = fromInclusive.AddDays(-1);
-        var unresolvedMeetings = await dbContext.Meetings
+        var unresolvedMeetingsQuery = dbContext.Meetings
             .Where(item => item.UserId == userId &&
-                           item.ResolvedAt == null)
+                           item.ResolvedAt == null);
+
+        if (!string.IsNullOrWhiteSpace(matrixRoomId))
+        {
+            unresolvedMeetingsQuery = unresolvedMeetingsQuery.Where(item => item.SourceRoom == matrixRoomId);
+        }
+
+        if (dueBeforeInclusive is not null)
+        {
+            unresolvedMeetingsQuery = unresolvedMeetingsQuery.Where(item => item.ScheduledFor <= dueBeforeInclusive.Value);
+        }
+
+        var unresolvedMeetings = await unresolvedMeetingsQuery
             .ToListAsync(cancellationToken);
 
         var candidates = unresolvedMeetings

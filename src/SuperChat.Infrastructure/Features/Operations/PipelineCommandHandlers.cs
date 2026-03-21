@@ -18,6 +18,8 @@ internal sealed class ProcessConversationAfterSettleCommandHandler(
     IMessageNormalizationService normalizationService,
     IAiStructuredExtractionService extractionService,
     IWorkItemService workItemService,
+    IBus bus,
+    IOptions<ResolutionOptions> resolutionOptions,
     TimeProvider timeProvider,
     ILogger<ProcessConversationAfterSettleCommandHandler> logger) : IHandleMessages<ProcessConversationAfterSettleCommand>
 {
@@ -54,6 +56,7 @@ internal sealed class ProcessConversationAfterSettleCommandHandler(
             {
                 var items = await extractionService.ExtractAsync(window, CancellationToken.None);
                 await workItemService.IngestRangeAsync(items, CancellationToken.None);
+                await DispatchResolutionCommandsAsync(message, items, CancellationToken.None);
                 processedIds.AddRange(window.Messages.Select(item => item.Id));
             }
 
@@ -70,6 +73,63 @@ internal sealed class ProcessConversationAfterSettleCommandHandler(
             SuperChatMetrics.PipelineCommandsInProgress.WithLabels(CommandName).Dec();
             SuperChatMetrics.PipelineCommandsTotal.WithLabels(CommandName, result).Inc();
             SuperChatMetrics.PipelineCommandDurationSeconds.WithLabels(CommandName, result).Observe(stopwatch.Elapsed.TotalSeconds);
+        }
+    }
+
+    private async Task DispatchResolutionCommandsAsync(
+        ProcessConversationAfterSettleCommand message,
+        IReadOnlyCollection<ExtractedItem> items,
+        CancellationToken cancellationToken)
+    {
+        if (!resolutionOptions.Value.Enabled)
+        {
+            return;
+        }
+
+        await bus.SendLocal(new ResolveConversationItemsCommand(
+            message.UserId,
+            message.MatrixRoomId));
+        SuperChatMetrics.PipelineDispatchTotal.WithLabels("handler", "resolve_conversation_items").Inc();
+
+        if (resolutionOptions.Value.ScheduleDeferredConversationPass)
+        {
+            var delay = TimeSpan.FromMinutes(Math.Max(1, resolutionOptions.Value.DeferredConversationDelayMinutes));
+            await bus.DeferLocal(
+                delay,
+                new ResolveConversationItemsCommand(
+                    message.UserId,
+                    message.MatrixRoomId));
+            SuperChatMetrics.PipelineDispatchTotal.WithLabels("handler", "resolve_conversation_items_deferred").Inc();
+        }
+
+        var dueMeetingTimes = items
+            .Where(item => item.Kind == ExtractedItemKind.Meeting && item.DueAt is not null)
+            .Select(item => item.DueAt!.Value)
+            .Distinct()
+            .ToList();
+
+        foreach (var scheduledFor in dueMeetingTimes)
+        {
+            var resolveAfter = scheduledFor.AddMinutes(Math.Max(0, resolutionOptions.Value.MeetingGracePeriodMinutes));
+            var delay = resolveAfter - timeProvider.GetUtcNow();
+            if (delay <= TimeSpan.Zero)
+            {
+                await bus.SendLocal(new ResolveDueMeetingsCommand(
+                    message.UserId,
+                    message.MatrixRoomId,
+                    resolveAfter));
+            }
+            else
+            {
+                await bus.DeferLocal(
+                    delay,
+                    new ResolveDueMeetingsCommand(
+                        message.UserId,
+                        message.MatrixRoomId,
+                        resolveAfter));
+            }
+
+            SuperChatMetrics.PipelineDispatchTotal.WithLabels("handler", "resolve_due_meetings").Inc();
         }
     }
 }

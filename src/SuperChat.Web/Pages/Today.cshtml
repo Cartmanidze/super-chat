@@ -139,5 +139,44 @@
         }
       </article>
     </section>
+
+    @if (Model.RecentResolvedItems.Count > 0)
+    {
+      <section class="focus-lane">
+        <header class="lane-header lane-header-focus">
+          <div>
+            <h2>Недавно закрыто автоматически</h2>
+            <p>Свежие сигналы, которые система уже сняла с активного списка.</p>
+          </div>
+          <span class="count-pill">@Model.RecentResolvedItems.Count</span>
+        </header>
+
+        <div class="signal-list signal-list-focus">
+          @foreach (var card in Model.RecentResolvedItems)
+          {
+            <article class="signal-card signal-card-focus">
+              <div class="signal-head">
+                <span class="signal-kind">Авто-резолв</span>
+                <div class="signal-badges">
+                  <span class="signal-hint">@card.ResolutionNote</span>
+                </div>
+              </div>
+
+              <h3>@UiText.CardTitle(card.Title)</h3>
+              <p class="signal-summary">@card.Summary</p>
+
+              <div class="signal-meta">
+                <span>@UiText.SourceRoom(card.ChatLabel)</span>
+                <span>@card.ResolvedAt.ToLocalTime().ToString("dd.MM, HH:mm")</span>
+              </div>
+
+              <div class="signal-actions">
+                <a class="action-link" asp-page="/Search/Index" asp-route-query="@card.SearchQuery">Открыть в поиске</a>
+              </div>
+            </article>
+          }
+        </div>
+      </section>
+    }
   }
 </section>

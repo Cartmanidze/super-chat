@@ -159,6 +159,9 @@ public sealed class SuperChatDbContext(DbContextOptions<SuperChatDbContext> opti
             entity.Property(item => item.ResolvedAt).HasColumnName("resolved_at");
             entity.Property(item => item.ResolutionKind).HasColumnName("resolution_kind");
             entity.Property(item => item.ResolutionSource).HasColumnName("resolution_source");
+            entity.Property(item => item.ResolutionConfidence).HasColumnName("resolution_confidence");
+            entity.Property(item => item.ResolutionModel).HasColumnName("resolution_model");
+            entity.Property(item => item.ResolutionEvidenceJson).HasColumnName("resolution_evidence_json");
             entity.HasIndex(item => new { item.UserId, item.ObservedAt });
         });
 
@@ -180,6 +183,9 @@ public sealed class SuperChatDbContext(DbContextOptions<SuperChatDbContext> opti
             entity.Property(item => item.ResolvedAt).HasColumnName("resolved_at");
             entity.Property(item => item.ResolutionKind).HasColumnName("resolution_kind");
             entity.Property(item => item.ResolutionSource).HasColumnName("resolution_source");
+            entity.Property(item => item.ResolutionConfidence).HasColumnName("resolution_confidence");
+            entity.Property(item => item.ResolutionModel).HasColumnName("resolution_model");
+            entity.Property(item => item.ResolutionEvidenceJson).HasColumnName("resolution_evidence_json");
             entity.Property(item => item.CreatedAt).HasColumnName("created_at");
             entity.Property(item => item.UpdatedAt).HasColumnName("updated_at");
             entity.HasIndex(item => new { item.UserId, item.ObservedAt });
@@ -205,6 +211,9 @@ public sealed class SuperChatDbContext(DbContextOptions<SuperChatDbContext> opti
             entity.Property(item => item.ResolvedAt).HasColumnName("resolved_at");
             entity.Property(item => item.ResolutionKind).HasColumnName("resolution_kind");
             entity.Property(item => item.ResolutionSource).HasColumnName("resolution_source");
+            entity.Property(item => item.ResolutionConfidence).HasColumnName("resolution_confidence");
+            entity.Property(item => item.ResolutionModel).HasColumnName("resolution_model");
+            entity.Property(item => item.ResolutionEvidenceJson).HasColumnName("resolution_evidence_json");
             entity.Property(item => item.CreatedAt).HasColumnName("created_at");
             entity.Property(item => item.UpdatedAt).HasColumnName("updated_at");
             entity.HasIndex(item => new { item.UserId, item.ScheduledFor });
@@ -383,6 +392,9 @@ public sealed class ExtractedItemEntity
     public DateTimeOffset? ResolvedAt { get; set; }
     public string? ResolutionKind { get; set; }
     public string? ResolutionSource { get; set; }
+    public double? ResolutionConfidence { get; set; }
+    public string? ResolutionModel { get; set; }
+    public string? ResolutionEvidenceJson { get; set; }
 }
 
 public sealed class FeedbackEventEntity
@@ -411,6 +423,9 @@ public sealed class WorkItemEntity
     public DateTimeOffset? ResolvedAt { get; set; }
     public string? ResolutionKind { get; set; }
     public string? ResolutionSource { get; set; }
+    public double? ResolutionConfidence { get; set; }
+    public string? ResolutionModel { get; set; }
+    public string? ResolutionEvidenceJson { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }
@@ -432,6 +447,9 @@ public sealed class MeetingEntity
     public DateTimeOffset? ResolvedAt { get; set; }
     public string? ResolutionKind { get; set; }
     public string? ResolutionSource { get; set; }
+    public double? ResolutionConfidence { get; set; }
+    public string? ResolutionModel { get; set; }
+    public string? ResolutionEvidenceJson { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }

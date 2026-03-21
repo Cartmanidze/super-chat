@@ -1,4 +1,8 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Rebus.Bus;
+using Rebus.Bus.Advanced;
+using Rebus.Messages;
 using SuperChat.Contracts.Features.Operations;
 using SuperChat.Domain.Features.Intelligence;
 using SuperChat.Domain.Features.Messaging;
@@ -45,11 +49,14 @@ public sealed class ProcessConversationAfterSettleCommandHandlerTests
                 0.92)
         ]);
         var workItemService = new RecordingWorkItemService();
+        var bus = new RecordingBus();
 
         var handler = new ProcessConversationAfterSettleCommandHandler(
             normalizationService,
             extractionService,
             workItemService,
+            bus,
+            Options.Create(new ResolutionOptions()),
             new FixedTimeProvider(message.IngestedAt.AddMinutes(5)),
             NullLogger<ProcessConversationAfterSettleCommandHandler>.Instance);
 
@@ -58,6 +65,9 @@ public sealed class ProcessConversationAfterSettleCommandHandlerTests
         Assert.Equal([message.Id], normalizationService.MarkedProcessedIds);
         Assert.Single(workItemService.IngestedItems);
         Assert.Single(workItemService.IngestedItems[0]);
+        Assert.Contains(bus.SentMessages, item => item is ResolveConversationItemsCommand resolve &&
+                                                  resolve.UserId == userId &&
+                                                  resolve.MatrixRoomId == roomId);
     }
 
     private sealed class RecordingMessageNormalizationService(IReadOnlyList<NormalizedMessage> pendingMessages) : IMessageNormalizationService
@@ -151,6 +161,89 @@ public sealed class ProcessConversationAfterSettleCommandHandlerTests
         public override DateTimeOffset GetUtcNow()
         {
             return utcNow;
+        }
+    }
+
+    private sealed class RecordingBus : IBus
+    {
+        public List<object> SentMessages { get; } = [];
+        public List<(TimeSpan Delay, object Message)> DeferredMessages { get; } = [];
+
+        public IAdvancedApi Advanced => throw new NotSupportedException();
+
+        public Task Send(object commandMessage, IDictionary<string, string>? optionalHeaders = null)
+        {
+            SentMessages.Add(commandMessage);
+            return Task.CompletedTask;
+        }
+
+        public Task SendLocal(object commandMessage, IDictionary<string, string>? optionalHeaders = null)
+        {
+            SentMessages.Add(commandMessage);
+            return Task.CompletedTask;
+        }
+
+        public Task Defer(TimeSpan delay, object message, IDictionary<string, string>? optionalHeaders = null)
+        {
+            DeferredMessages.Add((delay, message));
+            return Task.CompletedTask;
+        }
+
+        public Task Defer(DateTimeOffset deferredUntil, object message, IDictionary<string, string>? optionalHeaders = null)
+        {
+            DeferredMessages.Add((deferredUntil - DateTimeOffset.UtcNow, message));
+            return Task.CompletedTask;
+        }
+
+        public Task DeferLocal(TimeSpan delay, object message, IDictionary<string, string>? optionalHeaders = null)
+        {
+            DeferredMessages.Add((delay, message));
+            return Task.CompletedTask;
+        }
+
+        public Task DeferLocal(DateTimeOffset deferredUntil, object message, IDictionary<string, string>? optionalHeaders = null)
+        {
+            DeferredMessages.Add((deferredUntil - DateTimeOffset.UtcNow, message));
+            return Task.CompletedTask;
+        }
+
+        public Task Publish(object eventMessage, IDictionary<string, string>? optionalHeaders = null)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task Reply(object replyMessage, IDictionary<string, string>? optionalHeaders = null)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task Subscribe(Type eventType)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task Subscribe<TEvent>()
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task Subscribe(Type eventType, string topic)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task Unsubscribe(Type eventType)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task Unsubscribe<TEvent>()
+        {
+            throw new NotSupportedException();
+        }
+
+        public void Dispose()
+        {
         }
     }
 }

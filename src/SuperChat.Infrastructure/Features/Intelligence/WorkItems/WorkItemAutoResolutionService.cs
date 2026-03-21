@@ -9,9 +9,32 @@ internal sealed class WorkItemAutoResolutionService(
 {
     public async Task ResolveAsync(Guid userId, CancellationToken cancellationToken)
     {
+        await ResolveCoreAsync(userId, matrixRoomId: null, cancellationToken);
+    }
+
+    public async Task ResolveConversationAsync(
+        Guid userId,
+        string matrixRoomId,
+        CancellationToken cancellationToken)
+    {
+        await ResolveCoreAsync(userId, matrixRoomId, cancellationToken);
+    }
+
+    private async Task ResolveCoreAsync(
+        Guid userId,
+        string? matrixRoomId,
+        CancellationToken cancellationToken)
+    {
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-        var candidates = await dbContext.WorkItems
-            .Where(item => item.UserId == userId && item.ResolvedAt == null)
+        var candidatesQuery = dbContext.WorkItems
+            .Where(item => item.UserId == userId && item.ResolvedAt == null);
+
+        if (!string.IsNullOrWhiteSpace(matrixRoomId))
+        {
+            candidatesQuery = candidatesQuery.Where(item => item.SourceRoom == matrixRoomId);
+        }
+
+        var candidates = await candidatesQuery
             .ToListAsync(cancellationToken);
 
         if (candidates.Count == 0)
