@@ -44,7 +44,7 @@ public sealed class DeepSeekStructuredExtractionService(
         try
         {
             var aiAttempt = await TryExtractViaAiAsync(window, transcript, referenceTimeZone, cancellationToken);
-            if (aiAttempt.IsAuthoritative)
+            if (aiAttempt.IsAuthoritative && aiAttempt.Items.Count > 0)
             {
                 stopwatch.Stop();
                 AiPipelineLog.StructuredExtractionCompleted(
@@ -54,6 +54,11 @@ public sealed class DeepSeekStructuredExtractionService(
                     usedFallback,
                     stopwatch.ElapsedMilliseconds);
                 return aiAttempt.Items;
+            }
+
+            if (aiAttempt.IsAuthoritative)
+            {
+                usedFallback = true;
             }
         }
         catch (Exception exception)
@@ -146,6 +151,7 @@ public sealed class DeepSeekStructuredExtractionService(
         return $$"""
             You extract grounded work signals from a short Telegram dialogue window for a productivity product.
             Return JSON only in the shape {"items":[...]}.
+            Always return valid JSON without markdown or prose.
 
             Allowed item kinds:
             - "waiting_on"
@@ -164,7 +170,12 @@ public sealed class DeepSeekStructuredExtractionService(
             - "commitment" means the user promised to do something.
             - "task" means the dialogue contains a concrete requested action or deliverable.
             - "meeting" means the dialogue proposes, confirms, or schedules a meeting/call.
+            - Treat interview-related phrases (e.g. "interview", "собеседование", "интервью") as meeting signals when they include concrete date/time context.
+            - Return {"items":[]} only when ALL strong cues are absent: request/command, unanswered direct question, explicit promise, or meeting/interview scheduling with date/time.
+            - If an interview phrase includes concrete date/time, emit a "meeting" item with confidence >= 0.75.
             - Prefer the most useful single item per kind; avoid duplicates.
+            - Never output more than 4 items.
+            - Every emitted item must include keys: kind, title, person, deadline, priority, confidence, summary.
             - If there is no real signal, return {"items":[]}.
             - title must be short, useful, and in Russian.
             - summary must be concise, in Russian, and grounded in the dialogue.
@@ -172,6 +183,21 @@ public sealed class DeepSeekStructuredExtractionService(
             - deadline must be null unless the dialogue gives enough information. If present, return ISO-8601 UTC like 2026-03-13T17:00:00Z.
             - confidence must be a number from 0.0 to 1.0 and should vary based on certainty.
             - Business timezone for interpreting relative dates is {{timeZoneId}}.
+
+            Example JSON output:
+            {
+              "items": [
+                {
+                  "kind": "meeting",
+                  "title": "Созвон по кандидату",
+                  "person": "Марина",
+                  "deadline": "2026-03-21T08:00:00Z",
+                  "provider": null,
+                  "confidence": 0.84,
+                  "summary": "Сегодня в 11:00 по Мск назначено собеседование."
+                }
+              ]
+            }
             """;
     }
 

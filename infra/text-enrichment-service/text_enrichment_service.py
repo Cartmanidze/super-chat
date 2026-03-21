@@ -105,7 +105,7 @@ def extract_entities(text: str) -> list[EntityPayload]:
     return entities
 
 
-def extract_temporals(text: str, reference_time_utc: str) -> list[TemporalExpressionPayload]:
+def extract_temporal_expressions(text: str, reference_time_utc: str) -> list[TemporalExpressionPayload]:
     heideltime_fn = get_heideltime_function()
     if heideltime_fn is None:
         return []

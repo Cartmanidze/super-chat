@@ -196,7 +196,7 @@ public sealed class ExtractionAndDigestTests
     }
 
     [Fact]
-    public async Task DeepSeekExtraction_DoesNotFallBackToHeuristics_WhenAiReturnsEmptyItems()
+    public async Task DeepSeekExtraction_FallsBackToHeuristics_WhenAiReturnsEmptyItems()
     {
         var message = new NormalizedMessage(
             Guid.NewGuid(),
@@ -217,12 +217,14 @@ public sealed class ExtractionAndDigestTests
 
         var items = await service.ExtractAsync(CreateWindow(message), CancellationToken.None);
 
-        Assert.Empty(items);
+        var task = Assert.Single(items, item => item.Kind == ExtractedItemKind.Task);
+        var waiting = Assert.Single(items, item => item.Kind == ExtractedItemKind.WaitingOn);
+        Assert.Equal("\u041d\u0443\u0436\u0435\u043d \u0441\u043b\u0435\u0434\u0443\u044e\u0449\u0438\u0439 \u0448\u0430\u0433", task.Title);
+        Assert.Equal("\u041d\u0443\u0436\u043d\u043e \u043e\u0442\u0432\u0435\u0442\u0438\u0442\u044c: Alex", waiting.Title);
         Assert.Contains(
             logger.Messages,
             entry => entry.Contains("Structured extraction completed", StringComparison.Ordinal) &&
-                     entry.Contains("ItemCount=0", StringComparison.Ordinal) &&
-                     entry.Contains("UsedFallback=False", StringComparison.Ordinal));
+                     entry.Contains("UsedFallback=True", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -580,6 +582,120 @@ public sealed class ExtractionAndDigestTests
     }
 
     [Fact]
+    public async Task HeuristicExtraction_RecoversMeetingFromTemporalEnrichment_WhenRuleDetectionMisses()
+    {
+        var sentAt = new DateTimeOffset(2026, 03, 21, 06, 53, 55, TimeSpan.Zero);
+        var message = new NormalizedMessage(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "telegram",
+            "!friends:matrix.localhost",
+            "$event-enriched-meeting-1",
+            "You",
+            "\u0441\u043e\u0431\u0435\u0441\u0435\u0434\u043e\u0432\u0430\u043d\u0438\u0435 \u0447\u0435\u0440\u0435\u0437 \u0447\u0430\u0441",
+            sentAt,
+            sentAt,
+            false);
+
+        var service = CreateHeuristicService(new FakeTextEnrichmentClient(
+            new TextEnrichmentResponse(
+                null,
+                null,
+                [],
+                [
+                    new TextEnrichmentTemporalExpression("\u0447\u0435\u0440\u0435\u0437 \u0447\u0430\u0441", "2026-03-21T08:00:00Z", "datetime")
+                ])));
+
+        var items = await service.ExtractAsync(CreateWindow(message), CancellationToken.None);
+        var meeting = Assert.Single(items, item => item.Kind == ExtractedItemKind.Meeting);
+
+        Assert.Equal(new DateTimeOffset(2026, 03, 21, 08, 00, 00, TimeSpan.Zero), meeting.DueAt);
+        Assert.Equal("$event-enriched-meeting-1", meeting.SourceEventId);
+    }
+
+    [Fact]
+    public async Task HeuristicExtraction_RecoversMeetingFromTemporalEnrichment_ParsesLocalDatetimeWithBusinessTimezone()
+    {
+        var sentAt = new DateTimeOffset(2026, 03, 21, 06, 53, 55, TimeSpan.Zero);
+        var message = new NormalizedMessage(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "telegram",
+            "!friends:matrix.localhost",
+            "$event-enriched-meeting-local-time",
+            "You",
+            "\u0441\u043e\u0431\u0435\u0441\u0435\u0434 \u043f\u043e\u0441\u043b\u0435 \u043e\u0431\u0435\u0434\u0430",
+            sentAt,
+            sentAt,
+            false);
+
+        var service = CreateHeuristicService(new FakeTextEnrichmentClient(
+            new TextEnrichmentResponse(
+                null,
+                null,
+                [],
+                [
+                    new TextEnrichmentTemporalExpression("\u043f\u043e\u0441\u043b\u0435 \u043e\u0431\u0435\u0434\u0430", "2026-03-21T11:00:00", "datetime")
+                ])));
+
+        var items = await service.ExtractAsync(CreateWindow(message), CancellationToken.None);
+        var meeting = Assert.Single(items, item => item.Kind == ExtractedItemKind.Meeting);
+
+        Assert.Equal(new DateTimeOffset(2026, 03, 21, 08, 00, 00, TimeSpan.Zero), meeting.DueAt);
+        Assert.Equal("$event-enriched-meeting-local-time", meeting.SourceEventId);
+    }
+
+    [Fact]
+    public async Task HeuristicExtraction_RecoversMeetingFromTemporalEnrichment_AnchorsToCueMessage()
+    {
+        var userId = Guid.NewGuid();
+        var first = new NormalizedMessage(
+            Guid.NewGuid(),
+            userId,
+            "telegram",
+            "!friends:matrix.localhost",
+            "$event-enriched-meeting-cue",
+            "You",
+            "\u0441\u043e\u0431\u0435\u0441\u0435\u0434 \u0447\u0435\u0440\u0435\u0437 \u0447\u0430\u0441",
+            new DateTimeOffset(2026, 03, 21, 06, 53, 55, TimeSpan.Zero),
+            new DateTimeOffset(2026, 03, 21, 06, 53, 55, TimeSpan.Zero),
+            false);
+        var second = new NormalizedMessage(
+            Guid.NewGuid(),
+            userId,
+            "telegram",
+            "!friends:matrix.localhost",
+            "$event-enriched-meeting-ack",
+            "Peer",
+            "\u043e\u043a",
+            new DateTimeOffset(2026, 03, 21, 06, 54, 30, TimeSpan.Zero),
+            new DateTimeOffset(2026, 03, 21, 06, 54, 30, TimeSpan.Zero),
+            false);
+
+        var service = CreateHeuristicService(new FakeTextEnrichmentClient((text, _, _) =>
+        {
+            if (!text.Contains("\u0441\u043e\u0431\u0435\u0441\u0435\u0434", StringComparison.OrdinalIgnoreCase))
+            {
+                return new TextEnrichmentResponse(null, null, [], []);
+            }
+
+            return new TextEnrichmentResponse(
+                null,
+                null,
+                [],
+                [
+                    new TextEnrichmentTemporalExpression("\u0447\u0435\u0440\u0435\u0437 \u0447\u0430\u0441", "2026-03-21T08:00:00Z", "datetime")
+                ]);
+        }));
+
+        var items = await service.ExtractAsync(CreateWindow(first, second), CancellationToken.None);
+        var meeting = Assert.Single(items, item => item.Kind == ExtractedItemKind.Meeting);
+
+        Assert.Equal("$event-enriched-meeting-cue", meeting.SourceEventId);
+        Assert.Equal("\u0441\u043e\u0431\u0435\u0441\u0435\u0434 \u0447\u0435\u0440\u0435\u0437 \u0447\u0430\u0441", meeting.Summary);
+    }
+
+    [Fact]
     public async Task HeuristicExtraction_RecognizesConfirmedMeetingForTodayInMoscowTime()
     {
         var sentAt = new DateTimeOffset(2026, 03, 13, 09, 15, 00, TimeSpan.Zero);
@@ -692,6 +808,22 @@ public sealed class ExtractionAndDigestTests
     }
 
     [Fact]
+    public void MeetingSignalDetector_RecognizesInterviewKeywordWithExplicitTime()
+    {
+        var observedAt = new DateTimeOffset(2026, 03, 21, 06, 53, 55, TimeSpan.Zero);
+        var chunkText = "You: \u0441\u0435\u0433\u043e\u0434\u043d\u044f \u043f\u0440\u043e\u0432\u0435\u0434\u0435\u043c \u0441\u043e\u0431\u0435\u0441\u0435\u0434\u043e\u0432\u0430\u043d\u0438\u0435 \u0432 11:00 \u0431\u0443\u0434\u044c \u043d\u0430 \u0433\u043e\u0442\u043e\u0432\u0435";
+
+        var signal = MeetingSignalDetector.TryFromChunk(
+            chunkText,
+            observedAt,
+            observedAt,
+            TimeZoneInfo.FindSystemTimeZoneById("Europe/Moscow"));
+
+        Assert.NotNull(signal);
+        Assert.Equal(new DateTimeOffset(2026, 03, 21, 08, 00, 00, TimeSpan.Zero), signal!.ScheduledFor);
+    }
+
+    [Fact]
     public void MeetingService_ToMeetingCandidate_IgnoresStructuredArtifactChunk()
     {
         var chunk = new MessageChunkEntity
@@ -794,7 +926,7 @@ public sealed class ExtractionAndDigestTests
             {
                 TodayTimeZoneId = "Europe/Moscow"
             },
-            textEnrichmentClient ?? new FakeTextEnrichmentClient(null));
+            textEnrichmentClient ?? new FakeTextEnrichmentClient((TextEnrichmentResponse?)null));
     }
 
     private static DeepSeekStructuredExtractionService CreateDeepSeekService(
@@ -865,13 +997,19 @@ public sealed class ExtractionAndDigestTests
     private sealed class FakeTextEnrichmentClient : ITextEnrichmentClient
     {
         private readonly TextEnrichmentResponse? response;
+        private readonly Func<string, DateTimeOffset, string, TextEnrichmentResponse?>? resolver;
 
         public FakeTextEnrichmentClient(TextEnrichmentResponse? response)
         {
             this.response = response;
         }
 
-        public bool IsConfigured => response is not null;
+        public FakeTextEnrichmentClient(Func<string, DateTimeOffset, string, TextEnrichmentResponse?> resolver)
+        {
+            this.resolver = resolver;
+        }
+
+        public bool IsConfigured => response is not null || resolver is not null;
 
         public Task<TextEnrichmentResponse?> EnrichAsync(
             string text,
@@ -879,6 +1017,11 @@ public sealed class ExtractionAndDigestTests
             string timeZoneId,
             CancellationToken cancellationToken)
         {
+            if (resolver is not null)
+            {
+                return Task.FromResult(resolver(text, referenceTimeUtc, timeZoneId));
+            }
+
             return Task.FromResult(response);
         }
     }

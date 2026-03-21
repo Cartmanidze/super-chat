@@ -6,6 +6,8 @@ namespace SuperChat.Domain.Features.Intelligence;
 
 public static partial class MeetingSignalDetector
 {
+    private const string RussianInterviewStem = "\u0441\u043e\u0431\u0435\u0441\u0435\u0434";
+
     private static readonly string[] ExplicitMeetingKeywords =
     [
         "meeting", "call", "sync", "calendar", "zoom",
@@ -111,6 +113,9 @@ public static partial class MeetingSignalDetector
         }
 
         var hasExplicitMeetingKeyword = ContainsAny(lowered, ExplicitMeetingKeywords);
+        var hasInterviewKeyword = lowered.Contains("interview", StringComparison.Ordinal) ||
+                                  lowered.Contains(RussianInterviewStem, StringComparison.Ordinal);
+        hasExplicitMeetingKeyword = hasExplicitMeetingKeyword || hasInterviewKeyword;
         var hasMeetingIntentKeyword = ContainsAny(lowered, MeetingIntentKeywords);
         var hasConfirmationKeyword = ContainsAny(lowered, ConfirmationKeywords);
 
