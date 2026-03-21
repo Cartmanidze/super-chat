@@ -121,6 +121,29 @@ public sealed class ExtractionAndDigestTests
     }
 
     [Fact]
+    public async Task HeuristicExtraction_RecognizesMeetingSlangMitWithExplicitTime()
+    {
+        var sentAt = new DateTimeOffset(2026, 03, 21, 12, 00, 00, TimeSpan.Zero);
+        var message = new NormalizedMessage(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "telegram",
+            "!friends:matrix.localhost",
+            "$event-mit-1",
+            "Stanislav",
+            "\u0441\u0435\u0433\u043e\u0434\u043d\u044f \u043c\u0438\u0442 \u0432 18:00",
+            sentAt,
+            sentAt,
+            false);
+
+        var service = CreateHeuristicService();
+        var items = await service.ExtractAsync(CreateWindow(message), CancellationToken.None);
+        var meeting = Assert.Single(items, item => item.Kind == ExtractedItemKind.Meeting);
+
+        Assert.Equal(new DateTimeOffset(2026, 03, 21, 15, 00, 00, TimeSpan.Zero), meeting.DueAt);
+    }
+
+    [Fact]
     public async Task DeepSeekExtraction_UsesAiStructuredItemsWithVaryingConfidence()
     {
         var sentAt = new DateTimeOffset(2026, 03, 16, 08, 00, 00, TimeSpan.Zero);

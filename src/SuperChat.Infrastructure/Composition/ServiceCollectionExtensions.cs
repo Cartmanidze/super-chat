@@ -108,6 +108,8 @@ public static class ServiceCollectionExtensions
             {
                 client.BaseAddress = baseUri;
             }
+
+            client.Timeout = TimeSpan.FromSeconds(8);
         });
         services.AddSuperChatQdrant(configuration);
         services.AddHttpClient<IEmbeddingService, EmbeddingServiceClient>((serviceProvider, client) =>

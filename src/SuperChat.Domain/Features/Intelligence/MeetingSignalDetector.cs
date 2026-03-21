@@ -20,6 +20,12 @@ public static partial class MeetingSignalDetector
         "будет", "будем", "буду", "договорил", "подтвержда", "confirm"
     ];
 
+    private static readonly string[] MeetingSlangKeywords =
+    [
+        "\u043c\u0438\u0442",
+        "\u043c\u0438\u0442\u0438\u043d\u0433"
+    ];
+
     private static readonly string[] ConfirmationKeywords =
     [
         "подтверждаю", "подтверждаем", "подтверждено", "confirmed", "confirm",
@@ -118,6 +124,9 @@ public static partial class MeetingSignalDetector
         hasExplicitMeetingKeyword = hasExplicitMeetingKeyword || hasInterviewKeyword;
         var hasMeetingIntentKeyword = ContainsAny(lowered, MeetingIntentKeywords);
         var hasConfirmationKeyword = ContainsAny(lowered, ConfirmationKeywords);
+        var hasMeetingSlangKeyword = ContainsAny(lowered, MeetingSlangKeywords);
+        hasExplicitMeetingKeyword = hasExplicitMeetingKeyword || hasMeetingSlangKeyword;
+        hasMeetingIntentKeyword = hasMeetingIntentKeyword || hasMeetingSlangKeyword;
 
         if (!hasExplicitMeetingKeyword && !hasMeetingIntentKeyword)
         {

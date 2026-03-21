@@ -16,7 +16,7 @@ public sealed class HeuristicStructuredExtractionService(
         "call",
         "sync",
         "calendar",
-        "zoom",
+        "zoom", "\u043c\u0438\u0442", "\u043c\u0438\u0442\u0438\u043d\u0433",
         "встреч",
         "созвон",
         "колл",
