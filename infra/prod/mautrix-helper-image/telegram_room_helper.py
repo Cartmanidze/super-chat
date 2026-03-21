@@ -76,11 +76,20 @@ async def fetch_room_info(
             if portal is None:
                 return None
 
+    tgid, peer_type, title, megagroup = portal
+    if peer_type == "user":
+        return {
+            "room_id": room_id,
+            "peer_type": peer_type,
+            "participant_count": 2,
+            "title": title,
+            "is_broadcast_channel": False,
+        }
+
     session_row = get_session_row(db_dsn, matrix_user_id)
     if session_row is None:
         return None
 
-    tgid, peer_type, title, megagroup = portal
     session = build_session(session_row)
     client = TelegramClient(session, api_id, api_hash)
     await client.connect()
@@ -89,9 +98,7 @@ async def fetch_room_info(
         participant_count: int | None = None
         is_broadcast_channel = False
 
-        if peer_type == "user":
-            participant_count = 2
-        elif peer_type == "channel":
+        if peer_type == "channel":
             input_entity = await client.get_input_entity(types.PeerChannel(int(tgid)))
             full = await client(GetFullChannelRequest(input_entity))
             participant_count = getattr(full.full_chat, "participants_count", None)
