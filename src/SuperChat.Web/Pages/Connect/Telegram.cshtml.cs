@@ -45,6 +45,19 @@ public sealed class TelegramModel(
         return Page();
     }
 
+    public async Task<IActionResult> OnPostReconnectAsync(CancellationToken cancellationToken)
+    {
+        var user = await authFlowService.FindUserAsync(User.GetEmail(), cancellationToken);
+        if (user is null)
+        {
+            return RedirectToPage("/Index");
+        }
+
+        await integrationConnectionService.ReconnectAsync(user, IntegrationProvider.Telegram, cancellationToken);
+        await LoadStateAsync(cancellationToken);
+        return Page();
+    }
+
     private async Task LoadStateAsync(CancellationToken cancellationToken)
     {
         var user = await authFlowService.FindUserAsync(User.GetEmail(), cancellationToken);

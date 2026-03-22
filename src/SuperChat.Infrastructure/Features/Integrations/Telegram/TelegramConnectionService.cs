@@ -86,6 +86,12 @@ public sealed class TelegramConnectionService(
         return entity.ToDomain();
     }
 
+    public async Task<TelegramConnection> ReconnectAsync(AppUser user, CancellationToken cancellationToken)
+    {
+        await DisconnectAsync(user.Id, cancellationToken);
+        return await StartAsync(user, cancellationToken);
+    }
+
     public async Task<TelegramConnection> CompleteDevelopmentConnectionAsync(AppUser user, CancellationToken cancellationToken)
     {
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);

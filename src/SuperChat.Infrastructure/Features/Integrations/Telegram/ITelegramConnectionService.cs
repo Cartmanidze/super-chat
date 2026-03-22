@@ -7,6 +7,8 @@ public interface ITelegramConnectionService
 {
     Task<TelegramConnection> StartAsync(AppUser user, CancellationToken cancellationToken);
 
+    Task<TelegramConnection> ReconnectAsync(AppUser user, CancellationToken cancellationToken);
+
     Task<TelegramConnection> CompleteDevelopmentConnectionAsync(AppUser user, CancellationToken cancellationToken);
 
     Task<TelegramConnection> GetStatusAsync(Guid userId, CancellationToken cancellationToken);

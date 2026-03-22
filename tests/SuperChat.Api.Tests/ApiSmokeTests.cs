@@ -126,7 +126,7 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
     }
 
     [Fact]
-    public async Task TelegramEndpoints_CanConnect_AndDisconnect()
+    public async Task TelegramEndpoints_CanConnect_Reconnect_AndDisconnect()
     {
         using var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", await GetAccessTokenAsync(client));
@@ -137,6 +137,13 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
         Assert.Equal(HttpStatusCode.OK, connectResponse.StatusCode);
         Assert.NotNull(connect);
         Assert.Equal("Connected", connect!.State);
+
+        var reconnectResponse = await client.PostAsync("/api/v1/integrations/telegram/reconnect", content: null);
+        var reconnect = await reconnectResponse.Content.ReadFromJsonAsync<TelegramConnectionEnvelope>(JsonOptions);
+
+        Assert.Equal(HttpStatusCode.OK, reconnectResponse.StatusCode);
+        Assert.NotNull(reconnect);
+        Assert.Equal("Connected", reconnect!.State);
 
         var disconnectResponse = await client.DeleteAsync("/api/v1/integrations/telegram");
         var disconnect = await disconnectResponse.Content.ReadFromJsonAsync<TelegramConnectionEnvelope>(JsonOptions);

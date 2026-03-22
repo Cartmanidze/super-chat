@@ -164,6 +164,11 @@ public sealed class TodayPageActionTests
             throw new NotSupportedException();
         }
 
+        public Task<IntegrationConnection> ReconnectAsync(AppUser user, IntegrationProvider provider, CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
         public Task DisconnectAsync(Guid userId, IntegrationProvider provider, CancellationToken cancellationToken)
         {
             return Task.CompletedTask;

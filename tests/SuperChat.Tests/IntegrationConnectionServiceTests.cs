@@ -46,11 +46,37 @@ public sealed class IntegrationConnectionServiceTests
             service.GetStatusAsync(expected.UserId, IntegrationProvider.Email, CancellationToken.None));
     }
 
+    [Fact]
+    public async Task ReconnectAsync_MapsTelegramConnectionToGenericIntegration()
+    {
+        var user = new AppUser(Guid.NewGuid(), "pilot@example.com", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
+        var expected = new TelegramConnection(
+            user.Id,
+            TelegramConnectionState.BridgePending,
+            new Uri("https://bridge.localhost/public/login"),
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow.AddMinutes(-5));
+
+        var service = new IntegrationConnectionService(new FakeTelegramConnectionService(expected));
+
+        var connection = await service.ReconnectAsync(user, IntegrationProvider.Telegram, CancellationToken.None);
+
+        Assert.Equal(user.Id, connection.UserId);
+        Assert.Equal(IntegrationProvider.Telegram, connection.Provider);
+        Assert.Equal(IntegrationConnectionState.Pending, connection.State);
+        Assert.Equal(expected.WebLoginUrl, connection.ActionUrl);
+    }
+
     private sealed class FakeTelegramConnectionService(TelegramConnection connection) : ITelegramConnectionService
     {
         public Task<TelegramConnection> StartAsync(AppUser user, CancellationToken cancellationToken)
         {
-            return Task.FromResult(connection);
+            return Task.FromResult(connection with { UserId = user.Id });
+        }
+
+        public Task<TelegramConnection> ReconnectAsync(AppUser user, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(connection with { UserId = user.Id });
         }
 
         public Task<TelegramConnection> CompleteDevelopmentConnectionAsync(AppUser user, CancellationToken cancellationToken)

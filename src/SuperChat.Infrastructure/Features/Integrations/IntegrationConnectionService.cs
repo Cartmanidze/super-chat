@@ -39,6 +39,19 @@ public sealed class IntegrationConnectionService(
         };
     }
 
+    public async Task<IntegrationConnection> ReconnectAsync(
+        AppUser user,
+        IntegrationProvider provider,
+        CancellationToken cancellationToken)
+    {
+        return provider switch
+        {
+            IntegrationProvider.Telegram => (await telegramConnectionService.ReconnectAsync(user, cancellationToken))
+                .ToIntegrationConnection(),
+            _ => throw CreateUnsupportedProviderException(provider)
+        };
+    }
+
     public Task DisconnectAsync(Guid userId, IntegrationProvider provider, CancellationToken cancellationToken)
     {
         return provider switch

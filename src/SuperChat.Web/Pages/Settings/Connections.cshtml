@@ -49,9 +49,16 @@
       </dl>
 
       <div class="inline-actions">
-        <a class="app-button app-button-secondary" asp-page="/Connect/Telegram">
-          @(connected ? "Переподключить Telegram" : "Подключить Telegram")
-        </a>
+        @if (connected)
+        {
+          <form method="post" asp-page-handler="Reconnect">
+            <button type="submit" class="app-button app-button-secondary">Переподключить Telegram</button>
+          </form>
+        }
+        else
+        {
+          <a class="app-button app-button-secondary" asp-page="/Connect/Telegram">Подключить Telegram</a>
+        }
 
         @if (connected)
         {

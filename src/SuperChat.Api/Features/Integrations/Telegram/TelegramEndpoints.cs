@@ -47,6 +47,24 @@ public static class TelegramEndpoints
             return Results.Ok(connection.ToTelegramConnectionResponse(matrixIdentity?.MatrixUserId));
         });
 
+        group.MapPost("/reconnect", async (
+            HttpContext httpContext,
+            IAuthFlowService authFlowService,
+            IIntegrationConnectionService integrationConnectionService,
+            IMatrixProvisioningService matrixProvisioningService,
+            CancellationToken cancellationToken) =>
+        {
+            var user = await authFlowService.FindUserAsync(httpContext.User.GetRequiredEmail(), cancellationToken);
+            if (user is null)
+            {
+                return Results.Unauthorized();
+            }
+
+            var connection = await integrationConnectionService.ReconnectAsync(user, IntegrationProvider.Telegram, cancellationToken);
+            var matrixIdentity = await matrixProvisioningService.GetIdentityAsync(user.Id, cancellationToken);
+            return Results.Ok(connection.ToTelegramConnectionResponse(matrixIdentity?.MatrixUserId));
+        });
+
         group.MapDelete(string.Empty, async (
             HttpContext httpContext,
             IIntegrationConnectionService integrationConnectionService,

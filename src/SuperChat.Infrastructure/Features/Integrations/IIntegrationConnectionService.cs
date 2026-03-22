@@ -11,6 +11,8 @@ public interface IIntegrationConnectionService
 
     Task<IntegrationConnection> StartAsync(AppUser user, IntegrationProvider provider, CancellationToken cancellationToken);
 
+    Task<IntegrationConnection> ReconnectAsync(AppUser user, IntegrationProvider provider, CancellationToken cancellationToken);
+
     Task DisconnectAsync(Guid userId, IntegrationProvider provider, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<IntegrationConnection>> GetReadyForDevelopmentSyncAsync(IntegrationProvider provider, CancellationToken cancellationToken);
