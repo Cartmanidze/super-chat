@@ -197,7 +197,7 @@ jobs:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           OWNER_LC="${GITHUB_REPOSITORY_OWNER,,}"
-          IMAGE_TAG="sha-${GITHUB_SHA}"
+          IMAGE_TAG="sha-${GITHUB_SHA::7}"
           chmod +x .github/scripts/retry.sh
           ./.github/scripts/retry.sh \
             ssh -i ~/.ssh/id_ed25519 -p "${PROD_SSH_PORT}" -o BatchMode=yes -o PreferredAuthentications=publickey -o PubkeyAuthentication=yes -o PasswordAuthentication=no -o KbdInteractiveAuthentication=no -o ConnectionAttempts=1 -o ConnectTimeout=20 -o StrictHostKeyChecking=yes "${PROD_SSH_USER}@${PROD_SSH_HOST}" \
