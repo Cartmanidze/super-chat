@@ -21,18 +21,22 @@ appservice:
 telegram:
   api_id: ${MAUTRIX_TELEGRAM_API_ID}
   api_hash: ${MAUTRIX_TELEGRAM_API_HASH}
+  catch_up: false
+  server:
+    enabled: true
+    dc: 2
+    ip: 149.154.167.51
+    port: 80
 
 bridge:
   permissions:
     "*": relaybot
     ${MATRIX_SERVER_NAME}: puppeting
   allow_matrix_login: true
+  relaybot:
+    enabled: false
   backfill:
-    enable: true
-    normal_groups: false
-  startup_sync: true
-  sync_update_limit: 50
-  sync_create_limit: 50
+    enabled: false
   sync_with_custom_puppets: true
   double_puppet_server_map: {}
   double_puppet_allow_discovery: false
@@ -45,9 +49,9 @@ logging:
   formatters:
     colored:
       (): mautrix_telegram.util.ColorFormatter
-      format: '[%(asctime)s] [%(levelname)s@%(name)s] %(message)s'
+      format: "[%(asctime)s] [%(levelname)s@%(name)s] %(message)s"
     normal:
-      format: '[%(asctime)s] [%(levelname)s@%(name)s] %(message)s'
+      format: "[%(asctime)s] [%(levelname)s@%(name)s] %(message)s"
   handlers:
     console:
       class: logging.StreamHandler
