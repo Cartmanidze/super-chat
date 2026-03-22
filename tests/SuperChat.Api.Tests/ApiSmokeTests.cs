@@ -51,6 +51,26 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
     }
 
     [Fact]
+    public async Task OpenApiEndpoints_ExposeJsonDocument_AndScalarUi()
+    {
+        using var client = _factory.CreateClient();
+
+        var openApiResponse = await client.GetAsync("/openapi/v1.json");
+        var openApiContent = await openApiResponse.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, openApiResponse.StatusCode);
+        Assert.Contains("\"openapi\"", openApiContent, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("/api/v1/health", openApiContent, StringComparison.Ordinal);
+        Assert.Contains("/api/v1/work-items", openApiContent, StringComparison.Ordinal);
+
+        var docsResponse = await client.GetAsync("/docs");
+        var docsContent = await docsResponse.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, docsResponse.StatusCode);
+        Assert.Contains("Scalar", docsContent, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task AuthFlow_ExchangesMagicLinkForBearerToken_AndReturnsProfile()
     {
         using var client = _factory.CreateClient();

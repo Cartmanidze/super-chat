@@ -11,7 +11,8 @@ public static class AuthEndpoints
 {
     public static RouteGroupBuilder MapAuthEndpoints(this RouteGroupBuilder api)
     {
-        var group = api.MapGroup("/auth");
+        var group = api.MapGroup("/auth")
+            .WithTags("Auth");
 
         group.MapPost("/magic-links", async (
             MagicLinkRequest request,

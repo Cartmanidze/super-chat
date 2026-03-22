@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication;
 using Prometheus;
 using SuperChat.Api.Features.Auth;
 using SuperChat.Api.Features.Chat;
+using SuperChat.Api.Features.Documentation;
 using SuperChat.Api.Features.Feedback;
 using SuperChat.Api.Features.Health;
 using SuperChat.Api.Features.Integrations;
@@ -22,6 +23,7 @@ builder.Services
         _ => { });
 builder.Services.AddAuthorization();
 builder.Services.AddValidatorsFromAssemblyContaining<SuperChat.Api.Program>();
+builder.Services.AddApiDocumentation();
 builder.Services.AddSuperChatBootstrap(builder.Configuration, enableBackgroundWorkers: false);
 
 var app = builder.Build();
@@ -34,6 +36,7 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.MapApiDocumentation();
 app.UseHttpMetrics();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -49,7 +52,7 @@ api.MapWorkItemEndpoints();
 api.MapSearchEndpoints();
 api.MapFeedbackEndpoints();
 
-app.MapMetrics();
+app.MapMetrics().ExcludeFromDescription();
 app.Run();
 
 namespace SuperChat.Api

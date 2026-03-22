@@ -12,6 +12,7 @@ public static class WorkItemEndpoints
     public static RouteGroupBuilder MapWorkItemEndpoints(this RouteGroupBuilder api)
     {
         var group = api.MapGroup("/work-items")
+            .WithTags("Work Items")
             .RequireAuthorization(new AuthorizeAttribute { AuthenticationSchemes = ApiSessionAuthenticationHandler.SchemeName });
 
         group.MapGet(string.Empty, async (

@@ -24,7 +24,8 @@ public static class MeEndpoints
             var connection = await integrationConnectionService.GetStatusAsync(userId, IntegrationProvider.Telegram, cancellationToken);
 
             return Results.Ok(connection.ToMeResponse(userId, email, matrixIdentity?.MatrixUserId));
-        });
+        })
+        .WithTags("Me");
 
         return api;
     }

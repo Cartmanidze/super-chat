@@ -13,6 +13,7 @@ public static class ChatEndpoints
     public static RouteGroupBuilder MapChatEndpoints(this RouteGroupBuilder api)
     {
         var group = api.MapGroup("/chat")
+            .WithTags("Chat")
             .RequireAuthorization(new AuthorizeAttribute { AuthenticationSchemes = ApiSessionAuthenticationHandler.SchemeName });
 
         group.MapPost("/ask", async (

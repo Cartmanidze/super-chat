@@ -14,6 +14,7 @@ public static class IntegrationEndpoints
     public static RouteGroupBuilder MapIntegrationEndpoints(this RouteGroupBuilder api)
     {
         var group = api.MapGroup("/integrations")
+            .WithTags("Integrations")
             .RequireAuthorization(new AuthorizeAttribute { AuthenticationSchemes = ApiSessionAuthenticationHandler.SchemeName });
 
         group.MapGet(string.Empty, async (

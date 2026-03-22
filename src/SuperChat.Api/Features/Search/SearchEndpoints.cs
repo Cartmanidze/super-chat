@@ -11,6 +11,7 @@ public static class SearchEndpoints
     public static RouteGroupBuilder MapSearchEndpoints(this RouteGroupBuilder api)
     {
         var group = api.MapGroup("/search")
+            .WithTags("Search")
             .RequireAuthorization(new AuthorizeAttribute { AuthenticationSchemes = ApiSessionAuthenticationHandler.SchemeName });
 
         group.MapGet(string.Empty, async (

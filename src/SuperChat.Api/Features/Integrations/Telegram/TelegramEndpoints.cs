@@ -14,6 +14,7 @@ public static class TelegramEndpoints
     public static RouteGroupBuilder MapTelegramEndpoints(this RouteGroupBuilder api)
     {
         var group = api.MapGroup("/integrations/telegram")
+            .WithTags("Telegram")
             .RequireAuthorization(new AuthorizeAttribute { AuthenticationSchemes = ApiSessionAuthenticationHandler.SchemeName });
 
         group.MapGet(string.Empty, async (

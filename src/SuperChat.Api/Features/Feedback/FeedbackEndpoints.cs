@@ -11,6 +11,7 @@ public static class FeedbackEndpoints
     public static RouteGroupBuilder MapFeedbackEndpoints(this RouteGroupBuilder api)
     {
         var group = api.MapGroup("/feedback")
+            .WithTags("Feedback")
             .RequireAuthorization(new AuthorizeAttribute { AuthenticationSchemes = ApiSessionAuthenticationHandler.SchemeName });
 
         group.MapPost(string.Empty, async (

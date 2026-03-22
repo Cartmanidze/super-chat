@@ -19,7 +19,8 @@ public static class HealthEndpoints
             {
                 status = report.Status == HealthStatus.Healthy ? "ok" : "error"
             }, statusCode: statusCode);
-        });
+        })
+        .WithTags("Health");
 
         return api;
     }
