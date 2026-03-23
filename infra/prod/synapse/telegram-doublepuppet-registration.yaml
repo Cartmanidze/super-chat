@@ -1,0 +1,12 @@
+id: telegram-doublepuppet
+as_token: 
+hs_token: 
+url: null
+sender_localpart: unused
+rate_limited: false
+namespaces:
+  users:
+    - exclusive: false
+      regex: '@superchat-.+:matrix.example.com'
+  aliases: []
+  rooms: []
