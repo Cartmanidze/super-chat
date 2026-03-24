@@ -52,19 +52,24 @@
         @if (connected)
         {
           <form method="post" asp-page-handler="Reconnect">
-            <button type="submit" class="app-button app-button-secondary">Переподключить Telegram</button>
+            <button type="submit" class="app-button app-button-secondary"
+                    onclick="return confirm('Текущая сессия Telegram будет завершена и запущена заново. Продолжить?')">
+              Переподключить Telegram
+            </button>
           </form>
+          <form method="post" asp-page-handler="Disconnect">
+            <button type="submit" class="app-button app-button-ghost">@T["Connections.DisconnectTelegram"]</button>
+          </form>
+        }
+        else if (Model.ConnectionState == IntegrationConnectionState.Error
+              || Model.ConnectionState == IntegrationConnectionState.Pending
+              || Model.ConnectionState == IntegrationConnectionState.Disconnected)
+        {
+          <a class="app-button app-button-secondary" asp-page="/Connect/Telegram">Переподключить Telegram</a>
         }
         else
         {
           <a class="app-button app-button-secondary" asp-page="/Connect/Telegram">Подключить Telegram</a>
-        }
-
-        @if (connected)
-        {
-          <form method="post" asp-page-handler="Disconnect">
-            <button type="submit" class="app-button app-button-ghost">@T["Connections.DisconnectTelegram"]</button>
-          </form>
         }
       </div>
     </section>
