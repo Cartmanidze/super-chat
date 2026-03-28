@@ -14,7 +14,8 @@ internal static class IntegrationConnectionMappings
             connection.State.ToIntegrationConnectionState(),
             connection.WebLoginUrl,
             connection.UpdatedAt,
-            connection.LastSyncedAt);
+            connection.LastSyncedAt,
+            connection.State.ToChatLoginStep());
     }
 
     public static IntegrationConnectionState ToIntegrationConnectionState(this TelegramConnectionState state)
@@ -27,7 +28,21 @@ internal static class IntegrationConnectionMappings
             TelegramConnectionState.RequiresSetup => IntegrationConnectionState.RequiresSetup,
             TelegramConnectionState.Disconnected => IntegrationConnectionState.Disconnected,
             TelegramConnectionState.Error => IntegrationConnectionState.Error,
+            TelegramConnectionState.LoginAwaitingPhone => IntegrationConnectionState.Pending,
+            TelegramConnectionState.LoginAwaitingCode => IntegrationConnectionState.Pending,
+            TelegramConnectionState.LoginAwaitingPassword => IntegrationConnectionState.Pending,
             _ => throw new ArgumentOutOfRangeException(nameof(state), state, null)
+        };
+    }
+
+    public static string? ToChatLoginStep(this TelegramConnectionState state)
+    {
+        return state switch
+        {
+            TelegramConnectionState.LoginAwaitingPhone => "phone",
+            TelegramConnectionState.LoginAwaitingCode => "code",
+            TelegramConnectionState.LoginAwaitingPassword => "password",
+            _ => null
         };
     }
 }

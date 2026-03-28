@@ -52,6 +52,33 @@ public sealed class IntegrationConnectionService(
         };
     }
 
+    public async Task<IntegrationConnection> StartChatLoginAsync(
+        AppUser user,
+        IntegrationProvider provider,
+        CancellationToken cancellationToken)
+    {
+        return provider switch
+        {
+            IntegrationProvider.Telegram => (await telegramConnectionService.StartChatLoginAsync(user, cancellationToken))
+                .ToIntegrationConnection(),
+            _ => throw CreateUnsupportedProviderException(provider)
+        };
+    }
+
+    public async Task<IntegrationConnection> SubmitLoginInputAsync(
+        AppUser user,
+        IntegrationProvider provider,
+        string input,
+        CancellationToken cancellationToken)
+    {
+        return provider switch
+        {
+            IntegrationProvider.Telegram => (await telegramConnectionService.SubmitLoginInputAsync(user, input, cancellationToken))
+                .ToIntegrationConnection(),
+            _ => throw CreateUnsupportedProviderException(provider)
+        };
+    }
+
     public Task DisconnectAsync(Guid userId, IntegrationProvider provider, CancellationToken cancellationToken)
     {
         return provider switch

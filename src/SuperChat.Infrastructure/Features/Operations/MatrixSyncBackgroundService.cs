@@ -156,6 +156,7 @@ public sealed class MatrixSyncBackgroundService(
 
         var connected = target.State == TelegramConnectionState.Connected;
         string? discoveredLoginUrl = null;
+        TelegramConnectionState? detectedLoginStep = null;
         var ingestedMessages = 0;
         var joinedInvitedRooms = 0;
         var invitedRoomsToJoin = GetInvitedRoomsToJoin(result.InvitedRoomIds, target.ManagementRoomId);
@@ -218,8 +219,25 @@ public sealed class MatrixSyncBackgroundService(
                     if (string.Equals(timelineEvent.Sender, bridgeOptions.Value.BotUserId, StringComparison.Ordinal))
                     {
                         discoveredLoginUrl ??= matrixApiClient.TryExtractFirstUrl(timelineEvent.Body)?.ToString();
-                        connected = connected || LooksLikeSuccessfulLogin(timelineEvent.Body);
                         sawBridgeGreeting = sawBridgeGreeting || LooksLikeBridgeGreeting(timelineEvent.Body);
+
+                        // Detect login/logout — last message wins (process all, keep last result)
+                        if (LooksLikeSuccessfulLogin(timelineEvent.Body))
+                        {
+                            connected = true;
+                        }
+                        else if (LooksLikeLostConnection(timelineEvent.Body))
+                        {
+                            connected = false;
+                        }
+
+                        // Only allow forward login step transitions (phone→code→password)
+                        var stepCandidate = DetectLoginStep(timelineEvent.Body);
+                        if (stepCandidate is not null &&
+                            (detectedLoginStep is null || stepCandidate.Value > detectedLoginStep.Value))
+                        {
+                            detectedLoginStep = stepCandidate;
+                        }
                     }
 
                     continue;
@@ -303,6 +321,7 @@ public sealed class MatrixSyncBackgroundService(
             discoveredLoginUrl,
             connected,
             ingestedMessages > 0,
+            detectedLoginStep,
             cancellationToken);
 
         return new MatrixSyncUserResult(result.Rooms.Count, ingestedMessages, joinedInvitedRooms);
@@ -352,6 +371,7 @@ public sealed class MatrixSyncBackgroundService(
         string? discoveredLoginUrl,
         bool connected,
         bool sawMessages,
+        TelegramConnectionState? detectedLoginStep,
         CancellationToken cancellationToken)
     {
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -377,7 +397,7 @@ public sealed class MatrixSyncBackgroundService(
         }
 
         connection.UpdatedAt = timeProvider.GetUtcNow();
-        connection.State = ResolveConnectionStateAfterSuccessfulSync(connection.State, connected);
+        connection.State = ResolveConnectionStateAfterSuccessfulSync(connection.State, connected, detectedLoginStep);
         if (connection.State == TelegramConnectionState.Connected)
         {
             connection.WebLoginUrl = null;
@@ -460,9 +480,14 @@ public sealed class MatrixSyncBackgroundService(
         return count;
     }
 
-    private static bool LooksLikeSuccessfulLogin(string message)
+    internal static bool LooksLikeSuccessfulLogin(string message)
     {
         var normalized = message.ToLowerInvariant();
+        if (normalized.Contains("not logged in", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
         return normalized.Contains("logged in", StringComparison.Ordinal) ||
                normalized.Contains("login successful", StringComparison.Ordinal) ||
                normalized.Contains("successfully logged in", StringComparison.Ordinal);
@@ -490,17 +515,27 @@ public sealed class MatrixSyncBackgroundService(
         return !connected &&
                string.IsNullOrWhiteSpace(discoveredLoginUrl) &&
                sawBridgeGreeting &&
-               (currentState == TelegramConnectionState.BridgePending ||
-                currentState == TelegramConnectionState.Error);
+               currentState is TelegramConnectionState.BridgePending
+                   or TelegramConnectionState.Error
+                   or TelegramConnectionState.LoginAwaitingPhone;
     }
 
     internal static TelegramConnectionState ResolveConnectionStateAfterSuccessfulSync(
         TelegramConnectionState currentState,
-        bool connected)
+        bool connected,
+        TelegramConnectionState? detectedLoginStep = null)
     {
         if (connected)
         {
             return TelegramConnectionState.Connected;
+        }
+
+        // Only apply login step transitions for connections already in chat-login flow
+        if (detectedLoginStep is not null &&
+            currentState >= TelegramConnectionState.LoginAwaitingPhone &&
+            detectedLoginStep.Value > currentState)
+        {
+            return detectedLoginStep.Value;
         }
 
         return currentState switch
@@ -509,6 +544,47 @@ public sealed class MatrixSyncBackgroundService(
             TelegramConnectionState.Error => TelegramConnectionState.BridgePending,
             _ => currentState
         };
+    }
+
+    internal static TelegramConnectionState? DetectLoginStep(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return null;
+        }
+
+        var normalized = message.ToLowerInvariant();
+
+        if (normalized.Contains("two-step verification", StringComparison.Ordinal) ||
+            normalized.Contains("2fa", StringComparison.Ordinal) ||
+            (normalized.Contains("password", StringComparison.Ordinal) &&
+             normalized.Contains("send your password", StringComparison.Ordinal)))
+        {
+            return TelegramConnectionState.LoginAwaitingPassword;
+        }
+
+        if (normalized.Contains("verification code", StringComparison.Ordinal) ||
+            normalized.Contains("code to the bot", StringComparison.Ordinal) ||
+            normalized.Contains("enter the code", StringComparison.Ordinal) ||
+            normalized.Contains("code here", StringComparison.Ordinal))
+        {
+            return TelegramConnectionState.LoginAwaitingCode;
+        }
+
+        if (normalized.Contains("phone number", StringComparison.Ordinal) ||
+            (normalized.Contains("phone", StringComparison.Ordinal) &&
+             normalized.Contains("log in", StringComparison.Ordinal)))
+        {
+            return TelegramConnectionState.LoginAwaitingPhone;
+        }
+
+        return null;
+    }
+
+    internal static bool LooksLikeLostConnection(string message)
+    {
+        var normalized = message.ToLowerInvariant();
+        return normalized.Contains("not logged in", StringComparison.Ordinal);
     }
 
     internal static bool IsManagementRoom(string roomId, string? managementRoomId)

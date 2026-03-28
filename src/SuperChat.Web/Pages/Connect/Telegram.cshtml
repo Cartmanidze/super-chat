@@ -9,6 +9,8 @@
   var error = state == IntegrationConnectionState.Error;
   var requiresSetup = state == IntegrationConnectionState.RequiresSetup;
   var hasActionUrl = Model.Connection.ActionUrl is not null;
+  var loginStep = Model.Connection.ChatLoginStep;
+  var isLoginFlow = loginStep is not null;
   var canReconnect = connected || error || pending;
 }
 
@@ -32,7 +34,7 @@
       <div class="section-headline">
         <div>
           <p class="section-kicker">Статус подключения</p>
-          <h2>@(connected ? "Telegram подключён" : pending ? "Ожидание подключения" : error ? "Ошибка подключения" : "Подключите Telegram")</h2>
+          <h2>@(connected ? "Telegram подключён" : isLoginFlow ? "Вход в Telegram" : pending ? "Ожидание подключения" : error ? "Ошибка подключения" : "Подключите Telegram")</h2>
         </div>
       </div>
 
@@ -51,26 +53,57 @@
         </div>
       </dl>
 
-      <div class="feature-stack">
-        <article class="feature-chip-card">
-          <strong>Обещания</strong>
-          <span>Кому и что вы пообещали в переписках.</span>
-        </article>
-        <article class="feature-chip-card">
-          <strong>Follow-ups</strong>
-          <span>Где от вас ждут ответ или следующий шаг.</span>
-        </article>
-        <article class="feature-chip-card">
-          <strong>Встречи</strong>
-          <span>Временные договорённости и ближайшие созвоны.</span>
-        </article>
-        <article class="feature-chip-card">
-          <strong>Важные сигналы</strong>
-          <span>Смысловые куски, которые стоит поднять на поверхность.</span>
-        </article>
-      </div>
+      @if (isLoginFlow)
+      {
+        <div class="inline-alert inline-alert-info">
+          @if (loginStep == "phone")
+          {
+            <strong>Шаг 1 из 3.</strong>
+            <span>Введите номер телефона вашего Telegram-аккаунта.</span>
+          }
+          else if (loginStep == "code")
+          {
+            <strong>Шаг 2 из 3.</strong>
+            <span>Введите код подтверждения, отправленный в Telegram.</span>
+          }
+          else if (loginStep == "password")
+          {
+            <strong>Шаг 3 из 3.</strong>
+            <span>Введите пароль двухфакторной аутентификации (2FA).</span>
+          }
+        </div>
 
-      @if (hasActionUrl)
+        <form method="post" asp-page-handler="SubmitLoginInput" class="login-step-form">
+          @if (loginStep == "phone")
+          {
+            <div class="dialog-field">
+              <label for="login-input">Номер телефона</label>
+              <input id="login-input" type="tel" name="LoginInput" placeholder="+7 999 123-45-67"
+                     required autofocus autocomplete="tel" />
+            </div>
+            <button type="submit" class="app-button app-button-primary">Отправить номер</button>
+          }
+          else if (loginStep == "code")
+          {
+            <div class="dialog-field">
+              <label for="login-input">Код подтверждения</label>
+              <input id="login-input" type="text" name="LoginInput" placeholder="12345"
+                     required autofocus autocomplete="one-time-code" inputmode="numeric" />
+            </div>
+            <button type="submit" class="app-button app-button-primary">Подтвердить код</button>
+          }
+          else if (loginStep == "password")
+          {
+            <div class="dialog-field">
+              <label for="login-input">Пароль 2FA</label>
+              <input id="login-input" type="password" name="LoginInput" placeholder="Пароль двухфакторной аутентификации"
+                     required autofocus autocomplete="current-password" />
+            </div>
+            <button type="submit" class="app-button app-button-primary">Войти</button>
+          }
+        </form>
+      }
+      else if (hasActionUrl)
       {
         <div class="inline-alert inline-alert-info">
           <strong>Следующий шаг.</strong>
@@ -81,7 +114,7 @@
       else if (pending)
       {
         <div class="inline-alert inline-alert-info">
-          Bridge готовит ссылку для входа. Страница обновится автоматически.
+          Bridge готовит форму входа. Страница обновится автоматически.
         </div>
       }
       else if (error)
@@ -97,27 +130,59 @@
         </div>
       }
 
+      @if (!isLoginFlow)
+      {
+        <div class="feature-stack">
+          <article class="feature-chip-card">
+            <strong>Обещания</strong>
+            <span>Кому и что вы пообещали в переписках.</span>
+          </article>
+          <article class="feature-chip-card">
+            <strong>Follow-ups</strong>
+            <span>Где от вас ждут ответ или следующий шаг.</span>
+          </article>
+          <article class="feature-chip-card">
+            <strong>Встречи</strong>
+            <span>Временные договорённости и ближайшие созвоны.</span>
+          </article>
+          <article class="feature-chip-card">
+            <strong>Важные сигналы</strong>
+            <span>Смысловые куски, которые стоит поднять на поверхность.</span>
+          </article>
+        </div>
+      }
+
       <div class="inline-actions">
         @if (connected)
         {
-          <button type="button" class="app-button app-button-primary" data-open-reconnect-confirm>Переподключить Telegram</button>
+          <form method="post" asp-page-handler="StartChatLogin" style="display:inline">
+            <button type="submit" class="app-button app-button-primary">Переподключить Telegram</button>
+          </form>
           <a class="app-button app-button-secondary" asp-page="/Today">Открыть Today</a>
+        }
+        else if (isLoginFlow)
+        {
+          <form method="post" asp-page-handler="StartChatLogin" style="display:inline">
+            <button type="submit" class="app-button app-button-secondary">Начать заново</button>
+          </form>
         }
         else if (pending)
         {
-          <button type="button" class="app-button app-button-secondary" data-open-reconnect-confirm>Начать заново</button>
+          <form method="post" asp-page-handler="StartChatLogin" style="display:inline">
+            <button type="submit" class="app-button app-button-secondary">Начать заново</button>
+          </form>
           <a class="app-button app-button-secondary" asp-page="/Today">Открыть Today</a>
         }
         else if (error)
         {
-          <form method="post" asp-page-handler="Reconnect" style="display:inline">
+          <form method="post" asp-page-handler="StartChatLogin" style="display:inline">
             <button type="submit" class="app-button app-button-primary">Повторить подключение</button>
           </form>
           <a class="app-button app-button-secondary" asp-page="/Today">Открыть Today</a>
         }
         else
         {
-          <form method="post" style="display:inline">
+          <form method="post" asp-page-handler="StartChatLogin" style="display:inline">
             <button type="submit" class="app-button app-button-primary">Подключить Telegram</button>
           </form>
           <a class="app-button app-button-secondary" asp-page="/Today">Открыть Today</a>
@@ -129,17 +194,17 @@
       <p class="section-kicker">Как это работает</p>
       <h2>Три шага подключения</h2>
       <ol class="timeline-list">
-        <li>
-          <strong>1. Запуск</strong>
-          <span>Нажмите кнопку — SuperChat создаст безопасное соединение с bridge.</span>
+        <li class="@(loginStep == "phone" ? "timeline-active" : loginStep is "code" or "password" ? "timeline-done" : "")">
+          <strong>1. Номер телефона</strong>
+          <span>Введите номер — bridge запустит безопасный Telegram login.</span>
         </li>
-        <li>
-          <strong>2. Вход в Telegram</strong>
-          <span>Появится ссылка для входа: номер, код, 2FA (если включён).</span>
+        <li class="@(loginStep == "code" ? "timeline-active" : loginStep == "password" ? "timeline-done" : "")">
+          <strong>2. Код подтверждения</strong>
+          <span>Telegram пришлёт код — введите его здесь.</span>
         </li>
-        <li>
-          <strong>3. Готово</strong>
-          <span>Сообщения начнут поступать. Загляните в Today через пару минут.</span>
+        <li class="@(loginStep == "password" ? "timeline-active" : "")">
+          <strong>3. 2FA (если включён)</strong>
+          <span>Если у аккаунта есть пароль — ещё один шаг.</span>
         </li>
       </ol>
 
@@ -151,51 +216,26 @@
   </div>
 </section>
 
-<dialog id="reconnect-confirm-dialog" class="app-dialog">
-  <div class="dialog-shell">
-    <div class="dialog-head">
-      <div>
-        <p class="section-kicker">Подтверждение</p>
-        <h2>Переподключить Telegram?</h2>
-      </div>
-      <button type="button" class="dialog-close" data-close-reconnect-confirm aria-label="Закрыть">x</button>
-    </div>
-
-    <div class="dialog-body">
-      <p>
-        Текущая сессия Telegram bridge будет завершена и запущена заново.
-        Вам потребуется повторно пройти вход через Telegram.
-      </p>
-      @if (connected)
-      {
-        <p>Входящие сообщения не будут теряться — они продолжат копиться в Telegram и подтянутся после переподключения.</p>
-      }
-    </div>
-
-    <div class="dialog-actions">
-      <form method="post" asp-page-handler="Reconnect" style="display:inline">
-        <button type="submit" class="app-button app-button-primary">Да, переподключить</button>
-      </form>
-      <button type="button" class="app-button app-button-secondary" data-close-reconnect-confirm>Отмена</button>
-    </div>
-  </div>
-</dialog>
-
 @section Scripts
 {
   <script>
     (function () {
-      var dialog = document.getElementById("reconnect-confirm-dialog");
-      if (!dialog || !dialog.showModal) return;
-
-      document.querySelectorAll("[data-open-reconnect-confirm]").forEach(function (btn) {
-        btn.addEventListener("click", function () { dialog.showModal(); });
-      });
-      document.querySelectorAll("[data-close-reconnect-confirm]").forEach(function (btn) {
-        btn.addEventListener("click", function () { dialog.close(); });
-      });
-
-      @if (pending && !hasActionUrl)
+      @if (isLoginFlow)
+      {
+        <text>
+        var refreshTimer = setTimeout(function () { window.location.reload(); }, 5000);
+        var loginInput = document.getElementById('login-input');
+        if (loginInput) {
+          loginInput.addEventListener('focus', function () { clearTimeout(refreshTimer); });
+          loginInput.addEventListener('blur', function () {
+            if (!loginInput.value.trim()) {
+              refreshTimer = setTimeout(function () { window.location.reload(); }, 5000);
+            }
+          });
+        }
+        </text>
+      }
+      else if (pending && !hasActionUrl)
       {
         <text>
         setTimeout(function () { window.location.reload(); }, 5000);

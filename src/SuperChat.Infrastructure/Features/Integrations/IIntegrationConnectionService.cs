@@ -13,6 +13,10 @@ public interface IIntegrationConnectionService
 
     Task<IntegrationConnection> ReconnectAsync(AppUser user, IntegrationProvider provider, CancellationToken cancellationToken);
 
+    Task<IntegrationConnection> StartChatLoginAsync(AppUser user, IntegrationProvider provider, CancellationToken cancellationToken);
+
+    Task<IntegrationConnection> SubmitLoginInputAsync(AppUser user, IntegrationProvider provider, string input, CancellationToken cancellationToken);
+
     Task DisconnectAsync(Guid userId, IntegrationProvider provider, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<IntegrationConnection>> GetReadyForDevelopmentSyncAsync(IntegrationProvider provider, CancellationToken cancellationToken);

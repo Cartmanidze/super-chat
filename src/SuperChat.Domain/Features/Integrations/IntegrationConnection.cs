@@ -7,4 +7,5 @@ public sealed record IntegrationConnection(
     IntegrationConnectionState State,
     Uri? ActionUrl,
     DateTimeOffset UpdatedAt,
-    DateTimeOffset? LastSyncedAt);
+    DateTimeOffset? LastSyncedAt,
+    string? ChatLoginStep = null);

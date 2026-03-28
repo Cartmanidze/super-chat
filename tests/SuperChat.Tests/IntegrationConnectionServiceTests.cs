@@ -79,6 +79,16 @@ public sealed class IntegrationConnectionServiceTests
             return Task.FromResult(connection with { UserId = user.Id });
         }
 
+        public Task<TelegramConnection> StartChatLoginAsync(AppUser user, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(connection with { UserId = user.Id });
+        }
+
+        public Task<TelegramConnection> SubmitLoginInputAsync(AppUser user, string input, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(connection with { UserId = user.Id });
+        }
+
         public Task<TelegramConnection> CompleteDevelopmentConnectionAsync(AppUser user, CancellationToken cancellationToken)
         {
             return Task.FromResult(connection);

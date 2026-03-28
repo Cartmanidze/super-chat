@@ -27,6 +27,9 @@ public sealed class TelegramModel(
 
     public string? MatrixUserId { get; private set; }
 
+    [BindProperty]
+    public string? LoginInput { get; set; }
+
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
         await LoadStateAsync(cancellationToken);
@@ -54,6 +57,37 @@ public sealed class TelegramModel(
         }
 
         await integrationConnectionService.ReconnectAsync(user, IntegrationProvider.Telegram, cancellationToken);
+        await LoadStateAsync(cancellationToken);
+        return Page();
+    }
+
+    public async Task<IActionResult> OnPostStartChatLoginAsync(CancellationToken cancellationToken)
+    {
+        var user = await authFlowService.FindUserAsync(User.GetEmail(), cancellationToken);
+        if (user is null)
+        {
+            return RedirectToPage("/Index");
+        }
+
+        await integrationConnectionService.StartChatLoginAsync(user, IntegrationProvider.Telegram, cancellationToken);
+        await LoadStateAsync(cancellationToken);
+        return Page();
+    }
+
+    public async Task<IActionResult> OnPostSubmitLoginInputAsync(CancellationToken cancellationToken)
+    {
+        var user = await authFlowService.FindUserAsync(User.GetEmail(), cancellationToken);
+        if (user is null)
+        {
+            return RedirectToPage("/Index");
+        }
+
+        if (!string.IsNullOrWhiteSpace(LoginInput))
+        {
+            await integrationConnectionService.SubmitLoginInputAsync(
+                user, IntegrationProvider.Telegram, LoginInput.Trim(), cancellationToken);
+        }
+
         await LoadStateAsync(cancellationToken);
         return Page();
     }

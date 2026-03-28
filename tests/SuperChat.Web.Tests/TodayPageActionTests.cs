@@ -169,6 +169,16 @@ public sealed class TodayPageActionTests
             throw new NotSupportedException();
         }
 
+        public Task<IntegrationConnection> StartChatLoginAsync(AppUser user, IntegrationProvider provider, CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<IntegrationConnection> SubmitLoginInputAsync(AppUser user, IntegrationProvider provider, string input, CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
         public Task DisconnectAsync(Guid userId, IntegrationProvider provider, CancellationToken cancellationToken)
         {
             return Task.CompletedTask;

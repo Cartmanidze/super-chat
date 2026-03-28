@@ -92,6 +92,102 @@ public sealed class TelegramConnectionService(
         return await StartAsync(user, cancellationToken);
     }
 
+    public async Task<TelegramConnection> StartChatLoginAsync(AppUser user, CancellationToken cancellationToken)
+    {
+        var identity = await matrixProvisioningService.EnsureIdentityAsync(user, cancellationToken);
+        if (string.IsNullOrWhiteSpace(identity.AccessToken) || identity.AccessToken.StartsWith("dev-token-", StringComparison.Ordinal))
+        {
+            return await SetStateAsync(user.Id, TelegramConnectionState.RequiresSetup, null, null, cancellationToken);
+        }
+
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var entity = await FindOrCreateConnectionAsync(dbContext, user.Id, cancellationToken);
+
+        // Logout before re-login when already connected
+        if (entity.State == TelegramConnectionState.Connected &&
+            !string.IsNullOrWhiteSpace(entity.ManagementRoomId))
+        {
+            try
+            {
+                await matrixApiClient.SendTextMessageAsync(identity.AccessToken, entity.ManagementRoomId, "logout", cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to send logout before chat login for user {UserId}.", user.Id);
+            }
+        }
+
+        var managementRoomId = entity.ManagementRoomId;
+        if (string.IsNullOrWhiteSpace(managementRoomId))
+        {
+            managementRoomId = await matrixApiClient.CreateDirectRoomAsync(
+                identity.AccessToken, bridgeOptions.Value.BotUserId, cancellationToken);
+        }
+
+        entity.ManagementRoomId = managementRoomId;
+        entity.WebLoginUrl = null;
+        entity.UpdatedAt = timeProvider.GetUtcNow();
+
+        var bridgeBotReady = await WaitForBridgeBotJoinAsync(identity.AccessToken, managementRoomId, cancellationToken);
+        if (bridgeBotReady)
+        {
+            try
+            {
+                await matrixApiClient.SendTextMessageAsync(identity.AccessToken, managementRoomId, "login", cancellationToken);
+                entity.State = TelegramConnectionState.LoginAwaitingPhone;
+                logger.LogInformation("Started Telegram chat login for user {UserId} in room {RoomId}.", user.Id, managementRoomId);
+            }
+            catch (Exception ex)
+            {
+                entity.State = TelegramConnectionState.Error;
+                logger.LogWarning(ex, "Failed to send login command for user {UserId} in room {RoomId}.", user.Id, managementRoomId);
+            }
+        }
+        else
+        {
+            entity.State = TelegramConnectionState.Error;
+            logger.LogWarning("Bridge bot did not join room {RoomId} for user {UserId} before timeout.", managementRoomId, user.Id);
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return entity.ToDomain();
+    }
+
+    public async Task<TelegramConnection> SubmitLoginInputAsync(AppUser user, string input, CancellationToken cancellationToken)
+    {
+        var identity = await matrixProvisioningService.EnsureIdentityAsync(user, cancellationToken);
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var entity = await FindOrCreateConnectionAsync(dbContext, user.Id, cancellationToken);
+
+        if (entity.State is not (TelegramConnectionState.LoginAwaitingPhone
+            or TelegramConnectionState.LoginAwaitingCode
+            or TelegramConnectionState.LoginAwaitingPassword))
+        {
+            logger.LogWarning("Rejected login input for user {UserId}: state is {State}, not in login flow.", user.Id, entity.State);
+            return entity.ToDomain();
+        }
+
+        if (string.IsNullOrWhiteSpace(entity.ManagementRoomId) ||
+            string.IsNullOrWhiteSpace(identity.AccessToken) ||
+            identity.AccessToken.StartsWith("dev-token-", StringComparison.Ordinal))
+        {
+            logger.LogWarning("Cannot submit login input for user {UserId}: missing management room or valid access token.", user.Id);
+            return entity.ToDomain();
+        }
+
+        try
+        {
+            await matrixApiClient.SendTextMessageAsync(identity.AccessToken, entity.ManagementRoomId, input, cancellationToken);
+            logger.LogInformation("Sent login input for user {UserId} in room {RoomId}.", user.Id, entity.ManagementRoomId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to send login input for user {UserId} in room {RoomId}.", user.Id, entity.ManagementRoomId);
+        }
+
+        return entity.ToDomain();
+    }
+
     public async Task<TelegramConnection> CompleteDevelopmentConnectionAsync(AppUser user, CancellationToken cancellationToken)
     {
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);

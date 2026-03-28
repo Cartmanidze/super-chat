@@ -56,6 +56,12 @@ public sealed class BootstrapTelegramConnectionService(
         return await StartAsync(user, cancellationToken);
     }
 
+    public Task<TelegramConnection> StartChatLoginAsync(AppUser user, CancellationToken cancellationToken)
+        => StartAsync(user, cancellationToken);
+
+    public Task<TelegramConnection> SubmitLoginInputAsync(AppUser user, string input, CancellationToken cancellationToken)
+        => GetStatusAsync(user.Id, cancellationToken);
+
     public async Task<TelegramConnection> CompleteDevelopmentConnectionAsync(AppUser user, CancellationToken cancellationToken)
     {
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
