@@ -11,11 +11,13 @@ delay_seconds="${RETRY_INITIAL_DELAY_SECONDS:-10}"
 backoff_factor="${RETRY_BACKOFF_FACTOR:-2}"
 
 for ((attempt = 1; attempt <= attempts; attempt++)); do
-  if "$@"; then
+  status=0
+  "$@" || status=$?
+
+  if [ "$status" -eq 0 ]; then
     exit 0
   fi
 
-  status=$?
   if [ "$attempt" -ge "$attempts" ]; then
     echo "Command failed after ${attempts} attempts." >&2
     exit "$status"
