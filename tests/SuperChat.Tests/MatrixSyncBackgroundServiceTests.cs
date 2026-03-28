@@ -412,11 +412,13 @@ public sealed class MatrixSyncBackgroundServiceTests
 
     [Theory]
     [InlineData("Successfully logged in as +79991234567.", true)]
-    [InlineData("You have been logged in.", true)]
+    [InlineData("Logged in as @user.", true)]
     [InlineData("Login successful!", true)]
     [InlineData("You're not logged in.", false)]
     [InlineData("Not logged in. Use `login` to start.", false)]
     [InlineData("Hello, I'm a bridge bot.", false)]
+    [InlineData("Check if you're logged into Telegram.", false)]
+    [InlineData("Click here to log in.", false)]
     public void LooksLikeSuccessfulLogin_DetectsCorrectly(string message, bool expected)
     {
         Assert.Equal(expected, MatrixSyncBackgroundService.LooksLikeSuccessfulLogin(message));

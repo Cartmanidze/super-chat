@@ -488,7 +488,7 @@ public sealed class MatrixSyncBackgroundService(
             return false;
         }
 
-        return normalized.Contains("logged in", StringComparison.Ordinal) ||
+        return normalized.Contains("logged in as", StringComparison.Ordinal) ||
                normalized.Contains("login successful", StringComparison.Ordinal) ||
                normalized.Contains("successfully logged in", StringComparison.Ordinal);
     }
