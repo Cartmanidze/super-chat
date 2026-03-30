@@ -12,7 +12,7 @@ coroutine, it is scheduled on the running event loop.
 from pathlib import Path
 
 
-TARGET = Path("/usr/lib/python3.11/site-packages/telethon/client/telegrambaseclient.py")
+TARGET = Path("/usr/lib/python3.12/site-packages/telethon/client/telegrambaseclient.py")
 
 OLD = "            session.save()\n"
 NEW = (

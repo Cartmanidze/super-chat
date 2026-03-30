@@ -1,4 +1,4 @@
-FROM dock.mau.dev/mautrix/telegram:v0.15.3@sha256:04066316717e224d26677550089740f65345d64ea4a78187f5d4e0e66d970f61
+FROM mautrix-telegram-base:v0.21.0-py312
 
 ENV VIRTUAL_ENV=/opt/telegram-helper-venv
 ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"

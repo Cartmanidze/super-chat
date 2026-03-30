@@ -1,8 +1,8 @@
 from pathlib import Path
 
 
-USER_TARGET = Path("/usr/lib/python3.11/site-packages/mautrix_telegram/user.py")
-PORTAL_TARGET = Path("/usr/lib/python3.11/site-packages/mautrix_telegram/portal.py")
+USER_TARGET = Path("/usr/lib/python3.12/site-packages/mautrix_telegram/user.py")
+PORTAL_TARGET = Path("/usr/lib/python3.12/site-packages/mautrix_telegram/portal.py")
 
 USER_REPLACEMENTS = [
     (

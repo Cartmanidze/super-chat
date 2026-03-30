@@ -1,7 +1,7 @@
 from pathlib import Path
 
 
-TARGET = Path("/usr/lib/python3.11/site-packages/mautrix/appservice/api/intent.py")
+TARGET = Path("/usr/lib/python3.12/site-packages/mautrix/appservice/api/intent.py")
 OLD = '            await self.get_state_event(room_id, EventType.ROOM_CREATE, format="event")\n'
 NEW = (
     "            # Synapse may omit event_id on state endpoints even with format=event.\n"
