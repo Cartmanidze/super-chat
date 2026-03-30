@@ -30,5 +30,6 @@ fi
 
 "$ROOT_DIR/scripts/preflight.sh" "$ENV_FILE"
 "$ROOT_DIR/scripts/render-configs.sh" "$ENV_FILE"
-docker compose --env-file "$ENV_FILE" -f "$ROOT_DIR/docker-compose.yml" pull mautrix-telegram-helper superchat-web superchat-api
+docker compose --env-file "$ENV_FILE" -f "$ROOT_DIR/docker-compose.yml" pull superchat-web superchat-api
+docker compose --env-file "$ENV_FILE" -f "$ROOT_DIR/docker-compose.yml" build mautrix-telegram-helper
 docker compose --env-file "$ENV_FILE" -f "$ROOT_DIR/docker-compose.yml" up -d --build --force-recreate

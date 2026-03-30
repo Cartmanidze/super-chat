@@ -92,17 +92,7 @@ jobs:
           cache-from: type=gha,scope=superchat-api
           cache-to: type=gha,mode=max,scope=superchat-api
 
-      - name: Build and push superchat-mautrix-telegram-helper
-        uses: docker/build-push-action@v6
-        with:
-          context: infra/prod/mautrix-helper-image
-          file: infra/prod/mautrix-helper-image/Dockerfile
-          push: true
-          tags: |
-            ghcr.io/${{ steps.vars.outputs.owner_lc }}/superchat-mautrix-telegram-helper:sha-${{ github.sha }}
-            ghcr.io/${{ steps.vars.outputs.owner_lc }}/superchat-mautrix-telegram-helper:main
-          cache-from: type=gha,scope=superchat-mautrix-telegram-helper
-          cache-to: type=gha,mode=max,scope=superchat-mautrix-telegram-helper
+      # mautrix-telegram-helper is built on the server (requires local base image)
 
       - name: Build and push superchat-db-migrator
         uses: docker/build-push-action@v6
