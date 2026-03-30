@@ -8,7 +8,6 @@ using SuperChat.Contracts.Features.Integrations.Telegram;
 using SuperChat.Domain.Features.Auth;
 using SuperChat.Domain.Features.Integrations.Matrix;
 using SuperChat.Domain.Features.Integrations.Telegram;
-using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Infrastructure.Features.Integrations.Matrix;
 using SuperChat.Infrastructure.Features.Integrations.Telegram;
 using SuperChat.Infrastructure.Shared.Persistence;
@@ -321,48 +320,117 @@ public sealed class TelegramConnectionServiceTests
         Assert.DoesNotContain("-", handler.RequestBodies[1], StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData(TelegramConnectionState.LoginAwaitingCode, "12345")]
+    [InlineData(TelegramConnectionState.LoginAwaitingPassword, "my2faPassword")]
+    public async Task SubmitLoginInputAsync_DoesNotResendLogin_ForNonPhoneStep(
+        TelegramConnectionState state, string input)
+    {
+        var user = CreateUser();
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        await SeedConnectionAsync(factory, user.Id, state, "!mgmt:matrix.localhost", webLoginUrl: null, CancellationToken.None);
+
+        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+        var service = CreateService(factory, handler, CreateIdentity(user.Id));
+
+        await service.SubmitLoginInputAsync(user, input, CancellationToken.None);
+
+        Assert.Single(handler.Requests);
+        Assert.Contains($"\"body\":\"{input}\"", handler.RequestBodies[0], StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("abc")]
+    [InlineData("")]
+    [InlineData("---")]
+    public void NormalizePhoneNumber_ReturnsEmpty_WhenNoDigits(string input)
+    {
+        var result = TelegramConnectionService.NormalizePhoneNumber(input);
+
+        Assert.Equal(string.Empty, result);
+    }
+
     [Fact]
-    public async Task SubmitLoginInputAsync_DoesNotResendLogin_ForCodeStep()
+    public async Task SubmitLoginInputAsync_RejectsInvalidPhone_WhenNoDigits()
     {
         var user = CreateUser();
         var factory = await CreateFactoryAsync(CancellationToken.None);
         await SeedConnectionAsync(
-            factory,
-            user.Id,
-            TelegramConnectionState.LoginAwaitingCode,
-            "!mgmt:matrix.localhost",
-            webLoginUrl: null,
-            CancellationToken.None);
+            factory, user.Id, TelegramConnectionState.LoginAwaitingPhone,
+            "!mgmt:matrix.localhost", webLoginUrl: null, CancellationToken.None);
 
         var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+        var service = CreateService(factory, handler, CreateIdentity(user.Id));
+
+        await service.SubmitLoginInputAsync(user, "abc", CancellationToken.None);
+
+        Assert.Empty(handler.Requests);
+
+        await using var dbContext = await factory.CreateDbContextAsync(CancellationToken.None);
+        var entity = await dbContext.TelegramConnections.SingleAsync(item => item.UserId == user.Id, CancellationToken.None);
+        Assert.Equal(TelegramConnectionState.LoginAwaitingPhone, entity.State);
+    }
+
+    [Fact]
+    public async Task SubmitLoginInputAsync_RejectsInput_WhenNotInLoginFlow()
+    {
+        var user = CreateUser();
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        await SeedConnectionAsync(
+            factory, user.Id, TelegramConnectionState.Connected,
+            "!mgmt:matrix.localhost", webLoginUrl: null, CancellationToken.None);
+
+        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+        var service = CreateService(factory, handler, CreateIdentity(user.Id));
+
+        await service.SubmitLoginInputAsync(user, "+79136407894", CancellationToken.None);
+
+        Assert.Empty(handler.Requests);
+    }
+
+    [Fact]
+    public async Task SubmitLoginInputAsync_WhenRetryLoginFails_StillSendsPhone()
+    {
+        var user = CreateUser();
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        await SeedConnectionAsync(
+            factory, user.Id, TelegramConnectionState.LoginAwaitingPhone,
+            "!mgmt:matrix.localhost", webLoginUrl: null, CancellationToken.None);
+
+        var callCount = 0;
+        var handler = new RecordingHandler(_ =>
+        {
+            callCount++;
+            return callCount == 1
+                ? throw new HttpRequestException("Simulated failure")
+                : new HttpResponseMessage(HttpStatusCode.OK);
+        });
+        var service = CreateService(factory, handler, CreateIdentity(user.Id));
+
+        await service.SubmitLoginInputAsync(user, "+79136407894", CancellationToken.None);
+
+        Assert.Equal(2, handler.Requests.Count);
+        Assert.Contains("\"body\":\"login\"", handler.RequestBodies[0], StringComparison.Ordinal);
+        Assert.Contains("79136407894", handler.RequestBodies[1], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SubmitLoginInputAsync_WhenSendFails_SetsErrorState()
+    {
+        var user = CreateUser();
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        await SeedConnectionAsync(
+            factory, user.Id, TelegramConnectionState.LoginAwaitingCode,
+            "!mgmt:matrix.localhost", webLoginUrl: null, CancellationToken.None);
+
+        var handler = new RecordingHandler(_ => throw new HttpRequestException("Simulated failure"));
         var service = CreateService(factory, handler, CreateIdentity(user.Id));
 
         await service.SubmitLoginInputAsync(user, "12345", CancellationToken.None);
 
-        Assert.Single(handler.Requests);
-        Assert.Contains("\"body\":\"12345\"", handler.RequestBodies[0], StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task SubmitLoginInputAsync_DoesNotResendLogin_ForPasswordStep()
-    {
-        var user = CreateUser();
-        var factory = await CreateFactoryAsync(CancellationToken.None);
-        await SeedConnectionAsync(
-            factory,
-            user.Id,
-            TelegramConnectionState.LoginAwaitingPassword,
-            "!mgmt:matrix.localhost",
-            webLoginUrl: null,
-            CancellationToken.None);
-
-        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
-        var service = CreateService(factory, handler, CreateIdentity(user.Id));
-
-        await service.SubmitLoginInputAsync(user, "my2faPassword", CancellationToken.None);
-
-        Assert.Single(handler.Requests);
-        Assert.Contains("\"body\":\"my2faPassword\"", handler.RequestBodies[0], StringComparison.Ordinal);
+        await using var dbContext = await factory.CreateDbContextAsync(CancellationToken.None);
+        var entity = await dbContext.TelegramConnections.SingleAsync(item => item.UserId == user.Id, CancellationToken.None);
+        Assert.Equal(TelegramConnectionState.Error, entity.State);
     }
 
     private static TelegramConnectionService CreateService(

@@ -33,7 +33,7 @@ public sealed class TelegramConnectionService(
         }
 
         var identity = await matrixProvisioningService.EnsureIdentityAsync(user, cancellationToken);
-        if (string.IsNullOrWhiteSpace(identity.AccessToken) || identity.AccessToken.StartsWith("dev-token-", StringComparison.Ordinal))
+        if (!IsLiveAccessToken(identity.AccessToken))
         {
             return await SetStateAsync(
                 user.Id,
@@ -96,7 +96,7 @@ public sealed class TelegramConnectionService(
     public async Task<TelegramConnection> StartChatLoginAsync(AppUser user, CancellationToken cancellationToken)
     {
         var identity = await matrixProvisioningService.EnsureIdentityAsync(user, cancellationToken);
-        if (string.IsNullOrWhiteSpace(identity.AccessToken) || identity.AccessToken.StartsWith("dev-token-", StringComparison.Ordinal))
+        if (!IsLiveAccessToken(identity.AccessToken))
         {
             return await SetStateAsync(user.Id, TelegramConnectionState.RequiresSetup, null, null, cancellationToken);
         }
@@ -168,9 +168,7 @@ public sealed class TelegramConnectionService(
             return entity.ToDomain();
         }
 
-        if (string.IsNullOrWhiteSpace(entity.ManagementRoomId) ||
-            string.IsNullOrWhiteSpace(identity.AccessToken) ||
-            identity.AccessToken.StartsWith("dev-token-", StringComparison.Ordinal))
+        if (string.IsNullOrWhiteSpace(entity.ManagementRoomId) || !IsLiveAccessToken(identity.AccessToken))
         {
             logger.LogWarning("Cannot submit login input for user {UserId}: missing management room or valid access token.", user.Id);
             return entity.ToDomain();
@@ -180,24 +178,45 @@ public sealed class TelegramConnectionService(
             ? NormalizePhoneNumber(input)
             : input;
 
-        try
+        if (entity.State == TelegramConnectionState.LoginAwaitingPhone && string.IsNullOrEmpty(sanitizedInput))
         {
-            // Re-issue the login command: the bridge may have exited login mode
-            // if it rejected a previous phone attempt or timed out waiting for input.
-            if (entity.State == TelegramConnectionState.LoginAwaitingPhone)
+            logger.LogWarning("Rejected invalid phone number for user {UserId}: input contained no digits.", user.Id);
+            return entity.ToDomain();
+        }
+
+        // Re-issue the login command before sending the phone number.
+        // The bridge exits login mode if it rejected a previous phone attempt
+        // or timed out waiting for input, so we must re-enter it.
+        // This is NOT done for code/password steps: re-issuing "login" there
+        // would restart the entire flow, discarding the phone verification already completed.
+        if (entity.State == TelegramConnectionState.LoginAwaitingPhone)
+        {
+            try
             {
                 await matrixApiClient.SendTextMessageAsync(identity.AccessToken, entity.ManagementRoomId, "login", cancellationToken);
                 await Task.Delay(LoginRetryDelay, timeProvider, cancellationToken);
             }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to re-issue login command for user {UserId} in room {RoomId}. Proceeding anyway.", user.Id, entity.ManagementRoomId);
+            }
+        }
 
+        try
+        {
             await matrixApiClient.SendTextMessageAsync(identity.AccessToken, entity.ManagementRoomId, sanitizedInput, cancellationToken);
             logger.LogInformation("Sent login input for user {UserId} in room {RoomId}.", user.Id, entity.ManagementRoomId);
         }
+        catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
+            entity.State = TelegramConnectionState.Error;
+            entity.UpdatedAt = timeProvider.GetUtcNow();
             logger.LogWarning(ex, "Failed to send login input for user {UserId} in room {RoomId}.", user.Id, entity.ManagementRoomId);
         }
 
+        await dbContext.SaveChangesAsync(cancellationToken);
         return entity.ToDomain();
     }
 
@@ -230,8 +249,7 @@ public sealed class TelegramConnectionService(
         if (!pilotOptions.Value.DevSeedSampleData &&
             identity is not null &&
             !string.IsNullOrWhiteSpace(existing.ManagementRoomId) &&
-            !string.IsNullOrWhiteSpace(identity.AccessToken) &&
-            !identity.AccessToken.StartsWith("dev-token-", StringComparison.Ordinal))
+            IsLiveAccessToken(identity.AccessToken))
         {
             try
             {
@@ -332,9 +350,7 @@ public sealed class TelegramConnectionService(
         var identity = await dbContext.MatrixIdentities
             .AsNoTracking()
             .SingleOrDefaultAsync(item => item.UserId == connection.UserId, cancellationToken);
-        if (identity is null ||
-            string.IsNullOrWhiteSpace(identity.AccessToken) ||
-            identity.AccessToken.StartsWith("dev-token-", StringComparison.Ordinal))
+        if (identity is null || !IsLiveAccessToken(identity.AccessToken))
         {
             logger.LogWarning(
                 "Cleared expired Telegram bridge login URL for user {UserId}, but no live Matrix access token is available.",
@@ -401,7 +417,7 @@ public sealed class TelegramConnectionService(
         }
     }
 
-    private static async Task<TelegramConnectionEntity> FindOrCreateConnectionAsync(
+    private async Task<TelegramConnectionEntity> FindOrCreateConnectionAsync(
         SuperChatDbContext dbContext,
         Guid userId,
         CancellationToken cancellationToken)
@@ -416,13 +432,25 @@ public sealed class TelegramConnectionService(
         {
             UserId = userId,
             State = TelegramConnectionState.NotStarted,
-            UpdatedAt = DateTimeOffset.UtcNow
+            UpdatedAt = timeProvider.GetUtcNow()
         };
 
         dbContext.TelegramConnections.Add(connection);
         return connection;
     }
 
+    internal static bool IsLiveAccessToken(string? accessToken)
+    {
+        return !string.IsNullOrWhiteSpace(accessToken) &&
+               !accessToken.StartsWith("dev-token-", StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Strips formatting characters (spaces, dashes, parentheses) from a phone number,
+    /// preserving only ASCII digits and an optional leading '+'.
+    /// Returns empty string if no digits or '+' are found,
+    /// allowing the caller to reject the input before sending to the bridge.
+    /// </summary>
     internal static string NormalizePhoneNumber(string input)
     {
         var span = input.AsSpan().Trim();
@@ -437,7 +465,7 @@ public sealed class TelegramConnectionService(
             }
         }
 
-        return pos > 0 ? new string(buffer, 0, pos) : input;
+        return pos > 0 ? new string(buffer, 0, pos) : string.Empty;
     }
 
     internal static bool ShouldRefreshExpiredBridgeLogin(
