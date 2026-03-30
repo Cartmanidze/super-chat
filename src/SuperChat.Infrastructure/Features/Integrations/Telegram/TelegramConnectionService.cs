@@ -104,7 +104,13 @@ public sealed class TelegramConnectionService(
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         var entity = await FindOrCreateConnectionAsync(dbContext, user.Id, cancellationToken);
 
-        // Logout before re-login when already connected
+        // Two-phase reconnect: if already connected, phase 1 sends logout and
+        // persists Disconnected state. The bridge processes logout asynchronously —
+        // we cannot know when it finishes without polling room messages. Instead we
+        // save Disconnected and fall through to phase 2 which sends login.
+        // If the bridge hasn't finished logout yet, login will get "already logged in"
+        // and the user clicks "Начать заново" again — this time state is already
+        // Disconnected so logout is skipped and login succeeds immediately.
         if (entity.State == TelegramConnectionState.Connected &&
             !string.IsNullOrWhiteSpace(entity.ManagementRoomId))
         {
@@ -112,10 +118,17 @@ public sealed class TelegramConnectionService(
             {
                 await matrixApiClient.SendTextMessageAsync(identity.AccessToken, entity.ManagementRoomId, "logout", cancellationToken);
             }
+            catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
                 logger.LogWarning(ex, "Failed to send logout before chat login for user {UserId}.", user.Id);
             }
+
+            // Persist Disconnected immediately so a retry skips the logout phase.
+            entity.State = TelegramConnectionState.Disconnected;
+            entity.WebLoginUrl = null;
+            entity.UpdatedAt = timeProvider.GetUtcNow();
+            await dbContext.SaveChangesAsync(cancellationToken);
         }
 
         var managementRoomId = entity.ManagementRoomId;
@@ -138,6 +151,7 @@ public sealed class TelegramConnectionService(
                 entity.State = TelegramConnectionState.LoginAwaitingPhone;
                 logger.LogInformation("Started Telegram chat login for user {UserId} in room {RoomId}.", user.Id, managementRoomId);
             }
+            catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
                 entity.State = TelegramConnectionState.Error;

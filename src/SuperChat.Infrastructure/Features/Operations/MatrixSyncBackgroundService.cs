@@ -584,7 +584,8 @@ public sealed class MatrixSyncBackgroundService(
     internal static bool LooksLikeLostConnection(string message)
     {
         var normalized = message.ToLowerInvariant();
-        return normalized.Contains("not logged in", StringComparison.Ordinal);
+        return normalized.Contains("not logged in", StringComparison.Ordinal) ||
+               normalized.Contains("logged out", StringComparison.Ordinal);
     }
 
     internal static bool IsManagementRoom(string roomId, string? managementRoomId)
