@@ -282,6 +282,89 @@ public sealed class TelegramConnectionServiceTests
         Assert.Equal(expected, result);
     }
 
+    [Theory]
+    [InlineData("+7 (913) 640-78-94", "+79136407894")]
+    [InlineData("+7 999 123-45-67", "+79991234567")]
+    [InlineData("+79136407894", "+79136407894")]
+    [InlineData("89136407894", "89136407894")]
+    [InlineData("+1 (555) 123 4567", "+15551234567")]
+    [InlineData("  +7 913 640 78 94  ", "+79136407894")]
+    public void NormalizePhoneNumber_StripsFormattingCharacters(string input, string expected)
+    {
+        var result = TelegramConnectionService.NormalizePhoneNumber(input);
+
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public async Task SubmitLoginInputAsync_NormalizesPhoneAndResendLogin()
+    {
+        var user = CreateUser();
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        await SeedConnectionAsync(
+            factory,
+            user.Id,
+            TelegramConnectionState.LoginAwaitingPhone,
+            "!mgmt:matrix.localhost",
+            webLoginUrl: null,
+            CancellationToken.None);
+
+        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+        var service = CreateService(factory, handler, CreateIdentity(user.Id));
+
+        await service.SubmitLoginInputAsync(user, "+7 (913) 640-78-94", CancellationToken.None);
+
+        Assert.Equal(2, handler.Requests.Count);
+        Assert.Contains("\"body\":\"login\"", handler.RequestBodies[0], StringComparison.Ordinal);
+        Assert.Contains("79136407894", handler.RequestBodies[1], StringComparison.Ordinal);
+        Assert.DoesNotContain("(", handler.RequestBodies[1], StringComparison.Ordinal);
+        Assert.DoesNotContain("-", handler.RequestBodies[1], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SubmitLoginInputAsync_DoesNotResendLogin_ForCodeStep()
+    {
+        var user = CreateUser();
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        await SeedConnectionAsync(
+            factory,
+            user.Id,
+            TelegramConnectionState.LoginAwaitingCode,
+            "!mgmt:matrix.localhost",
+            webLoginUrl: null,
+            CancellationToken.None);
+
+        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+        var service = CreateService(factory, handler, CreateIdentity(user.Id));
+
+        await service.SubmitLoginInputAsync(user, "12345", CancellationToken.None);
+
+        Assert.Single(handler.Requests);
+        Assert.Contains("\"body\":\"12345\"", handler.RequestBodies[0], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SubmitLoginInputAsync_DoesNotResendLogin_ForPasswordStep()
+    {
+        var user = CreateUser();
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        await SeedConnectionAsync(
+            factory,
+            user.Id,
+            TelegramConnectionState.LoginAwaitingPassword,
+            "!mgmt:matrix.localhost",
+            webLoginUrl: null,
+            CancellationToken.None);
+
+        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+        var service = CreateService(factory, handler, CreateIdentity(user.Id));
+
+        await service.SubmitLoginInputAsync(user, "my2faPassword", CancellationToken.None);
+
+        Assert.Single(handler.Requests);
+        Assert.Contains("\"body\":\"my2faPassword\"", handler.RequestBodies[0], StringComparison.Ordinal);
+    }
+
     private static TelegramConnectionService CreateService(
         IDbContextFactory<SuperChatDbContext> factory,
         RecordingHandler handler,

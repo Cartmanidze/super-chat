@@ -23,6 +23,7 @@ public sealed class TelegramConnectionService(
     internal static readonly TimeSpan BridgeBotJoinTimeout = TimeSpan.FromSeconds(5);
     internal static readonly TimeSpan BridgeBotJoinPollInterval = TimeSpan.FromMilliseconds(150);
     internal static readonly TimeSpan BridgeLoginRefreshSkew = TimeSpan.FromSeconds(30);
+    internal static readonly TimeSpan LoginRetryDelay = TimeSpan.FromSeconds(2);
 
     public async Task<TelegramConnection> StartAsync(AppUser user, CancellationToken cancellationToken)
     {
@@ -175,9 +176,21 @@ public sealed class TelegramConnectionService(
             return entity.ToDomain();
         }
 
+        var sanitizedInput = entity.State == TelegramConnectionState.LoginAwaitingPhone
+            ? NormalizePhoneNumber(input)
+            : input;
+
         try
         {
-            await matrixApiClient.SendTextMessageAsync(identity.AccessToken, entity.ManagementRoomId, input, cancellationToken);
+            // Re-issue the login command: the bridge may have exited login mode
+            // if it rejected a previous phone attempt or timed out waiting for input.
+            if (entity.State == TelegramConnectionState.LoginAwaitingPhone)
+            {
+                await matrixApiClient.SendTextMessageAsync(identity.AccessToken, entity.ManagementRoomId, "login", cancellationToken);
+                await Task.Delay(LoginRetryDelay, timeProvider, cancellationToken);
+            }
+
+            await matrixApiClient.SendTextMessageAsync(identity.AccessToken, entity.ManagementRoomId, sanitizedInput, cancellationToken);
             logger.LogInformation("Sent login input for user {UserId} in room {RoomId}.", user.Id, entity.ManagementRoomId);
         }
         catch (Exception ex)
@@ -408,6 +421,23 @@ public sealed class TelegramConnectionService(
 
         dbContext.TelegramConnections.Add(connection);
         return connection;
+    }
+
+    internal static string NormalizePhoneNumber(string input)
+    {
+        var span = input.AsSpan().Trim();
+        var buffer = new char[span.Length];
+        var pos = 0;
+
+        for (var i = 0; i < span.Length; i++)
+        {
+            if (char.IsAsciiDigit(span[i]) || (i == 0 && span[i] == '+'))
+            {
+                buffer[pos++] = span[i];
+            }
+        }
+
+        return pos > 0 ? new string(buffer, 0, pos) : input;
     }
 
     internal static bool ShouldRefreshExpiredBridgeLogin(
