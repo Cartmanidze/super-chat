@@ -41,7 +41,9 @@ services:
       - ./mautrix:/data
 
   mautrix-telegram-helper:
-    image: ${MAUTRIX_TELEGRAM_HELPER_IMAGE:-ghcr.io/cartmanidze/superchat-mautrix-telegram-helper:main}
+    build:
+      context: ./mautrix-helper-image
+    image: prod-mautrix-telegram-helper:hotfix
     restart: unless-stopped
     depends_on:
       postgres:

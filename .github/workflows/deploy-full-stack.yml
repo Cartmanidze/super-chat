@@ -167,7 +167,7 @@ jobs:
           chmod +x .github/scripts/retry.sh
           ./.github/scripts/retry.sh \
             ssh -i ~/.ssh/id_ed25519 -p "${PROD_SSH_PORT}" -o BatchMode=yes -o PreferredAuthentications=publickey -o PubkeyAuthentication=yes -o PasswordAuthentication=no -o KbdInteractiveAuthentication=no -o ConnectionAttempts=1 -o ConnectTimeout=20 -o StrictHostKeyChecking=yes "${PROD_SSH_USER}@${PROD_SSH_HOST}" \
-            "cd '${PROD_WORKTREE_PATH}' && git pull --ff-only && export GHCR_REGISTRY='ghcr.io' GHCR_USERNAME='${GHCR_USERNAME}' GHCR_TOKEN='${GHCR_TOKEN}' SUPERCHAT_WEB_IMAGE='ghcr.io/${OWNER_LC}/superchat-web:${IMAGE_TAG}' SUPERCHAT_API_IMAGE='ghcr.io/${OWNER_LC}/superchat-api:${IMAGE_TAG}' MAUTRIX_TELEGRAM_HELPER_IMAGE='ghcr.io/${OWNER_LC}/superchat-mautrix-telegram-helper:${IMAGE_TAG}' SUPERCHAT_DB_MIGRATOR_IMAGE='ghcr.io/${OWNER_LC}/superchat-db-migrator:${IMAGE_TAG}' && bash infra/prod/scripts/migrate-db.sh '${PROD_ENV_FILE}' && bash infra/prod/scripts/deploy.sh '${PROD_ENV_FILE}' && docker compose --env-file '${PROD_ENV_FILE}' -f infra/prod/docker-compose.yml ps"
+            "cd '${PROD_WORKTREE_PATH}' && git pull --ff-only && export GHCR_REGISTRY='ghcr.io' GHCR_USERNAME='${GHCR_USERNAME}' GHCR_TOKEN='${GHCR_TOKEN}' SUPERCHAT_WEB_IMAGE='ghcr.io/${OWNER_LC}/superchat-web:${IMAGE_TAG}' SUPERCHAT_API_IMAGE='ghcr.io/${OWNER_LC}/superchat-api:${IMAGE_TAG}' SUPERCHAT_DB_MIGRATOR_IMAGE='ghcr.io/${OWNER_LC}/superchat-db-migrator:${IMAGE_TAG}' && bash infra/prod/scripts/migrate-db.sh '${PROD_ENV_FILE}' && bash infra/prod/scripts/deploy.sh '${PROD_ENV_FILE}' && docker compose --env-file '${PROD_ENV_FILE}' -f infra/prod/docker-compose.yml ps"
 
       - name: Smoke check production endpoints
         shell: bash
