@@ -12,7 +12,7 @@ coroutine, it is scheduled on the running event loop.
 from pathlib import Path
 
 
-TARGET = Path("/usr/lib/python3.12/site-packages/telethon/client/telegrambaseclient.py")
+TARGET = Path("/usr/lib/python3.11/site-packages/telethon/client/telegrambaseclient.py")
 
 OLD = "            session.save()\n"
 NEW = (
@@ -28,12 +28,18 @@ NEW = (
 
 
 def main() -> None:
+    if not TARGET.exists():
+        print(f"Skipping telethon session patch: {TARGET} not found")
+        return
+
     text = TARGET.read_text()
     if OLD not in text:
-        raise SystemExit("Target snippet not found in telethon telegrambaseclient.py")
+        print("Skipping telethon session patch: target snippet not present in this version")
+        return
 
     text = text.replace(OLD, NEW, 1)
     TARGET.write_text(text)
+    print("Patched telethon session.save() successfully")
 
 
 if __name__ == "__main__":

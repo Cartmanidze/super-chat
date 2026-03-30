@@ -1,8 +1,8 @@
 from pathlib import Path
 
 
-USER_TARGET = Path("/usr/lib/python3.12/site-packages/mautrix_telegram/user.py")
-PORTAL_TARGET = Path("/usr/lib/python3.12/site-packages/mautrix_telegram/portal.py")
+USER_TARGET = Path("/usr/lib/python3.11/site-packages/mautrix_telegram/user.py")
+PORTAL_TARGET = Path("/usr/lib/python3.11/site-packages/mautrix_telegram/portal.py")
 
 USER_REPLACEMENTS = [
     (
@@ -43,12 +43,19 @@ PORTAL_HANDLER_OLD = """    async def handle_telegram_message(\n        self, so
 PORTAL_HANDLER_NEW = """    async def handle_telegram_message(\n        self, source: au.AbstractUser, sender: p.Puppet | None, evt: Message\n    ) -> None:\n        try:\n            await self._handle_telegram_message(source, sender, evt)\n        except AuthKeyUnregisteredError as e:\n            sender_id = sender.tgid if sender else None\n            self.log.exception(\n                f\"AuthKeyUnregisteredError while handling Telegram message {evt.id} \"\n                f\"from {sender_id} via {source.tgid}; forcing sign-out\"\n            )\n            if hasattr(source, \"on_signed_out\"):\n                await source.on_signed_out(e)\n        except Exception as e:\n            sender_id = sender.tgid if sender else None\n            self.log.exception(\n                f\"Failed to handle Telegram message {evt.id} from {sender_id} via \"\n                f\"{source.tgid} ({type(e).__name__})\"\n            )\n            if self.config[\"bridge.incoming_bridge_error_reports\"]:\n                intent = sender.intent_for(self) if sender else self.main_intent\n                await self._send_message(\n                    intent,\n                    TextMessageEventContent(\n                        msgtype=MessageType.NOTICE,\n                        body=\"Error processing message from Telegram\",\n                    ),\n                )\n"""
 
 
-def replace_once(path: Path, old: str, new: str, label: str) -> None:
+def replace_once(path: Path, old: str, new: str, label: str) -> bool:
+    if not path.exists():
+        print(f"Skipping {label}: {path} not found")
+        return False
+
     text = path.read_text(encoding="utf-8")
     if old not in text:
-        raise SystemExit(f"Target snippet not found in {path.name}: {label}")
+        print(f"Skipping {label}: target snippet not present in {path.name}")
+        return False
 
     path.write_text(text.replace(old, new, 1), encoding="utf-8")
+    print(f"Patched {label} in {path.name}")
+    return True
 
 
 def main() -> None:
