@@ -87,9 +87,7 @@ jobs:
           - image_name: superchat-api
             context: .
             dockerfile: src/SuperChat.Api/Dockerfile
-          - image_name: superchat-mautrix-telegram-helper
-            context: infra/prod/mautrix-helper-image
-            dockerfile: infra/prod/mautrix-helper-image/Dockerfile
+          # mautrix-telegram-helper is built on the server only (requires local base image)
           - image_name: superchat-db-migrator
             context: .
             dockerfile: src/SuperChat.DbMigrator/Dockerfile
