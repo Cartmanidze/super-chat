@@ -1,4 +1,4 @@
-FROM dock.mau.dev/mautrix/telegram@sha256:9378e650d699a974f29959e78dafca3b4eeab094887ccb82f261168c6b3bd835
+FROM dock.mau.dev/mautrix/telegram:v0.15.3@sha256:04066316717e224d26677550089740f65345d64ea4a78187f5d4e0e66d970f61
 
 COPY patch_mautrix_intent.py /tmp/patch_mautrix_intent.py
 COPY patch_mautrix_diagnostics.py /tmp/patch_mautrix_diagnostics.py
