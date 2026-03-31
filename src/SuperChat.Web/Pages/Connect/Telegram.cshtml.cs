@@ -15,23 +15,23 @@ public sealed class TelegramModel(
     IIntegrationConnectionService integrationConnectionService,
     IMatrixProvisioningService matrixProvisioningService) : PageModel
 {
-    public IntegrationConnection Connection { get; private set; } = new(
-        Guid.Empty,
-        IntegrationProvider.Telegram,
-        IntegrationProvider.Telegram.GetDefaultTransport(),
-        IntegrationConnectionState.NotStarted,
-        null,
-        DateTimeOffset.UtcNow,
-        null);
+    public IntegrationConnection Connection { get; private set; } = null!;
 
     public string? MatrixUserId { get; private set; }
 
     [BindProperty]
     public string? LoginInput { get; set; }
 
-    public async Task OnGetAsync(CancellationToken cancellationToken)
+    public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
-        await LoadStateAsync(cancellationToken);
+        var user = await authFlowService.FindUserAsync(User.GetEmail(), cancellationToken);
+        if (user is null)
+        {
+            return RedirectToPage("/Index");
+        }
+
+        await LoadStateAsync(user.Id, cancellationToken);
+        return Page();
     }
 
     public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
@@ -43,7 +43,7 @@ public sealed class TelegramModel(
         }
 
         await integrationConnectionService.StartAsync(user, IntegrationProvider.Telegram, cancellationToken);
-        await LoadStateAsync(cancellationToken);
+        await LoadStateAsync(user.Id, cancellationToken);
         return Page();
     }
 
@@ -56,7 +56,7 @@ public sealed class TelegramModel(
         }
 
         await integrationConnectionService.ReconnectAsync(user, IntegrationProvider.Telegram, cancellationToken);
-        await LoadStateAsync(cancellationToken);
+        await LoadStateAsync(user.Id, cancellationToken);
         return Page();
     }
 
@@ -69,7 +69,7 @@ public sealed class TelegramModel(
         }
 
         await integrationConnectionService.StartChatLoginAsync(user, IntegrationProvider.Telegram, cancellationToken);
-        await LoadStateAsync(cancellationToken);
+        await LoadStateAsync(user.Id, cancellationToken);
         return Page();
     }
 
@@ -87,19 +87,13 @@ public sealed class TelegramModel(
                 user, IntegrationProvider.Telegram, LoginInput.Trim(), cancellationToken);
         }
 
-        await LoadStateAsync(cancellationToken);
+        await LoadStateAsync(user.Id, cancellationToken);
         return Page();
     }
 
-    private async Task LoadStateAsync(CancellationToken cancellationToken)
+    private async Task LoadStateAsync(Guid userId, CancellationToken cancellationToken)
     {
-        var user = await authFlowService.FindUserAsync(User.GetEmail(), cancellationToken);
-        if (user is null)
-        {
-            return;
-        }
-
-        Connection = await integrationConnectionService.GetStatusAsync(user.Id, IntegrationProvider.Telegram, cancellationToken);
-        MatrixUserId = (await matrixProvisioningService.GetIdentityAsync(user.Id, cancellationToken))?.MatrixUserId;
+        Connection = await integrationConnectionService.GetStatusAsync(userId, IntegrationProvider.Telegram, cancellationToken);
+        MatrixUserId = (await matrixProvisioningService.GetIdentityAsync(userId, cancellationToken))?.MatrixUserId;
     }
 }
