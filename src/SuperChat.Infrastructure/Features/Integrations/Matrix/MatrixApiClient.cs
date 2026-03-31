@@ -292,6 +292,31 @@ public sealed partial class MatrixApiClient(
         return CreateRequest(method, path, token);
     }
 
+    /// <summary>
+    /// Unauthenticated probe: GET /_matrix/client/versions.
+    /// Returns true if Synapse responds (any status), false only on network/DNS failure.
+    /// </summary>
+    public async Task<bool> IsSynapseReachableAsync(CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/_matrix/client/versions");
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        return true; // Any HTTP response = Synapse is alive
+    }
+
+    /// <summary>
+    /// Unauthenticated probe: GET /_matrix/client/v3/profile/{userId}.
+    /// Returns true if the user exists in Synapse, false if 404, throws on network failure.
+    /// </summary>
+    public async Task<bool> DoesUserProfileExistAsync(string matrixUserId, CancellationToken cancellationToken)
+    {
+        var path = $"/_matrix/client/v3/profile/{Uri.EscapeDataString(matrixUserId)}";
+        using var request = new HttpRequestMessage(HttpMethod.Get, path);
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
     private HttpRequestMessage CreateUserRequest(HttpMethod method, string path, string accessToken)
     {
         return CreateRequest(method, path, accessToken);

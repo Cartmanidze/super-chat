@@ -9,4 +9,6 @@ public sealed class TelegramBridgeOptions
     public string WebLoginBaseUrl { get; set; } = "https://bridge.localhost/public";
 
     public string ParticipantCountBaseUrl { get; set; } = "http://mautrix-telegram-helper:29318";
+
+    public int BridgeBotJoinTimeoutSeconds { get; set; } = 15;
 }

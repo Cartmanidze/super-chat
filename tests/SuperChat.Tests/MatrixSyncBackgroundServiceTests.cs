@@ -1,6 +1,6 @@
 using SuperChat.Contracts.Features.Integrations.Telegram;
 using SuperChat.Domain.Features.Integrations.Telegram;
-using SuperChat.Infrastructure.Features.Operations;
+using SuperChat.Infrastructure.Features.Operations.Sync;
 
 namespace SuperChat.Tests;
 
@@ -9,7 +9,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [Fact]
     public void IsManagementRoom_ReturnsTrueForExactMatch()
     {
-        var result = MatrixSyncBackgroundService.IsManagementRoom(
+        var result = SyncStateResolver.IsManagementRoom(
             "!bridge:matrix.example",
             "!bridge:matrix.example");
 
@@ -19,7 +19,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [Fact]
     public void IsManagementRoom_ReturnsFalseForDifferentRoom()
     {
-        var result = MatrixSyncBackgroundService.IsManagementRoom(
+        var result = SyncStateResolver.IsManagementRoom(
             "!chat:matrix.example",
             "!bridge:matrix.example");
 
@@ -29,7 +29,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [Fact]
     public void IsManagementRoom_ReturnsFalseWhenManagementRoomIsMissing()
     {
-        var result = MatrixSyncBackgroundService.IsManagementRoom(
+        var result = SyncStateResolver.IsManagementRoom(
             "!chat:matrix.example",
             null);
 
@@ -39,7 +39,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [Fact]
     public void GetInvitedRoomsToJoin_ExcludesManagementRoomAndDuplicates()
     {
-        var result = MatrixSyncBackgroundService.GetInvitedRoomsToJoin(
+        var result = SyncStateResolver.GetInvitedRoomsToJoin(
             ["!portal-a:matrix.example", "!bridge:matrix.example", "!portal-a:matrix.example", "!portal-b:matrix.example"],
             "!bridge:matrix.example");
 
@@ -49,7 +49,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [Fact]
     public void GetInvitedRoomsToJoin_IgnoresEmptyIds()
     {
-        var result = MatrixSyncBackgroundService.GetInvitedRoomsToJoin(
+        var result = SyncStateResolver.GetInvitedRoomsToJoin(
             ["", "   ", "!portal:matrix.example"],
             null);
 
@@ -59,7 +59,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [Fact]
     public void ShouldIngestRoom_AllowsDirectRooms()
     {
-        var result = MatrixSyncBackgroundService.ShouldIngestRoom(
+        var result = ChatRoomHandler.ShouldIngestRoom(
             "!dm:matrix.example",
             "!bridge:matrix.example",
             true,
@@ -74,7 +74,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [Fact]
     public void ShouldIngestRoom_AllowsTelegramDirectRooms()
     {
-        var result = MatrixSyncBackgroundService.ShouldIngestRoom(
+        var result = ChatRoomHandler.ShouldIngestRoom(
             "!dm:matrix.example",
             "!bridge:matrix.example",
             false,
@@ -89,7 +89,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [Fact]
     public void ShouldIngestRoom_RejectsGroupsWhenFeatureFlagIsDisabled()
     {
-        var result = MatrixSyncBackgroundService.ShouldIngestRoom(
+        var result = ChatRoomHandler.ShouldIngestRoom(
             "!group:matrix.example",
             "!bridge:matrix.example",
             false,
@@ -104,7 +104,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [Fact]
     public void ShouldIngestRoom_AllowsGroupAtConfiguredLimit_WhenFeatureFlagIsEnabled()
     {
-        var result = MatrixSyncBackgroundService.ShouldIngestRoom(
+        var result = ChatRoomHandler.ShouldIngestRoom(
             "!group:matrix.example",
             "!bridge:matrix.example",
             false,
@@ -119,7 +119,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [Fact]
     public void ShouldIngestRoom_RejectsGroupAboveConfiguredLimit()
     {
-        var result = MatrixSyncBackgroundService.ShouldIngestRoom(
+        var result = ChatRoomHandler.ShouldIngestRoom(
             "!group:matrix.example",
             "!bridge:matrix.example",
             false,
@@ -134,7 +134,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [Fact]
     public void ShouldIngestRoom_RejectsBroadcastChannels()
     {
-        var result = MatrixSyncBackgroundService.ShouldIngestRoom(
+        var result = ChatRoomHandler.ShouldIngestRoom(
             "!channel:matrix.example",
             "!bridge:matrix.example",
             false,
@@ -149,7 +149,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [Fact]
     public void ShouldIngestRoom_RejectsBroadcastChannelsEvenWhenMatrixMarksRoomAsDirect()
     {
-        var result = MatrixSyncBackgroundService.ShouldIngestRoom(
+        var result = ChatRoomHandler.ShouldIngestRoom(
             "!channel:matrix.example",
             "!bridge:matrix.example",
             true,
@@ -164,7 +164,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [Fact]
     public void ShouldIngestRoom_RejectsUnknownGroupWhenTelegramInfoIsMissing()
     {
-        var result = MatrixSyncBackgroundService.ShouldIngestRoom(
+        var result = ChatRoomHandler.ShouldIngestRoom(
             "!group:matrix.example",
             "!bridge:matrix.example",
             false,
@@ -179,7 +179,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [Fact]
     public void ShouldIngestRoom_AllowsGroupByMatrixMemberCount_WhenTelegramInfoIsMissing()
     {
-        var result = MatrixSyncBackgroundService.ShouldIngestRoom(
+        var result = ChatRoomHandler.ShouldIngestRoom(
             "!group:matrix.example",
             "!bridge:matrix.example",
             false,
@@ -194,7 +194,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [Fact]
     public void ShouldIngestRoom_RejectsGroupByMatrixMemberCount_WhenAboveConfiguredLimit()
     {
-        var result = MatrixSyncBackgroundService.ShouldIngestRoom(
+        var result = ChatRoomHandler.ShouldIngestRoom(
             "!group:matrix.example",
             "!bridge:matrix.example",
             false,
@@ -209,7 +209,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [Fact]
     public void ShouldIngestRoom_AlwaysRejectsManagementRoom()
     {
-        var result = MatrixSyncBackgroundService.ShouldIngestRoom(
+        var result = ChatRoomHandler.ShouldIngestRoom(
             "!bridge:matrix.example",
             "!bridge:matrix.example",
             true,
@@ -224,7 +224,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [Fact]
     public void ShouldIngestMessageBody_RejectsForwardedChannelPosts()
     {
-        var result = MatrixSyncBackgroundService.ShouldIngestMessageBody(
+        var result = ChatRoomHandler.ShouldIngestMessageBody(
             "Forwarded from channel Example:\n> News update");
 
         Assert.False(result);
@@ -233,7 +233,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [Fact]
     public void ShouldIngestMessageBody_RejectsRussianForwardedChannelPosts()
     {
-        var result = MatrixSyncBackgroundService.ShouldIngestMessageBody(
+        var result = ChatRoomHandler.ShouldIngestMessageBody(
             "Переслано из канала Новости:\n> Апдейт");
 
         Assert.False(result);
@@ -242,7 +242,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [Fact]
     public void ShouldIngestMessageBody_AllowsRegularDirectMessages()
     {
-        var result = MatrixSyncBackgroundService.ShouldIngestMessageBody(
+        var result = ChatRoomHandler.ShouldIngestMessageBody(
             "Please send the proposal tomorrow.");
 
         Assert.True(result);
@@ -251,7 +251,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [Fact]
     public void ShouldRetryBridgeLogin_ReturnsTrue_ForBridgeGreetingWhilePending()
     {
-        var result = MatrixSyncBackgroundService.ShouldRetryBridgeLogin(
+        var result = ManagementRoomHandler.ShouldRetryBridgeLogin(
             TelegramConnectionState.BridgePending,
             connected: false,
             discoveredLoginUrl: null,
@@ -263,7 +263,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [Fact]
     public void ShouldRetryBridgeLogin_ReturnsFalse_WhenLoginUrlIsAlreadyKnown()
     {
-        var result = MatrixSyncBackgroundService.ShouldRetryBridgeLogin(
+        var result = ManagementRoomHandler.ShouldRetryBridgeLogin(
             TelegramConnectionState.BridgePending,
             connected: false,
             discoveredLoginUrl: "https://bridge.example.com/login",
@@ -275,7 +275,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [Fact]
     public void ResolveConnectionStateAfterSuccessfulSync_ReturnsBridgePending_WhenCurrentStateIsError()
     {
-        var result = MatrixSyncBackgroundService.ResolveConnectionStateAfterSuccessfulSync(
+        var result = SyncStateResolver.ResolveConnectionStateAfterSuccessfulSync(
             TelegramConnectionState.Error,
             connected: false);
 
@@ -285,7 +285,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [Fact]
     public void ResolveConnectionStateAfterSuccessfulSync_ReturnsConnected_WhenConnectionIsLive()
     {
-        var result = MatrixSyncBackgroundService.ResolveConnectionStateAfterSuccessfulSync(
+        var result = SyncStateResolver.ResolveConnectionStateAfterSuccessfulSync(
             TelegramConnectionState.Error,
             connected: true);
 
@@ -295,7 +295,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [Fact]
     public void LooksLikeBridgeGreeting_ReturnsTrue_ForBridgeHello()
     {
-        var result = MatrixSyncBackgroundService.LooksLikeBridgeGreeting(
+        var result = ManagementRoomHandler.LooksLikeBridgeGreeting(
             "Hello, I'm a Telegram bridge bot. Use `login` to continue.");
 
         Assert.True(result);
@@ -308,7 +308,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [InlineData("Send your phone number here to log in via this chat.", TelegramConnectionState.LoginAwaitingPhone)]
     public void DetectLoginStep_DetectsPhoneRequest(string message, TelegramConnectionState expected)
     {
-        Assert.Equal(expected, MatrixSyncBackgroundService.DetectLoginStep(message));
+        Assert.Equal(expected, ManagementRoomHandler.DetectLoginStep(message));
     }
 
     [Theory]
@@ -318,7 +318,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [InlineData("Send the code to the bot.", TelegramConnectionState.LoginAwaitingCode)]
     public void DetectLoginStep_DetectsCodeRequest(string message, TelegramConnectionState expected)
     {
-        Assert.Equal(expected, MatrixSyncBackgroundService.DetectLoginStep(message));
+        Assert.Equal(expected, ManagementRoomHandler.DetectLoginStep(message));
     }
 
     [Theory]
@@ -326,7 +326,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [InlineData("2FA is enabled. Send your password.", TelegramConnectionState.LoginAwaitingPassword)]
     public void DetectLoginStep_DetectsPasswordRequest(string message, TelegramConnectionState expected)
     {
-        Assert.Equal(expected, MatrixSyncBackgroundService.DetectLoginStep(message));
+        Assert.Equal(expected, ManagementRoomHandler.DetectLoginStep(message));
     }
 
     [Theory]
@@ -336,7 +336,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [InlineData(null)]
     public void DetectLoginStep_ReturnsNull_ForNonLoginMessages(string? message)
     {
-        Assert.Null(MatrixSyncBackgroundService.DetectLoginStep(message!));
+        Assert.Null(ManagementRoomHandler.DetectLoginStep(message!));
     }
 
     // --- LooksLikeLostConnection tests ---
@@ -348,7 +348,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [InlineData("Hello, I'm a bridge bot.", false)]
     public void LooksLikeLostConnection_DetectsCorrectly(string message, bool expected)
     {
-        Assert.Equal(expected, MatrixSyncBackgroundService.LooksLikeLostConnection(message));
+        Assert.Equal(expected, ManagementRoomHandler.LooksLikeLostConnection(message));
     }
 
     // --- ResolveConnectionStateAfterSuccessfulSync with detectedLoginStep ---
@@ -356,7 +356,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [Fact]
     public void ResolveConnectionStateAfterSuccessfulSync_ConnectedOverridesLoginStep()
     {
-        var result = MatrixSyncBackgroundService.ResolveConnectionStateAfterSuccessfulSync(
+        var result = SyncStateResolver.ResolveConnectionStateAfterSuccessfulSync(
             TelegramConnectionState.LoginAwaitingCode,
             connected: true,
             detectedLoginStep: TelegramConnectionState.LoginAwaitingPassword);
@@ -367,7 +367,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [Fact]
     public void ResolveConnectionStateAfterSuccessfulSync_ForwardLoginStepApplied()
     {
-        var result = MatrixSyncBackgroundService.ResolveConnectionStateAfterSuccessfulSync(
+        var result = SyncStateResolver.ResolveConnectionStateAfterSuccessfulSync(
             TelegramConnectionState.LoginAwaitingPhone,
             connected: false,
             detectedLoginStep: TelegramConnectionState.LoginAwaitingCode);
@@ -378,7 +378,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [Fact]
     public void ResolveConnectionStateAfterSuccessfulSync_BackwardLoginStepRejected()
     {
-        var result = MatrixSyncBackgroundService.ResolveConnectionStateAfterSuccessfulSync(
+        var result = SyncStateResolver.ResolveConnectionStateAfterSuccessfulSync(
             TelegramConnectionState.LoginAwaitingCode,
             connected: false,
             detectedLoginStep: TelegramConnectionState.LoginAwaitingPhone);
@@ -389,7 +389,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [Fact]
     public void ResolveConnectionStateAfterSuccessfulSync_BridgePendingNotHijackedByLoginStep()
     {
-        var result = MatrixSyncBackgroundService.ResolveConnectionStateAfterSuccessfulSync(
+        var result = SyncStateResolver.ResolveConnectionStateAfterSuccessfulSync(
             TelegramConnectionState.BridgePending,
             connected: false,
             detectedLoginStep: TelegramConnectionState.LoginAwaitingPhone);
@@ -400,7 +400,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [Fact]
     public void ResolveConnectionStateAfterSuccessfulSync_NullLoginStepKeepsCurrentState()
     {
-        var result = MatrixSyncBackgroundService.ResolveConnectionStateAfterSuccessfulSync(
+        var result = SyncStateResolver.ResolveConnectionStateAfterSuccessfulSync(
             TelegramConnectionState.LoginAwaitingPhone,
             connected: false,
             detectedLoginStep: null);
@@ -421,7 +421,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [InlineData("Click here to log in.", false)]
     public void LooksLikeSuccessfulLogin_DetectsCorrectly(string message, bool expected)
     {
-        Assert.Equal(expected, MatrixSyncBackgroundService.LooksLikeSuccessfulLogin(message));
+        Assert.Equal(expected, ManagementRoomHandler.LooksLikeSuccessfulLogin(message));
     }
 
     // --- ShouldRetryBridgeLogin with LoginAwaiting states ---
@@ -429,7 +429,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     [Fact]
     public void ShouldRetryBridgeLogin_ReturnsTrue_ForLoginAwaitingPhoneWithGreeting()
     {
-        var result = MatrixSyncBackgroundService.ShouldRetryBridgeLogin(
+        var result = ManagementRoomHandler.ShouldRetryBridgeLogin(
             TelegramConnectionState.LoginAwaitingPhone,
             connected: false,
             discoveredLoginUrl: null,
@@ -443,12 +443,25 @@ public sealed class MatrixSyncBackgroundServiceTests
     [InlineData(TelegramConnectionState.LoginAwaitingPassword)]
     public void ShouldRetryBridgeLogin_ReturnsFalse_ForAdvancedLoginStates(TelegramConnectionState state)
     {
-        var result = MatrixSyncBackgroundService.ShouldRetryBridgeLogin(
+        var result = ManagementRoomHandler.ShouldRetryBridgeLogin(
             state,
             connected: false,
             discoveredLoginUrl: null,
             sawBridgeGreeting: true);
 
         Assert.False(result);
+    }
+
+    // --- P1: Auto-reconnect on lost connection ---
+
+    [Fact]
+    public void ResolveConnectionStateAfterSuccessfulSync_ReturnsBridgePending_OnLostConnection()
+    {
+        var result = SyncStateResolver.ResolveConnectionStateAfterSuccessfulSync(
+            TelegramConnectionState.Connected,
+            connected: false,
+            lostConnection: true);
+
+        Assert.Equal(TelegramConnectionState.BridgePending, result);
     }
 }

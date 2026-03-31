@@ -9,4 +9,10 @@ public sealed class EmailOptions
     public string SmtpHost { get; set; } = "localhost";
 
     public int SmtpPort { get; set; } = 1025;
+
+    public string? SmtpUsername { get; set; }
+
+    public string? SmtpPassword { get; set; }
+
+    public bool EnableSsl { get; set; }
 }

@@ -21,7 +21,7 @@ public sealed class TelegramConnectionService(
     TimeProvider timeProvider,
     ILogger<TelegramConnectionService> logger) : ITelegramConnectionService
 {
-    internal static readonly TimeSpan BridgeBotJoinTimeout = TimeSpan.FromSeconds(5);
+    // BridgeBotJoinTimeout is now configurable via TelegramBridgeOptions.BridgeBotJoinTimeoutSeconds (default: 15s)
     internal static readonly TimeSpan BridgeBotJoinPollInterval = TimeSpan.FromMilliseconds(150);
     internal static readonly TimeSpan BridgeLoginRefreshSkew = TimeSpan.FromSeconds(30);
     internal static readonly TimeSpan LoginRetryDelay = TimeSpan.FromSeconds(2);
@@ -62,6 +62,29 @@ public sealed class TelegramConnectionService(
             entity.WebLoginUrl = null;
             entity.UpdatedAt = timeProvider.GetUtcNow();
             await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        // Validate existing management room is still accessible.
+        // Only reset on definitive 404 (room gone). Transient errors (timeout, 5xx, 403)
+        // keep the existing room to avoid breaking an in-progress login flow.
+        if (!string.IsNullOrWhiteSpace(entity.ManagementRoomId))
+        {
+            try
+            {
+                var membership = await matrixApiClient.GetRoomMembershipAsync(
+                    identity.AccessToken, entity.ManagementRoomId, bridgeOptions.Value.BotUserId, cancellationToken);
+                if (string.IsNullOrWhiteSpace(membership))
+                {
+                    logger.LogInformation("Management room {RoomId} confirmed gone (404) for user {UserId}, will create new.", entity.ManagementRoomId, user.Id);
+                    entity.ManagementRoomId = null;
+                }
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                // Transient error — keep the existing room, log and continue
+                logger.LogWarning(ex, "Could not validate management room {RoomId} for user {UserId} (transient error, keeping existing room).", entity.ManagementRoomId, user.Id);
+            }
         }
 
         var managementRoomId = entity.ManagementRoomId;
@@ -360,7 +383,7 @@ public sealed class TelegramConnectionService(
         string managementRoomId,
         CancellationToken cancellationToken)
     {
-        var deadline = timeProvider.GetUtcNow().Add(BridgeBotJoinTimeout);
+        var deadline = timeProvider.GetUtcNow().AddSeconds(bridgeOptions.Value.BridgeBotJoinTimeoutSeconds);
         while (true)
         {
             var membership = await matrixApiClient.GetRoomMembershipAsync(

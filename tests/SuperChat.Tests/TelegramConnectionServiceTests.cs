@@ -44,10 +44,59 @@ public sealed class TelegramConnectionServiceTests
         var connection = await service.StartAsync(user, CancellationToken.None);
 
         Assert.Equal(TelegramConnectionState.LoginAwaitingPhone, connection.State);
-        Assert.Equal(3, handler.Requests.Count);
+        Assert.Equal(4, handler.Requests.Count);
         Assert.Contains("\"body\":\"logout\"", handler.RequestBodies[0], StringComparison.Ordinal);
-        Assert.Contains("/state/m.room.member/", handler.Requests[1].RequestUri!.AbsolutePath, StringComparison.Ordinal);
-        Assert.Contains("\"body\":\"login\"", handler.RequestBodies[2], StringComparison.Ordinal);
+        Assert.Contains("/state/m.room.member/", handler.Requests[1].RequestUri!.AbsolutePath, StringComparison.Ordinal); // validate existing room
+        Assert.Contains("/state/m.room.member/", handler.Requests[2].RequestUri!.AbsolutePath, StringComparison.Ordinal); // wait for bot join
+        Assert.Contains("\"body\":\"login\"", handler.RequestBodies[3], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task StartAsync_TransientErrorValidatingRoom_KeepsExistingManagementRoom()
+    {
+        var user = CreateUser();
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        await SeedConnectionAsync(
+            factory,
+            user.Id,
+            TelegramConnectionState.BridgePending,
+            "!existing:matrix.localhost",
+            webLoginUrl: null,
+            CancellationToken.None);
+
+        var validationCallCount = 0;
+        var handler = new RecordingHandler(request =>
+        {
+            if (request.RequestUri!.AbsolutePath.Contains("/state/m.room.member/", StringComparison.Ordinal))
+            {
+                validationCallCount++;
+                if (validationCallCount == 1)
+                {
+                    // First call is management room validation — simulate 500 transient error
+                    return new HttpResponseMessage(HttpStatusCode.InternalServerError);
+                }
+
+                // Subsequent calls are WaitForBridgeBotJoin — bot joined
+                return CreateJsonResponse("""{ "membership": "join" }""");
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        });
+        var service = CreateService(factory, handler, CreateIdentity(user.Id));
+
+        var connection = await service.StartAsync(user, CancellationToken.None);
+
+        // Login should proceed normally
+        Assert.Equal(TelegramConnectionState.LoginAwaitingPhone, connection.State);
+
+        // Verify the existing management room was kept (not recreated)
+        await using var dbContext = await factory.CreateDbContextAsync(CancellationToken.None);
+        var entity = await dbContext.TelegramConnections.SingleAsync(item => item.UserId == user.Id, CancellationToken.None);
+        Assert.Equal("!existing:matrix.localhost", entity.ManagementRoomId);
+
+        // No createRoom call should have been made
+        Assert.DoesNotContain(handler.Requests, r =>
+            r.RequestUri!.AbsolutePath.Contains("/createRoom", StringComparison.Ordinal));
     }
 
     [Fact]

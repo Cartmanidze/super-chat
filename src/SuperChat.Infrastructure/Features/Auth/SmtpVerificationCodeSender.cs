@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Mail;
 using Ardalis.GuardClauses;
 using Microsoft.Extensions.Logging;
@@ -30,9 +31,14 @@ public sealed class SmtpVerificationCodeSender(
         {
             using var client = new SmtpClient(emailOptions.SmtpHost, emailOptions.SmtpPort)
             {
-                EnableSsl = false,
+                EnableSsl = emailOptions.EnableSsl,
                 DeliveryMethod = SmtpDeliveryMethod.Network
             };
+
+            if (!string.IsNullOrWhiteSpace(emailOptions.SmtpUsername))
+            {
+                client.Credentials = new NetworkCredential(emailOptions.SmtpUsername, emailOptions.SmtpPassword);
+            }
 
             await client.SendMailAsync(message, cancellationToken);
             logger.LogInformation("Verification code email sent to {Email} via {Host}:{Port}", email, emailOptions.SmtpHost, emailOptions.SmtpPort);

@@ -11,6 +11,7 @@ using SuperChat.Domain.Features.Integrations.Telegram;
 using SuperChat.Infrastructure.Diagnostics;
 using SuperChat.Infrastructure.Features.Integrations.Matrix;
 using SuperChat.Infrastructure.Features.Messaging;
+using SuperChat.Infrastructure.Features.Operations.Sync;
 using SuperChat.Infrastructure.Shared.Persistence;
 using System.Diagnostics;
 
@@ -19,12 +20,12 @@ namespace SuperChat.Infrastructure.Features.Operations;
 public sealed class MatrixSyncBackgroundService(
     IIntegrationConnectionService integrationConnectionService,
     ITelegramRoomInfoService telegramRoomInfoService,
-    IncomingMessageFilter incomingMessageFilter,
-    IMessageNormalizationService normalizationService,
+    ChatRoomHandler chatRoomHandler,
     IDbContextFactory<SuperChatDbContext> dbContextFactory,
     MatrixApiClient matrixApiClient,
     IOptions<PilotOptions> pilotOptions,
     IOptions<TelegramBridgeOptions> bridgeOptions,
+    IMessageNormalizationService normalizationService,
     TimeProvider timeProvider,
     ILogger<MatrixSyncBackgroundService> logger) : BackgroundService
 {
@@ -155,12 +156,11 @@ public sealed class MatrixSyncBackgroundService(
         }
 
         var connected = target.State == TelegramConnectionState.Connected;
-        string? discoveredLoginUrl = null;
-        TelegramConnectionState? detectedLoginStep = null;
         var ingestedMessages = 0;
         var joinedInvitedRooms = 0;
-        var invitedRoomsToJoin = GetInvitedRoomsToJoin(result.InvitedRoomIds, target.ManagementRoomId);
+        var invitedRoomsToJoin = SyncStateResolver.GetInvitedRoomsToJoin(result.InvitedRoomIds, target.ManagementRoomId);
         var senderInfoBySenderId = new Dictionary<string, TelegramSenderInfo?>(StringComparer.Ordinal);
+        ManagementRoomResult? managementResult = null;
 
         foreach (var roomId in invitedRoomsToJoin)
         {
@@ -177,201 +177,108 @@ public sealed class MatrixSyncBackgroundService(
 
         foreach (var room in result.Rooms)
         {
-            var isManagementRoom = IsManagementRoom(room.RoomId, target.ManagementRoomId);
-            TelegramRoomInfo? telegramRoomInfo = null;
-            var sawBridgeGreeting = false;
+            var isManagementRoom = SyncStateResolver.IsManagementRoom(room.RoomId, target.ManagementRoomId);
 
-            if (!isManagementRoom)
+            if (isManagementRoom)
             {
-                try
+                managementResult = ManagementRoomHandler.Process(
+                    room.Events,
+                    bridgeOptions.Value.BotUserId,
+                    matrixApiClient.TryExtractFirstUrl);
+
+                if (managementResult.Connected)
                 {
-                    telegramRoomInfo = await telegramRoomInfoService.GetRoomInfoAsync(
-                        target.MatrixUserId,
-                        room.RoomId,
-                        cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogWarning(
-                        ex,
-                        "Failed to resolve Telegram room info for room {RoomId} and user {UserId}. Skipping room ingestion.",
-                        room.RoomId,
-                        target.UserId);
-                }
-
-                if (!ShouldIngestRoom(
-                        room.RoomId,
-                        target.ManagementRoomId,
-                        room.IsDirect,
-                        telegramRoomInfo,
-                        room.MemberCount,
-                        pilotOptions.Value.EnableGroupIngestion,
-                        pilotOptions.Value.MaxIngestedGroupMembers))
-                {
-                    continue;
-                }
-            }
-
-            foreach (var timelineEvent in room.Events)
-            {
-                if (isManagementRoom)
-                {
-                    if (string.Equals(timelineEvent.Sender, bridgeOptions.Value.BotUserId, StringComparison.Ordinal))
-                    {
-                        discoveredLoginUrl ??= matrixApiClient.TryExtractFirstUrl(timelineEvent.Body)?.ToString();
-                        sawBridgeGreeting = sawBridgeGreeting || LooksLikeBridgeGreeting(timelineEvent.Body);
-
-                        // Detect login/logout — last message wins (process all, keep last result)
-                        if (LooksLikeSuccessfulLogin(timelineEvent.Body))
-                        {
-                            connected = true;
-                        }
-                        else if (LooksLikeLostConnection(timelineEvent.Body))
-                        {
-                            connected = false;
-                        }
-
-                        // Only allow forward login step transitions (phone→code→password)
-                        var stepCandidate = DetectLoginStep(timelineEvent.Body);
-                        if (stepCandidate is not null &&
-                            (detectedLoginStep is null || stepCandidate.Value > detectedLoginStep.Value))
-                        {
-                            detectedLoginStep = stepCandidate;
-                        }
-                    }
-
-                    continue;
-                }
-
-                var senderInfo = await ResolveSenderInfoAsync(
-                    target,
-                    timelineEvent.Sender,
-                    senderInfoBySenderId,
-                    cancellationToken);
-
-                var ingestionDecision = incomingMessageFilter.Evaluate(
-                    timelineEvent.MessageType,
-                    timelineEvent.Body,
-                    senderInfo?.IsBot);
-                if (!ingestionDecision.ShouldIngest)
-                {
-                    logger.LogDebug(
-                        "Skipped Matrix event {EventId} in room {RoomId} for user {UserId}. Reason={Reason}.",
-                        timelineEvent.EventId,
-                        room.RoomId,
-                        target.UserId,
-                        ingestionDecision.Reason);
-                    continue;
-                }
-
-                var senderName = DeriveSenderName(timelineEvent.Sender, target.MatrixUserId);
-                logger.LogInformation(
-                    "Accepted Matrix event for normalization. EventId={EventId}, SenderName={SenderName}, SentAt={SentAt}, BodyLength={BodyLength}, Preview={Preview}.",
-                    timelineEvent.EventId,
-                    senderName,
-                    timelineEvent.SentAt,
-                    timelineEvent.Body.Length,
-                    MessagePipelineTrace.CreatePreview(timelineEvent.Body));
-                var stored = await normalizationService.TryStoreAsync(
-                    target.UserId,
-                    room.RoomId,
-                    timelineEvent.EventId,
-                    senderName,
-                    timelineEvent.Body,
-                    timelineEvent.SentAt,
-                    cancellationToken);
-
-                if (stored)
-                {
-                    logger.LogInformation(
-                        "Matrix event entered message pipeline successfully. EventId={EventId}, SenderName={SenderName}, SentAt={SentAt}.",
-                        timelineEvent.EventId,
-                        senderName,
-                        timelineEvent.SentAt);
-                    ingestedMessages++;
                     connected = true;
                 }
+                else if (managementResult.LostConnection)
+                {
+                    connected = false;
+                }
+
+                if (ManagementRoomHandler.ShouldRetryBridgeLogin(
+                        target.State, connected, managementResult.DiscoveredLoginUrl, managementResult.SawBridgeGreeting))
+                {
+                    try
+                    {
+                        await matrixApiClient.SendTextMessageAsync(target.AccessToken, room.RoomId, "login", cancellationToken);
+                        logger.LogInformation(
+                            "Re-issued Telegram bridge login for user {UserId} after bridge greeting in room {RoomId}.",
+                            target.UserId,
+                            room.RoomId);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(
+                            ex,
+                            "Failed to re-issue Telegram bridge login for user {UserId} in room {RoomId}.",
+                            target.UserId,
+                            room.RoomId);
+                    }
+                }
+
+                continue;
             }
 
-            if (isManagementRoom &&
-                ShouldRetryBridgeLogin(target.State, connected, discoveredLoginUrl, sawBridgeGreeting))
+            TelegramRoomInfo? telegramRoomInfo = null;
+            try
             {
-                try
-                {
-                    await matrixApiClient.SendTextMessageAsync(target.AccessToken, room.RoomId, "login", cancellationToken);
-                    logger.LogInformation(
-                        "Re-issued Telegram bridge login for user {UserId} after bridge greeting in room {RoomId}.",
-                        target.UserId,
-                        room.RoomId);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogWarning(
-                        ex,
-                        "Failed to re-issue Telegram bridge login for user {UserId} in room {RoomId}.",
-                        target.UserId,
-                        room.RoomId);
-                }
+                telegramRoomInfo = await telegramRoomInfoService.GetRoomInfoAsync(
+                    target.MatrixUserId,
+                    room.RoomId,
+                    cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(
+                    ex,
+                    "Failed to resolve Telegram room info for room {RoomId} and user {UserId}. Skipping room ingestion.",
+                    room.RoomId,
+                    target.UserId);
+            }
+
+            if (!ChatRoomHandler.ShouldIngestRoom(
+                    room.RoomId,
+                    target.ManagementRoomId,
+                    room.IsDirect,
+                    telegramRoomInfo,
+                    room.MemberCount,
+                    pilotOptions.Value.EnableGroupIngestion,
+                    pilotOptions.Value.MaxIngestedGroupMembers))
+            {
+                continue;
+            }
+
+            var chatResult = await chatRoomHandler.ProcessRoomEventsAsync(
+                room,
+                target.UserId,
+                target.MatrixUserId,
+                senderInfoBySenderId,
+                cancellationToken);
+
+            ingestedMessages += chatResult.IngestedMessages;
+            if (chatResult.Connected)
+            {
+                connected = true;
             }
         }
 
         await PersistSyncStateAsync(
             target,
             result.NextBatchToken,
-            discoveredLoginUrl,
+            managementResult,
             connected,
             ingestedMessages > 0,
-            detectedLoginStep,
             cancellationToken);
 
         return new MatrixSyncUserResult(result.Rooms.Count, ingestedMessages, joinedInvitedRooms);
     }
 
-    private async Task<TelegramSenderInfo?> ResolveSenderInfoAsync(
-        MatrixSyncTarget target,
-        string senderId,
-        IDictionary<string, TelegramSenderInfo?> senderInfoBySenderId,
-        CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(senderId) ||
-            string.Equals(senderId, target.MatrixUserId, StringComparison.Ordinal))
-        {
-            return null;
-        }
-
-        if (senderInfoBySenderId.TryGetValue(senderId, out var cachedSenderInfo))
-        {
-            return cachedSenderInfo;
-        }
-
-        try
-        {
-            var senderInfo = await telegramRoomInfoService.GetSenderInfoAsync(
-                target.MatrixUserId,
-                senderId,
-                cancellationToken);
-            senderInfoBySenderId[senderId] = senderInfo;
-            return senderInfo;
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(
-                ex,
-                "Failed to resolve Telegram sender info for sender {SenderId} and user {UserId}. Continuing without sender metadata.",
-                senderId,
-                target.UserId);
-            senderInfoBySenderId[senderId] = null;
-            return null;
-        }
-    }
-
     private async Task PersistSyncStateAsync(
         MatrixSyncTarget target,
         string? nextBatchToken,
-        string? discoveredLoginUrl,
+        ManagementRoomResult? managementResult,
         bool connected,
         bool sawMessages,
-        TelegramConnectionState? detectedLoginStep,
         CancellationToken cancellationToken)
     {
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -391,13 +298,18 @@ public sealed class MatrixSyncBackgroundService(
         checkpoint.NextBatchToken = nextBatchToken;
         checkpoint.UpdatedAt = timeProvider.GetUtcNow();
 
+        var discoveredLoginUrl = managementResult?.DiscoveredLoginUrl;
         if (!string.IsNullOrWhiteSpace(discoveredLoginUrl))
         {
             connection.WebLoginUrl = discoveredLoginUrl;
         }
 
         connection.UpdatedAt = timeProvider.GetUtcNow();
-        connection.State = ResolveConnectionStateAfterSuccessfulSync(connection.State, connected, detectedLoginStep);
+        connection.State = SyncStateResolver.ResolveConnectionStateAfterSuccessfulSync(
+            connection.State,
+            connected,
+            managementResult?.LostConnection ?? false,
+            managementResult?.DetectedLoginStep);
         if (connection.State == TelegramConnectionState.Connected)
         {
             connection.WebLoginUrl = null;
@@ -478,211 +390,6 @@ public sealed class MatrixSyncBackgroundService(
             : 0;
 
         return count;
-    }
-
-    internal static bool LooksLikeSuccessfulLogin(string message)
-    {
-        var normalized = message.ToLowerInvariant();
-        if (normalized.Contains("not logged in", StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        return normalized.Contains("logged in as", StringComparison.Ordinal) ||
-               normalized.Contains("login successful", StringComparison.Ordinal) ||
-               normalized.Contains("successfully logged in", StringComparison.Ordinal);
-    }
-
-    internal static bool LooksLikeBridgeGreeting(string message)
-    {
-        if (string.IsNullOrWhiteSpace(message))
-        {
-            return false;
-        }
-
-        var normalized = message.ToLowerInvariant();
-        return normalized.Contains("telegram bridge bot", StringComparison.Ordinal) ||
-               normalized.Contains("telegram bridge", StringComparison.Ordinal) &&
-               normalized.Contains("hello", StringComparison.Ordinal);
-    }
-
-    internal static bool ShouldRetryBridgeLogin(
-        TelegramConnectionState currentState,
-        bool connected,
-        string? discoveredLoginUrl,
-        bool sawBridgeGreeting)
-    {
-        return !connected &&
-               string.IsNullOrWhiteSpace(discoveredLoginUrl) &&
-               sawBridgeGreeting &&
-               currentState is TelegramConnectionState.BridgePending
-                   or TelegramConnectionState.Error
-                   or TelegramConnectionState.LoginAwaitingPhone;
-    }
-
-    internal static TelegramConnectionState ResolveConnectionStateAfterSuccessfulSync(
-        TelegramConnectionState currentState,
-        bool connected,
-        TelegramConnectionState? detectedLoginStep = null)
-    {
-        if (connected)
-        {
-            return TelegramConnectionState.Connected;
-        }
-
-        // Only apply login step transitions for connections already in chat-login flow
-        if (detectedLoginStep is not null &&
-            currentState >= TelegramConnectionState.LoginAwaitingPhone &&
-            detectedLoginStep.Value > currentState)
-        {
-            return detectedLoginStep.Value;
-        }
-
-        return currentState switch
-        {
-            TelegramConnectionState.NotStarted => TelegramConnectionState.BridgePending,
-            TelegramConnectionState.Error => TelegramConnectionState.BridgePending,
-            _ => currentState
-        };
-    }
-
-    internal static TelegramConnectionState? DetectLoginStep(string message)
-    {
-        if (string.IsNullOrWhiteSpace(message))
-        {
-            return null;
-        }
-
-        var normalized = message.ToLowerInvariant();
-
-        if (normalized.Contains("two-step verification", StringComparison.Ordinal) ||
-            normalized.Contains("2fa", StringComparison.Ordinal) ||
-            (normalized.Contains("password", StringComparison.Ordinal) &&
-             normalized.Contains("send your password", StringComparison.Ordinal)))
-        {
-            return TelegramConnectionState.LoginAwaitingPassword;
-        }
-
-        if (normalized.Contains("verification code", StringComparison.Ordinal) ||
-            normalized.Contains("code to the bot", StringComparison.Ordinal) ||
-            normalized.Contains("enter the code", StringComparison.Ordinal) ||
-            normalized.Contains("code here", StringComparison.Ordinal))
-        {
-            return TelegramConnectionState.LoginAwaitingCode;
-        }
-
-        if (normalized.Contains("phone number", StringComparison.Ordinal) ||
-            (normalized.Contains("phone", StringComparison.Ordinal) &&
-             normalized.Contains("log in", StringComparison.Ordinal)))
-        {
-            return TelegramConnectionState.LoginAwaitingPhone;
-        }
-
-        return null;
-    }
-
-    internal static bool LooksLikeLostConnection(string message)
-    {
-        var normalized = message.ToLowerInvariant();
-        return normalized.Contains("not logged in", StringComparison.Ordinal) ||
-               normalized.Contains("logged out", StringComparison.Ordinal);
-    }
-
-    internal static bool IsManagementRoom(string roomId, string? managementRoomId)
-    {
-        return string.Equals(roomId, managementRoomId, StringComparison.Ordinal);
-    }
-
-    internal static IReadOnlyList<string> GetInvitedRoomsToJoin(
-        IReadOnlyList<string> invitedRoomIds,
-        string? managementRoomId)
-    {
-        return invitedRoomIds
-            .Where(roomId => !string.IsNullOrWhiteSpace(roomId))
-            .Where(roomId => !IsManagementRoom(roomId, managementRoomId))
-            .Distinct(StringComparer.Ordinal)
-            .ToList();
-    }
-
-    internal static bool ShouldIngestRoom(
-        string roomId,
-        string? managementRoomId,
-        bool isDirect,
-        TelegramRoomInfo? roomInfo,
-        int? matrixMemberCount,
-        bool enableGroupIngestion,
-        int maxIngestedGroupMembers)
-    {
-        if (IsManagementRoom(roomId, managementRoomId))
-        {
-            return false;
-        }
-
-        if (roomInfo?.IsBroadcastChannel == true)
-        {
-            return false;
-        }
-
-        if (string.Equals(roomInfo?.PeerType, "user", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        if (isDirect)
-        {
-            return true;
-        }
-
-        if (roomInfo is null)
-        {
-            if (!enableGroupIngestion)
-            {
-                return false;
-            }
-
-            return matrixMemberCount is int inferredCount &&
-                   inferredCount <= maxIngestedGroupMembers;
-        }
-
-        if (!enableGroupIngestion)
-        {
-            return false;
-        }
-
-        return roomInfo.ParticipantCount is int participantCount &&
-               participantCount <= maxIngestedGroupMembers;
-    }
-
-    internal static bool ShouldIngestMessageBody(string body)
-    {
-        return IncomingMessageFilter.ShouldIngestMessageBody(body);
-
-        /*
-
-               !normalized.StartsWith("Переслано из канала ", StringComparison.OrdinalIgnoreCase);
-        */
-    }
-
-    private static string DeriveSenderName(string senderId, string ownMatrixUserId)
-    {
-        if (string.Equals(senderId, ownMatrixUserId, StringComparison.Ordinal))
-        {
-            return "You";
-        }
-
-        if (string.IsNullOrWhiteSpace(senderId) || !senderId.StartsWith("@", StringComparison.Ordinal))
-        {
-            return "Unknown";
-        }
-
-        var colonIndex = senderId.IndexOf(':');
-        var localpart = colonIndex > 1 ? senderId[1..colonIndex] : senderId[1..];
-        if (localpart.StartsWith("telegram_", StringComparison.OrdinalIgnoreCase))
-        {
-            localpart = localpart["telegram_".Length..];
-        }
-
-        return localpart.Replace('-', ' ');
     }
 
     private sealed record MatrixSyncTarget(

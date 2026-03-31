@@ -199,6 +199,9 @@ services:
       Email__FromSender: ${EMAIL_FROM}
       Email__SmtpHost: ${EMAIL_SMTP_HOST}
       Email__SmtpPort: ${EMAIL_SMTP_PORT}
+      Email__SmtpUsername: ${EMAIL_SMTP_USERNAME:-}
+      Email__SmtpPassword: ${EMAIL_SMTP_PASSWORD:-}
+      Email__EnableSsl: ${EMAIL_ENABLE_SSL:-false}
       DeepSeek__ApiKey: ${DEEPSEEK_API_KEY}
       DeepSeek__Model: ${DEEPSEEK_MODEL}
       TextEnrichment__Enabled: ${TEXT_ENRICHMENT_ENABLED:-false}
@@ -275,6 +278,9 @@ services:
       Email__FromSender: ${EMAIL_FROM}
       Email__SmtpHost: ${EMAIL_SMTP_HOST}
       Email__SmtpPort: ${EMAIL_SMTP_PORT}
+      Email__SmtpUsername: ${EMAIL_SMTP_USERNAME:-}
+      Email__SmtpPassword: ${EMAIL_SMTP_PASSWORD:-}
+      Email__EnableSsl: ${EMAIL_ENABLE_SSL:-false}
       DeepSeek__ApiKey: ${DEEPSEEK_API_KEY}
       DeepSeek__Model: ${DEEPSEEK_MODEL}
       TextEnrichment__Enabled: ${TEXT_ENRICHMENT_ENABLED:-false}

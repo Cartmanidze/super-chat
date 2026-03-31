@@ -41,6 +41,7 @@ using SuperChat.Infrastructure.Features.Intelligence.Retrieval;
 using SuperChat.Infrastructure.Features.Intelligence.WorkItems;
 using SuperChat.Infrastructure.Features.Messaging;
 using SuperChat.Infrastructure.Features.Operations;
+using SuperChat.Infrastructure.Features.Operations.Sync;
 using SuperChat.Infrastructure.Features.Search;
 using SuperChat.Infrastructure.Shared.Persistence;
 using QdrantSdk = Qdrant.Client.QdrantClient;
@@ -187,6 +188,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IIntegrationConnectionService, IntegrationConnectionService>();
         services.AddSingleton<IRoomDisplayNameService, MatrixRoomDisplayNameService>();
         services.AddSingleton<IncomingMessageFilter>();
+        services.AddSingleton<ChatRoomHandler>();
         services.AddSingleton<IMessageNormalizationService, MessageNormalizationService>();
         services.AddSingleton<IChatTemplateCatalog, ChatTemplateCatalog>();
         services.AddSingleton<IChatTemplateHandler, TodayChatTemplateHandler>();
@@ -293,7 +295,9 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IPipelineCommandScheduler, NoOpPipelineCommandScheduler>();
         }
 
-        services.AddHealthChecks().AddCheck<BootstrapHealthCheck>("bootstrap");
+        services.AddHealthChecks()
+            .AddCheck<BootstrapHealthCheck>("bootstrap")
+            .AddCheck<BridgeHealthCheck>("bridge");
 
         return services;
     }
