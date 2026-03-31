@@ -1,5 +1,5 @@
 using System.Text.Json;
-using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Contracts.Features.Intelligence.Retrieval;
 
 namespace SuperChat.Infrastructure.Features.Intelligence.Retrieval;
 

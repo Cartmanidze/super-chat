@@ -165,7 +165,7 @@ public static partial class MeetingSignalDetector
             TryExtractPerson(summary),
             observedAt,
             scheduledFor.Value,
-            Math.Min(0.98, confidence));
+            new Confidence(Math.Min(0.98, confidence)));
     }
 
     private static MeetingSignal? TryDetectContextualFollowUp(
@@ -209,7 +209,7 @@ public static partial class MeetingSignalDetector
             TryExtractPerson(summary),
             observedAt,
             scheduledFor.Value,
-            Math.Min(0.92, confidence));
+            new Confidence(Math.Min(0.92, confidence)));
     }
 
     private static DateTimeOffset? ResolveScheduledFor(

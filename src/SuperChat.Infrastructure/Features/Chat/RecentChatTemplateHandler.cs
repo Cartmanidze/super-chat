@@ -1,9 +1,9 @@
 using Microsoft.Extensions.Logging;
 using SuperChat.Contracts.Features.Auth;
 using SuperChat.Contracts.Features.Chat;
+using SuperChat.Contracts.Features.Intelligence.Retrieval;
+using SuperChat.Contracts.Features.Messaging;
 using SuperChat.Domain.Features.Chat;
-using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Features.Messaging;
 
 namespace SuperChat.Infrastructure.Features.Chat;
 

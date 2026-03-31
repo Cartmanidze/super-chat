@@ -18,7 +18,7 @@ namespace SuperChat.Tests;
 public sealed class TelegramConnectionServiceTests
 {
     [Fact]
-    public async Task StartAsync_ReusesConnectedSession_WhenNoLoginUrlIsStored()
+    public async Task StartAsync_ConnectedSession_SendsLogoutThenLogin()
     {
         var user = CreateUser();
         var factory = await CreateFactoryAsync(CancellationToken.None);
@@ -30,38 +30,11 @@ public sealed class TelegramConnectionServiceTests
             webLoginUrl: null,
             CancellationToken.None);
 
-        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
-        var service = CreateService(factory, handler, CreateIdentity(user.Id));
-
-        var connection = await service.StartAsync(user, CancellationToken.None);
-
-        Assert.Equal(TelegramConnectionState.Connected, connection.State);
-        Assert.Null(connection.WebLoginUrl);
-        Assert.Empty(handler.Requests);
-    }
-
-    [Fact]
-    public async Task StartAsync_RegeneratesLogin_WhenConnectedSessionStillHasLoginUrl()
-    {
-        var user = CreateUser();
-        var factory = await CreateFactoryAsync(CancellationToken.None);
-        await SeedConnectionAsync(
-            factory,
-            user.Id,
-            TelegramConnectionState.Connected,
-            "!existing:matrix.localhost",
-            "https://bridge.localhost/public/login?token=expired",
-            CancellationToken.None);
-
         var handler = new RecordingHandler(request =>
         {
             if (request.RequestUri!.AbsolutePath.Contains("/state/m.room.member/", StringComparison.Ordinal))
             {
-                return CreateJsonResponse("""
-                    {
-                      "membership": "join"
-                    }
-                    """);
+                return CreateJsonResponse("""{ "membership": "join" }""");
             }
 
             return new HttpResponseMessage(HttpStatusCode.OK);
@@ -70,19 +43,11 @@ public sealed class TelegramConnectionServiceTests
 
         var connection = await service.StartAsync(user, CancellationToken.None);
 
-        Assert.Equal(TelegramConnectionState.BridgePending, connection.State);
-        Assert.Null(connection.WebLoginUrl);
-        Assert.Equal(2, handler.Requests.Count);
-        Assert.Equal(HttpMethod.Get, handler.Requests[0].Method);
-        Assert.Contains("/state/m.room.member/", handler.Requests[0].RequestUri!.AbsolutePath, StringComparison.Ordinal);
-        Assert.Equal(HttpMethod.Put, handler.Requests[1].Method);
-        Assert.Contains("/send/m.room.message/", handler.Requests[1].RequestUri!.AbsolutePath, StringComparison.Ordinal);
-
-        await using var dbContext = await factory.CreateDbContextAsync(CancellationToken.None);
-        var entity = await dbContext.TelegramConnections.SingleAsync(item => item.UserId == user.Id, CancellationToken.None);
-        Assert.Equal(TelegramConnectionState.BridgePending, entity.State);
-        Assert.Null(entity.WebLoginUrl);
-        Assert.Equal("!existing:matrix.localhost", entity.ManagementRoomId);
+        Assert.Equal(TelegramConnectionState.LoginAwaitingPhone, connection.State);
+        Assert.Equal(3, handler.Requests.Count);
+        Assert.Contains("\"body\":\"logout\"", handler.RequestBodies[0], StringComparison.Ordinal);
+        Assert.Contains("/state/m.room.member/", handler.Requests[1].RequestUri!.AbsolutePath, StringComparison.Ordinal);
+        Assert.Contains("\"body\":\"login\"", handler.RequestBodies[2], StringComparison.Ordinal);
     }
 
     [Fact]
@@ -121,20 +86,14 @@ public sealed class TelegramConnectionServiceTests
 
         var connection = await service.ReconnectAsync(user, CancellationToken.None);
 
-        Assert.Equal(TelegramConnectionState.BridgePending, connection.State);
-        Assert.Equal(3, handler.Requests.Count);
-        Assert.Equal(HttpMethod.Put, handler.Requests[0].Method);
-        Assert.Contains("/send/m.room.message/", handler.Requests[0].RequestUri!.AbsolutePath, StringComparison.Ordinal);
+        Assert.Equal(TelegramConnectionState.LoginAwaitingPhone, connection.State);
+        // DisconnectAsync sends logout, then StartAsync sends login
         Assert.Contains("\"body\":\"logout\"", handler.RequestBodies[0], StringComparison.Ordinal);
-        Assert.Equal(HttpMethod.Get, handler.Requests[1].Method);
-        Assert.Contains("/state/m.room.member/", handler.Requests[1].RequestUri!.AbsolutePath, StringComparison.Ordinal);
-        Assert.Equal(HttpMethod.Put, handler.Requests[2].Method);
-        Assert.Contains("/send/m.room.message/", handler.Requests[2].RequestUri!.AbsolutePath, StringComparison.Ordinal);
-        Assert.Contains("\"body\":\"login\"", handler.RequestBodies[2], StringComparison.Ordinal);
+        Assert.Contains("\"body\":\"login\"", handler.RequestBodies[^1], StringComparison.Ordinal);
 
         await using var dbContext = await factory.CreateDbContextAsync(CancellationToken.None);
         var entity = await dbContext.TelegramConnections.SingleAsync(item => item.UserId == user.Id, CancellationToken.None);
-        Assert.Equal(TelegramConnectionState.BridgePending, entity.State);
+        Assert.Equal(TelegramConnectionState.LoginAwaitingPhone, entity.State);
         Assert.Null(entity.WebLoginUrl);
         Assert.Equal("!existing:matrix.localhost", entity.ManagementRoomId);
     }
@@ -181,7 +140,7 @@ public sealed class TelegramConnectionServiceTests
 
         var connection = await service.StartAsync(user, CancellationToken.None);
 
-        Assert.Equal(TelegramConnectionState.BridgePending, connection.State);
+        Assert.Equal(TelegramConnectionState.LoginAwaitingPhone, connection.State);
         Assert.Equal(4, handler.Requests.Count);
         Assert.Equal("/_matrix/client/v3/createRoom", handler.Requests[0].RequestUri!.AbsolutePath);
         Assert.Contains("/state/m.room.member/", handler.Requests[1].RequestUri!.AbsolutePath, StringComparison.Ordinal);
@@ -191,7 +150,7 @@ public sealed class TelegramConnectionServiceTests
         await using var dbContext = await factory.CreateDbContextAsync(CancellationToken.None);
         var entity = await dbContext.TelegramConnections.SingleAsync(item => item.UserId == user.Id, CancellationToken.None);
         Assert.Equal("!bridge:matrix.localhost", entity.ManagementRoomId);
-        Assert.Equal(TelegramConnectionState.BridgePending, entity.State);
+        Assert.Equal(TelegramConnectionState.LoginAwaitingPhone, entity.State);
     }
 
     [Fact]
@@ -301,23 +260,17 @@ public sealed class TelegramConnectionServiceTests
         var user = CreateUser();
         var factory = await CreateFactoryAsync(CancellationToken.None);
         await SeedConnectionAsync(
-            factory,
-            user.Id,
-            TelegramConnectionState.LoginAwaitingPhone,
-            "!mgmt:matrix.localhost",
-            webLoginUrl: null,
-            CancellationToken.None);
+            factory, user.Id, TelegramConnectionState.LoginAwaitingPhone,
+            "!mgmt:matrix.localhost", webLoginUrl: null, CancellationToken.None);
 
-        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+        var handler = new RecordingHandler(CreateBridgeReadyHandler());
         var service = CreateService(factory, handler, CreateIdentity(user.Id));
 
         await service.SubmitLoginInputAsync(user, "+7 (913) 640-78-94", CancellationToken.None);
 
-        Assert.Equal(2, handler.Requests.Count);
-        Assert.Contains("\"body\":\"login\"", handler.RequestBodies[0], StringComparison.Ordinal);
-        Assert.Contains("79136407894", handler.RequestBodies[1], StringComparison.Ordinal);
-        Assert.DoesNotContain("(", handler.RequestBodies[1], StringComparison.Ordinal);
-        Assert.DoesNotContain("-", handler.RequestBodies[1], StringComparison.Ordinal);
+        Assert.Contains("\"body\":\"login\"", handler.RequestBodies[^2], StringComparison.Ordinal);
+        Assert.Contains("79136407894", handler.RequestBodies[^1], StringComparison.Ordinal);
+        Assert.DoesNotContain("(", handler.RequestBodies[^1], StringComparison.Ordinal);
     }
 
     [Theory]
@@ -330,13 +283,15 @@ public sealed class TelegramConnectionServiceTests
         var factory = await CreateFactoryAsync(CancellationToken.None);
         await SeedConnectionAsync(factory, user.Id, state, "!mgmt:matrix.localhost", webLoginUrl: null, CancellationToken.None);
 
-        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+        var handler = new RecordingHandler(CreateBridgeReadyHandler());
         var service = CreateService(factory, handler, CreateIdentity(user.Id));
 
         await service.SubmitLoginInputAsync(user, input, CancellationToken.None);
 
-        Assert.Single(handler.Requests);
-        Assert.Contains($"\"body\":\"{input}\"", handler.RequestBodies[0], StringComparison.Ordinal);
+        // Code/password steps: membership check + send input (no login re-issue)
+        var sendRequests = handler.RequestBodies.Where(b => b != null && b.Contains("\"body\"")).ToList();
+        Assert.Contains($"\"body\":\"{input}\"", sendRequests[^1], StringComparison.Ordinal);
+        Assert.DoesNotContain(sendRequests[^1], "\"body\":\"login\"");
     }
 
     [Theory]
@@ -359,37 +314,35 @@ public sealed class TelegramConnectionServiceTests
             factory, user.Id, TelegramConnectionState.LoginAwaitingPhone,
             "!mgmt:matrix.localhost", webLoginUrl: null, CancellationToken.None);
 
-        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+        var handler = new RecordingHandler(CreateBridgeReadyHandler());
         var service = CreateService(factory, handler, CreateIdentity(user.Id));
 
         await service.SubmitLoginInputAsync(user, "abc", CancellationToken.None);
 
-        Assert.Empty(handler.Requests);
-
-        await using var dbContext = await factory.CreateDbContextAsync(CancellationToken.None);
-        var entity = await dbContext.TelegramConnections.SingleAsync(item => item.UserId == user.Id, CancellationToken.None);
-        Assert.Equal(TelegramConnectionState.LoginAwaitingPhone, entity.State);
+        // Membership check happens, but no message sent to bridge
+        var sendBodies = handler.RequestBodies.Where(b => b != null && b.Contains("\"body\"")).ToList();
+        Assert.Empty(sendBodies);
     }
 
     [Fact]
-    public async Task SubmitLoginInputAsync_RejectsInput_WhenNotInLoginFlow()
+    public async Task SubmitLoginInputAsync_AutoStartsLogin_WhenNotInLoginFlow()
     {
         var user = CreateUser();
         var factory = await CreateFactoryAsync(CancellationToken.None);
         await SeedConnectionAsync(
-            factory, user.Id, TelegramConnectionState.Connected,
+            factory, user.Id, TelegramConnectionState.Disconnected,
             "!mgmt:matrix.localhost", webLoginUrl: null, CancellationToken.None);
 
-        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+        var handler = new RecordingHandler(CreateBridgeReadyHandler());
         var service = CreateService(factory, handler, CreateIdentity(user.Id));
 
         await service.SubmitLoginInputAsync(user, "+79136407894", CancellationToken.None);
 
-        Assert.Empty(handler.Requests);
+        Assert.Contains("79136407894", handler.RequestBodies[^1], StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task SubmitLoginInputAsync_WhenRetryLoginFails_StillSendsPhone()
+    public async Task SubmitLoginInputAsync_WhenLoginFails_StillSendsPhone()
     {
         var user = CreateUser();
         var factory = await CreateFactoryAsync(CancellationToken.None);
@@ -397,11 +350,16 @@ public sealed class TelegramConnectionServiceTests
             factory, user.Id, TelegramConnectionState.LoginAwaitingPhone,
             "!mgmt:matrix.localhost", webLoginUrl: null, CancellationToken.None);
 
-        var callCount = 0;
-        var handler = new RecordingHandler(_ =>
+        var sendCount = 0;
+        var handler = new RecordingHandler(request =>
         {
-            callCount++;
-            return callCount == 1
+            if (request.RequestUri!.AbsolutePath.Contains("/state/m.room.member/", StringComparison.Ordinal))
+            {
+                return CreateJsonResponse("""{ "membership": "join" }""");
+            }
+
+            sendCount++;
+            return sendCount == 1
                 ? throw new HttpRequestException("Simulated failure")
                 : new HttpResponseMessage(HttpStatusCode.OK);
         });
@@ -409,9 +367,7 @@ public sealed class TelegramConnectionServiceTests
 
         await service.SubmitLoginInputAsync(user, "+79136407894", CancellationToken.None);
 
-        Assert.Equal(2, handler.Requests.Count);
-        Assert.Contains("\"body\":\"login\"", handler.RequestBodies[0], StringComparison.Ordinal);
-        Assert.Contains("79136407894", handler.RequestBodies[1], StringComparison.Ordinal);
+        Assert.Contains("79136407894", handler.RequestBodies[^1], StringComparison.Ordinal);
     }
 
     [Fact]
@@ -423,7 +379,15 @@ public sealed class TelegramConnectionServiceTests
             factory, user.Id, TelegramConnectionState.LoginAwaitingCode,
             "!mgmt:matrix.localhost", webLoginUrl: null, CancellationToken.None);
 
-        var handler = new RecordingHandler(_ => throw new HttpRequestException("Simulated failure"));
+        var handler = new RecordingHandler(request =>
+        {
+            if (request.RequestUri!.AbsolutePath.Contains("/state/m.room.member/", StringComparison.Ordinal))
+            {
+                return CreateJsonResponse("""{ "membership": "join" }""");
+            }
+
+            throw new HttpRequestException("Simulated failure");
+        });
         var service = CreateService(factory, handler, CreateIdentity(user.Id));
 
         await service.SubmitLoginInputAsync(user, "12345", CancellationToken.None);
@@ -431,6 +395,19 @@ public sealed class TelegramConnectionServiceTests
         await using var dbContext = await factory.CreateDbContextAsync(CancellationToken.None);
         var entity = await dbContext.TelegramConnections.SingleAsync(item => item.UserId == user.Id, CancellationToken.None);
         Assert.Equal(TelegramConnectionState.Error, entity.State);
+    }
+
+    private static Func<HttpRequestMessage, HttpResponseMessage> CreateBridgeReadyHandler()
+    {
+        return request =>
+        {
+            if (request.RequestUri!.AbsolutePath.Contains("/state/m.room.member/", StringComparison.Ordinal))
+            {
+                return CreateJsonResponse("""{ "membership": "join" }""");
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        };
     }
 
     private static TelegramConnectionService CreateService(
@@ -468,7 +445,7 @@ public sealed class TelegramConnectionServiceTests
     private static AppUser CreateUser()
     {
         var now = DateTimeOffset.UtcNow;
-        return new AppUser(Guid.NewGuid(), "pilot@example.com", now, now);
+        return new AppUser(Guid.NewGuid(), new Email("pilot@example.com"), now, now);
     }
 
     private static MatrixIdentity CreateIdentity(Guid userId)

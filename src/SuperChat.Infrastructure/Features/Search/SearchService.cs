@@ -1,6 +1,7 @@
-﻿using SuperChat.Contracts.Features.Search;
-using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Features.Messaging;
+﻿using SuperChat.Contracts.Features.Intelligence.Retrieval;
+using SuperChat.Contracts.Features.Messaging;
+using SuperChat.Contracts.Features.Search;
+using SuperChat.Contracts.Features.WorkItems;
 
 namespace SuperChat.Infrastructure.Features.Search;
 

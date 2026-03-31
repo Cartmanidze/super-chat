@@ -1,7 +1,6 @@
 using SuperChat.Contracts.Features.Chat;
+using SuperChat.Contracts.Features.Operations;
 using SuperChat.Domain.Features.Chat;
-using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Features.Intelligence.Digest;
 
 namespace SuperChat.Infrastructure.Features.Chat;
 

@@ -1,6 +1,7 @@
+using SuperChat.Contracts.Features.Integrations;
+using SuperChat.Contracts.Features.Integrations.Telegram;
 using SuperChat.Domain.Features.Auth;
 using SuperChat.Domain.Features.Integrations;
-using SuperChat.Infrastructure.Features.Integrations.Telegram;
 
 namespace SuperChat.Infrastructure.Features.Integrations;
 

@@ -218,40 +218,6 @@ namespace SuperChat.Infrastructure.Migrations
                     b.ToTable("feedback_events", (string)null);
                 });
 
-            modelBuilder.Entity("SuperChat.Infrastructure.Shared.Persistence.MagicLinkTokenEntity", b =>
-                {
-                    b.Property<string>("Value")
-                        .HasColumnType("text")
-                        .HasColumnName("value");
-
-                    b.Property<bool>("Consumed")
-                        .HasColumnType("boolean")
-                        .HasColumnName("consumed");
-
-                    b.Property<Guid?>("ConsumedByUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("consumed_by_user_id");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("email");
-
-                    b.Property<DateTimeOffset>("ExpiresAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("expires_at");
-
-                    b.HasKey("Value");
-
-                    b.HasIndex("Email", "CreatedAt");
-
-                    b.ToTable("magic_links", (string)null);
-                });
-
             modelBuilder.Entity("SuperChat.Infrastructure.Shared.Persistence.MatrixIdentityEntity", b =>
                 {
                     b.Property<Guid>("UserId")
@@ -700,6 +666,59 @@ namespace SuperChat.Infrastructure.Migrations
                     b.HasIndex("State");
 
                     b.ToTable("telegram_connections", (string)null);
+                });
+
+            modelBuilder.Entity("SuperChat.Infrastructure.Shared.Persistence.VerificationCodeEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(44)
+                        .HasColumnType("character varying(44)")
+                        .HasColumnName("code_hash");
+
+                    b.Property<string>("CodeSalt")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("code_salt");
+
+                    b.Property<bool>("Consumed")
+                        .IsConcurrencyToken()
+                        .HasColumnType("boolean")
+                        .HasColumnName("consumed");
+
+                    b.Property<Guid?>("ConsumedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("consumed_by_user_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)")
+                        .HasColumnName("email");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<int>("FailedAttempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("failed_attempts");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email", "CreatedAt");
+
+                    b.ToTable("verification_codes", (string)null);
                 });
 
             modelBuilder.Entity("SuperChat.Infrastructure.Shared.Persistence.WorkItemEntity", b =>

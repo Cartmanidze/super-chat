@@ -4,8 +4,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Localization;
-using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Features.Auth;
+using SuperChat.Contracts.Features.Auth;
 using SuperChat.Web.Localization;
 
 namespace SuperChat.Web.Pages.Auth;
@@ -15,14 +14,44 @@ public sealed class VerifyModel(
     IStringLocalizer<SharedResource> localizer,
     IUiTextService uiTextService) : PageModel
 {
+    [BindProperty(SupportsGet = true)]
+    public string Email { get; set; } = string.Empty;
+
+    [BindProperty]
+    public string Code { get; set; } = string.Empty;
+
     public bool Success { get; private set; }
 
     public string StatusMessage { get; private set; } = string.Empty;
 
-    public async Task<IActionResult> OnGetAsync(string token, CancellationToken cancellationToken)
+    public void OnGet()
     {
-        StatusMessage = localizer["Auth.Verify.Checking"];
-        var result = await authFlowService.VerifyAsync(token, cancellationToken);
+        StatusMessage = localizer["Auth.Verify.EnterCode"];
+    }
+
+    public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(Email) || string.IsNullOrWhiteSpace(Code))
+        {
+            StatusMessage = localizer["Auth.Verify.EnterCode"];
+            return Page();
+        }
+
+        AuthVerificationResult result;
+        try
+        {
+            result = await authFlowService.VerifyCodeAsync(Email, Code, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            StatusMessage = localizer["Auth.Code.GenericError"];
+            return Page();
+        }
+
         Success = result.Accepted;
         StatusMessage = uiTextService.AuthVerificationStatusText(result.Status);
 

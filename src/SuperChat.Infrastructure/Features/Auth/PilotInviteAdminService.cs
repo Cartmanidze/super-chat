@@ -1,6 +1,7 @@
 using System.Net.Mail;
 using Microsoft.EntityFrameworkCore;
 using SuperChat.Contracts.Features.Admin;
+using SuperChat.Domain.Features.Auth;
 using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Infrastructure.Shared.Persistence;
 
@@ -27,7 +28,7 @@ public sealed class PilotInviteAdminService(
         string invitedBy,
         CancellationToken cancellationToken)
     {
-        var normalizedEmail = NormalizeEmail(email);
+        var normalizedEmail = new Email(email).Value;
         if (!LooksLikeValidEmail(normalizedEmail))
         {
             return new AdminInviteMutationResult(false, "Введите корректный email.");
@@ -66,10 +67,6 @@ public sealed class PilotInviteAdminService(
         return new AdminInviteMutationResult(true, "Email добавлен в allowlist.");
     }
 
-    private static string NormalizeEmail(string email)
-    {
-        return email.Trim().ToLowerInvariant();
-    }
 
     private static bool LooksLikeValidEmail(string email)
     {

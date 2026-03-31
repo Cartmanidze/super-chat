@@ -1,8 +1,8 @@
 using System.Globalization;
 using SuperChat.Contracts.Features.Auth;
+using SuperChat.Contracts.Features.Intelligence.Extraction;
 using SuperChat.Domain.Features.Intelligence;
 using SuperChat.Domain.Features.Messaging;
-using SuperChat.Infrastructure.Abstractions;
 
 namespace SuperChat.Infrastructure.Features.Intelligence.Extraction;
 
@@ -298,14 +298,14 @@ public sealed class HeuristicStructuredExtractionService(
             Guid.NewGuid(),
             sourceMessage.UserId,
             ExtractedItemKind.Meeting,
-            "\u0421\u043a\u043e\u0440\u043e \u0432\u0441\u0442\u0440\u0435\u0447\u0430",
+            "Скоро встреча",
             summary,
             sourceMessage.MatrixRoomId,
             sourceMessage.MatrixEventId,
             person,
             sourceMessage.SentAt,
             dueAt,
-            confidence);
+            new Confidence(confidence));
     }
 
     private static bool IsMeetingCueText(string text)

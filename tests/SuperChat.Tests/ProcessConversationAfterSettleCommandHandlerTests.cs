@@ -3,12 +3,13 @@ using Microsoft.Extensions.Options;
 using Rebus.Bus;
 using Rebus.Bus.Advanced;
 using Rebus.Messages;
+using SuperChat.Contracts.Features.Intelligence.Extraction;
+using SuperChat.Contracts.Features.Messaging;
 using SuperChat.Contracts.Features.Operations;
+using SuperChat.Contracts.Features.WorkItems;
 using SuperChat.Domain.Features.Intelligence;
 using SuperChat.Domain.Features.Messaging;
 using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Features.Intelligence.Extraction;
-using SuperChat.Infrastructure.Features.Messaging;
 using SuperChat.Infrastructure.Features.Operations;
 
 namespace SuperChat.Tests;
@@ -46,7 +47,7 @@ public sealed class ProcessConversationAfterSettleCommandHandlerTests
                 "Alice",
                 message.SentAt,
                 message.SentAt.AddDays(1),
-                0.92)
+                new Confidence(0.92))
         ]);
         var workItemService = new RecordingWorkItemService();
         var bus = new RecordingBus();

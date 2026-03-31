@@ -2,11 +2,10 @@ using System.Diagnostics;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using SuperChat.Contracts.Features.Chat;
+using SuperChat.Contracts.Features.Intelligence.Retrieval;
 using SuperChat.Contracts.Features.Search;
 using SuperChat.Domain.Features.Chat;
-using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Infrastructure.Diagnostics;
-using SuperChat.Infrastructure.Features.Search;
 
 namespace SuperChat.Infrastructure.Features.Chat;
 

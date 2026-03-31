@@ -11,7 +11,21 @@
 
     @if (!Model.Success)
     {
-      <a class="inline-link" asp-page="/Auth/RequestLink">@T["Auth.Verify.RequestAnotherLink"]</a>
+      <form method="post" class="auth-form">
+        <input type="hidden" asp-for="Email" />
+        <label asp-for="Code" class="visually-hidden">@T["Auth.Verify.CodeLabel"]</label>
+        <input asp-for="Code"
+               type="text"
+               inputmode="numeric"
+               pattern="[0-9]{6}"
+               maxlength="6"
+               autocomplete="one-time-code"
+               placeholder="000000"
+               class="code-input" />
+        <button type="submit" class="send-button wide">@T["Auth.Verify.Submit"]</button>
+      </form>
+
+      <a class="inline-link" asp-page="/Auth/RequestLink">@T["Auth.Verify.RequestAnotherCode"]</a>
     }
   </div>
 </section>

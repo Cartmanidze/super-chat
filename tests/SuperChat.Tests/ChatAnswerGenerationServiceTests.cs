@@ -1,9 +1,9 @@
 using System.Net;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using SuperChat.Contracts.Features.Chat;
 using SuperChat.Contracts.Features.Intelligence.Extraction;
 using SuperChat.Contracts.Features.Intelligence.Retrieval;
-using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Infrastructure.Features.Chat;
 
 namespace SuperChat.Tests;

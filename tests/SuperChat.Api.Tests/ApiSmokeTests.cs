@@ -9,6 +9,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using SuperChat.Contracts.Features.WorkItems;
 using SuperChat.Domain.Features.Intelligence;
 using SuperChat.Infrastructure.Shared.Persistence;
@@ -20,6 +21,7 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly ApiTestApplicationFactory _factory;
+    private static string? _cachedAccessToken;
 
     public ApiSmokeTests(ApiTestApplicationFactory factory)
     {
@@ -71,30 +73,29 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
     }
 
     [Fact]
-    public async Task AuthFlow_ExchangesMagicLinkForBearerToken_AndReturnsProfile()
+    public async Task AuthFlow_SendsCodeAndVerifiesForBearerToken_AndReturnsProfile()
     {
         using var client = _factory.CreateClient();
 
-        var requestResponse = await client.PostAsJsonAsync("/api/v1/auth/magic-links", new
+        var sendResponse = await client.PostAsJsonAsync("/api/v1/auth/send-code", new
         {
             email = "pilot@example.com"
         });
-        var requestBody = await requestResponse.Content.ReadAsStringAsync();
+        var sendBody = await sendResponse.Content.ReadAsStringAsync();
 
-        Assert.Equal(HttpStatusCode.Accepted, requestResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Accepted, sendResponse.StatusCode);
 
-        using var requestJson = JsonDocument.Parse(requestBody);
-        var devLink = requestJson.RootElement.GetProperty("developmentLink").GetString();
-        Assert.False(string.IsNullOrWhiteSpace(devLink));
+        var codeSender = _factory.Services.GetRequiredService<CapturingApiCodeSender>();
+        var code = codeSender.LastCode!;
 
-        var token = ExtractToken(devLink!);
-        var exchangeResponse = await client.PostAsJsonAsync("/api/v1/auth/token-exchange", new
+        var verifyResponse = await client.PostAsJsonAsync("/api/v1/auth/verify-code", new
         {
-            token
+            email = "pilot@example.com",
+            code
         });
-        var session = await exchangeResponse.Content.ReadFromJsonAsync<SessionTokenEnvelope>(JsonOptions);
+        var session = await verifyResponse.Content.ReadFromJsonAsync<SessionTokenEnvelope>(JsonOptions);
 
-        Assert.Equal(HttpStatusCode.OK, exchangeResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, verifyResponse.StatusCode);
         Assert.NotNull(session);
         Assert.False(string.IsNullOrWhiteSpace(session!.AccessToken));
 
@@ -113,7 +114,7 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
     {
         using var client = _factory.CreateClient();
 
-        var response = await client.PostAsJsonAsync("/api/v1/auth/magic-links", new
+        var response = await client.PostAsJsonAsync("/api/v1/auth/send-code", new
         {
             email = ""
         });
@@ -462,35 +463,32 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
         Assert.DoesNotContain("Reply to Marina", searchPayload, StringComparison.Ordinal);
     }
 
-    private static string ExtractToken(string developmentLink)
+    private async Task<string> GetAccessTokenAsync(HttpClient client)
     {
-        var uri = new Uri(developmentLink);
-        var tokenPart = uri.Query.TrimStart('?')
-            .Split('&', StringSplitOptions.RemoveEmptyEntries)
-            .First(part => part.StartsWith("token=", StringComparison.OrdinalIgnoreCase));
+        if (_cachedAccessToken is not null)
+        {
+            return _cachedAccessToken;
+        }
 
-        return Uri.UnescapeDataString(tokenPart["token=".Length..]);
-    }
-
-    private static async Task<string> GetAccessTokenAsync(HttpClient client)
-    {
-        var requestResponse = await client.PostAsJsonAsync("/api/v1/auth/magic-links", new
+        var sendResponse = await client.PostAsJsonAsync("/api/v1/auth/send-code", new
         {
             email = "pilot@example.com"
         });
 
-        var requestBody = await requestResponse.Content.ReadAsStringAsync();
-        using var requestJson = JsonDocument.Parse(requestBody);
-        var devLink = requestJson.RootElement.GetProperty("developmentLink").GetString();
-        var token = ExtractToken(devLink!);
+        sendResponse.EnsureSuccessStatusCode();
 
-        var exchangeResponse = await client.PostAsJsonAsync("/api/v1/auth/token-exchange", new
+        var codeSender = _factory.Services.GetRequiredService<CapturingApiCodeSender>();
+        var code = codeSender.LastCode!;
+
+        var verifyResponse = await client.PostAsJsonAsync("/api/v1/auth/verify-code", new
         {
-            token
+            email = "pilot@example.com",
+            code
         });
 
-        var session = await exchangeResponse.Content.ReadFromJsonAsync<SessionTokenEnvelope>(JsonOptions);
-        return session!.AccessToken;
+        var session = await verifyResponse.Content.ReadFromJsonAsync<SessionTokenEnvelope>(JsonOptions);
+        _cachedAccessToken = session!.AccessToken;
+        return _cachedAccessToken;
     }
 
     private async Task<Guid> GetUserIdAsync(string email)
@@ -538,6 +536,8 @@ public sealed class ApiTestApplicationFactory : WebApplicationFactory<Program>
                 ["ConnectionStrings:SuperChatDb"] = $"Data Source={_databasePath}",
                 ["Persistence:Provider"] = "Sqlite",
                 ["SuperChat:ApiSessionDays"] = "30",
+                ["SuperChat:VerificationCodeMinutes"] = "10",
+                ["SuperChat:MaxVerificationAttempts"] = "5",
                 ["SuperChat:DevSeedSampleData"] = "true"
             });
         });
@@ -546,6 +546,9 @@ public sealed class ApiTestApplicationFactory : WebApplicationFactory<Program>
             services.RemoveAll(typeof(IDbContextFactory<SuperChatDbContext>));
             services.RemoveAll(typeof(DbContextOptions<SuperChatDbContext>));
             services.AddDbContextFactory<SuperChatDbContext>(options => options.UseSqlite($"Data Source={_databasePath}"));
+            services.RemoveAll(typeof(SuperChat.Contracts.Features.Auth.IVerificationCodeSender));
+            services.AddSingleton<CapturingApiCodeSender>();
+            services.AddSingleton<SuperChat.Contracts.Features.Auth.IVerificationCodeSender>(sp => sp.GetRequiredService<CapturingApiCodeSender>());
         });
     }
 
@@ -590,8 +593,19 @@ public sealed class ApiTestApplicationFactory : WebApplicationFactory<Program>
                 File.Delete(_databasePath);
             }
         }
-        catch
+        catch (IOException)
         {
         }
+    }
+}
+
+internal sealed class CapturingApiCodeSender : SuperChat.Contracts.Features.Auth.IVerificationCodeSender
+{
+    public string? LastCode { get; private set; }
+
+    public Task SendAsync(string email, string code, CancellationToken cancellationToken)
+    {
+        LastCode = code;
+        return Task.CompletedTask;
     }
 }

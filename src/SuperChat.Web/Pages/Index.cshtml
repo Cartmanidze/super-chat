@@ -67,11 +67,10 @@
           </div>
         }
 
-        @if (Model.DevelopmentLink is not null)
+        @if (Model.CodeSent)
         {
           <div class="inline-alert">
-            <strong>Development shortcut.</strong>
-            <a class="inline-link" href="@Model.DevelopmentLink">@Model.DevelopmentLink</a>
+            <a class="inline-link" asp-page="/Auth/Verify" asp-route-email="@Model.Email">@T["Auth.RequestLink.EnterCode"]</a>
           </div>
         }
 

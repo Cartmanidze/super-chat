@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\SuperChat.Domain\SuperChat.Domain.csproj" />
     <ProjectReference Include="..\SuperChat.Contracts\SuperChat.Contracts.csproj" />
+    <ProjectReference Include="..\SuperChat.Application\SuperChat.Application.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -16,6 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Ardalis.GuardClauses" Version="5.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -32,6 +34,12 @@
     <Compile Remove="Persistence\**\*.cs" />
     <Compile Remove="Features\Auth\PostgresAuthFlowService.cs" />
     <Compile Remove="Features\Auth\PostgresApiSessionService.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="SuperChat.Tests" />
+    <InternalsVisibleTo Include="SuperChat.Web.Tests" />
+    <InternalsVisibleTo Include="SuperChat.Api.Tests" />
   </ItemGroup>
 
 </Project>

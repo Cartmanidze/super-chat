@@ -282,26 +282,53 @@
   <data name="Auth.Verify.Checking" xml:space="preserve">
     <value>Проверяем вашу ссылку...</value>
   </data>
-  <data name="Auth.Verify.RequestAnotherLink" xml:space="preserve">
-    <value>Запросить новую ссылку</value>
+  <data name="Auth.Verify.RequestAnotherCode" xml:space="preserve">
+    <value>Запросить новый код</value>
   </data>
-  <data name="Auth.MagicLink.Created" xml:space="preserve">
-    <value>Magic link создан.</value>
+  <data name="Auth.Code.Sent" xml:space="preserve">
+    <value>Код подтверждения отправлен на вашу почту.</value>
   </data>
-  <data name="Auth.MagicLink.NotInvited" xml:space="preserve">
+  <data name="Auth.Code.NotInvited" xml:space="preserve">
     <value>Этот email пока не приглашён в пилот.</value>
   </data>
-  <data name="Auth.MagicLink.Unknown" xml:space="preserve">
-    <value>Не удалось обработать запрос на magic link.</value>
+  <data name="Auth.Code.TooManyRequests" xml:space="preserve">
+    <value>Слишком много запросов. Подождите несколько минут.</value>
+  </data>
+  <data name="Auth.Code.DeliveryFailed" xml:space="preserve">
+    <value>Не удалось отправить код. Попробуйте ещё раз.</value>
+  </data>
+  <data name="Auth.Code.Unknown" xml:space="preserve">
+    <value>Не удалось обработать запрос.</value>
+  </data>
+  <data name="Auth.Code.GenericError" xml:space="preserve">
+    <value>Произошла ошибка. Попробуйте ещё раз.</value>
+  </data>
+  <data name="Auth.Email.Required" xml:space="preserve">
+    <value>Введите email.</value>
+  </data>
+  <data name="Auth.Verify.EnterCode" xml:space="preserve">
+    <value>Введите 6-значный код из письма.</value>
+  </data>
+  <data name="Auth.Verify.CodeLabel" xml:space="preserve">
+    <value>Код подтверждения</value>
+  </data>
+  <data name="Auth.Verify.Submit" xml:space="preserve">
+    <value>Подтвердить</value>
   </data>
   <data name="Auth.Verify.Success" xml:space="preserve">
     <value>Вход выполнен успешно.</value>
   </data>
   <data name="Auth.Verify.InvalidOrExpired" xml:space="preserve">
-    <value>Эта magic link недействительна или уже истекла.</value>
+    <value>Код недействителен или истёк. Попробуйте ещё раз.</value>
+  </data>
+  <data name="Auth.Verify.TooManyAttempts" xml:space="preserve">
+    <value>Слишком много попыток. Запросите новый код.</value>
   </data>
   <data name="Auth.Verify.Unknown" xml:space="preserve">
-    <value>Не удалось проверить ссылку.</value>
+    <value>Не удалось проверить код.</value>
+  </data>
+  <data name="Auth.RequestLink.EnterCode" xml:space="preserve">
+    <value>Ввести код</value>
   </data>
   <data name="Privacy.PageTitle" xml:space="preserve">
     <value>Приватность</value>

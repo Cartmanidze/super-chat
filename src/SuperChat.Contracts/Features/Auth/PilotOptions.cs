@@ -6,7 +6,9 @@ public sealed class PilotOptions
 
     public string BaseUrl { get; set; } = "https://localhost:8080";
 
-    public int MagicLinkMinutes { get; set; } = 15;
+    public int VerificationCodeMinutes { get; set; } = 10;
+
+    public int MaxVerificationAttempts { get; set; } = 5;
 
     public int ApiSessionDays { get; set; } = 30;
 

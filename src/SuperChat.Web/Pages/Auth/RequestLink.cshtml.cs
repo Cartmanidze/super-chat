@@ -1,21 +1,22 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Features.Auth;
+using Microsoft.Extensions.Localization;
+using SuperChat.Contracts.Features.Auth;
 using SuperChat.Web.Localization;
 
 namespace SuperChat.Web.Pages.Auth;
 
 public sealed class RequestLinkModel(
     IAuthFlowService authFlowService,
-    IUiTextService uiTextService) : PageModel
+    IUiTextService uiTextService,
+    IStringLocalizer<SharedResource> localizer) : PageModel
 {
     [BindProperty]
     public string Email { get; set; } = string.Empty;
 
     public string StatusMessage { get; private set; } = string.Empty;
 
-    public Uri? DevelopmentLink { get; private set; }
+    public bool CodeSent { get; private set; }
 
     public void OnGet()
     {
@@ -23,9 +24,27 @@ public sealed class RequestLinkModel(
 
     public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
     {
-        var result = await authFlowService.RequestMagicLinkAsync(Email, cancellationToken);
-        StatusMessage = uiTextService.MagicLinkRequestStatusText(result.Status);
-        DevelopmentLink = result.DevelopmentLink;
+        if (string.IsNullOrWhiteSpace(Email))
+        {
+            StatusMessage = localizer["Auth.Email.Required"];
+            return Page();
+        }
+
+        try
+        {
+            var result = await authFlowService.SendCodeAsync(Email, cancellationToken);
+            StatusMessage = uiTextService.SendCodeStatusText(result.Status);
+            CodeSent = result.Accepted;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            StatusMessage = localizer["Auth.Code.GenericError"];
+        }
+
         return Page();
     }
 }

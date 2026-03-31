@@ -13,12 +13,7 @@ internal static class PersistenceMappings
 
     public static AppUser ToDomain(this AppUserEntity entity)
     {
-        return new AppUser(entity.Id, entity.Email, entity.CreatedAt, entity.LastSeenAt);
-    }
-
-    public static MagicLinkToken ToDomain(this MagicLinkTokenEntity entity)
-    {
-        return new MagicLinkToken(entity.Value, entity.Email, entity.CreatedAt, entity.ExpiresAt, entity.Consumed, entity.ConsumedByUserId);
+        return new AppUser(entity.Id, new Email(entity.Email), entity.CreatedAt, entity.LastSeenAt);
     }
 
     public static ApiSession ToDomain(this ApiSessionEntity entity)
@@ -69,7 +64,7 @@ internal static class PersistenceMappings
             entity.Person,
             entity.ObservedAt,
             entity.DueAt,
-            entity.Confidence);
+            new Confidence(entity.Confidence));
     }
 
     public static WorkItemRecord ToDomain(this WorkItemEntity entity)
@@ -85,7 +80,7 @@ internal static class PersistenceMappings
             entity.Person,
             entity.ObservedAt,
             entity.DueAt,
-            entity.Confidence,
+            new Confidence(entity.Confidence),
             entity.ResolutionKind,
             entity.ResolutionSource,
             ToResolutionTrace(entity.ResolutionConfidence, entity.ResolutionModel, entity.ResolutionEvidenceJson),
@@ -104,7 +99,7 @@ internal static class PersistenceMappings
             entity.Person,
             entity.ObservedAt,
             entity.ScheduledFor,
-            entity.Confidence,
+            new Confidence(entity.Confidence),
             entity.ResolutionKind,
             entity.ResolutionSource,
             ToResolutionTrace(entity.ResolutionConfidence, entity.ResolutionModel, entity.ResolutionEvidenceJson),

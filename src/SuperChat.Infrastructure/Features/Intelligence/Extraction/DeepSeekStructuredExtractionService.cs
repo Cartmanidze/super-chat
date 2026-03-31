@@ -3,9 +3,10 @@ using System.Globalization;
 using Microsoft.Extensions.Logging;
 using SuperChat.Contracts;
 using SuperChat.Contracts.Features.Auth;
+using SuperChat.Contracts.Features.Intelligence.Extraction;
+using SuperChat.Contracts.Features.Intelligence.Retrieval;
 using SuperChat.Domain.Features.Intelligence;
 using SuperChat.Domain.Features.Messaging;
-using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Infrastructure.Diagnostics;
 
 namespace SuperChat.Infrastructure.Features.Intelligence.Extraction;

@@ -2,8 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using SuperChat.Api.Validation;
 using SuperChat.Api.Security;
 using SuperChat.Domain.Features.Auth;
-using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Features.Auth;
+using SuperChat.Contracts.Features.Auth;
 
 namespace SuperChat.Api.Features.Auth;
 
@@ -14,34 +13,44 @@ public static class AuthEndpoints
         var group = api.MapGroup("/auth")
             .WithTags("Auth");
 
-        group.MapPost("/magic-links", async (
-            MagicLinkRequest request,
+        group.MapPost("/send-code", async (
+            SendCodeRequest request,
             IAuthFlowService authFlowService,
             CancellationToken cancellationToken) =>
         {
-            var result = await authFlowService.RequestMagicLinkAsync(request.Email, cancellationToken);
-            return result.Accepted
-                ? Results.Accepted(value: result.ToMagicLinkResponse())
-                : Results.Problem(title: "Magic link request rejected", detail: result.Message, statusCode: StatusCodes.Status403Forbidden);
-        })
-        .ValidateRequest<MagicLinkRequest>();
+            var result = await authFlowService.SendCodeAsync(request.Email, cancellationToken);
+            if (result.Accepted)
+                return Results.Accepted(value: result.ToSendCodeResponse());
 
-        group.MapPost("/token-exchange", async (
-            TokenExchangeRequest request,
+            var statusCode = result.Status switch
+            {
+                SendCodeStatus.TooManyRequests => StatusCodes.Status429TooManyRequests,
+                SendCodeStatus.DeliveryFailed => StatusCodes.Status502BadGateway,
+                _ => StatusCodes.Status403Forbidden
+            };
+            return Results.Problem(title: "Code request rejected", detail: result.Message, statusCode: statusCode);
+        })
+        .ValidateRequest<SendCodeRequest>();
+
+        group.MapPost("/verify-code", async (
+            VerifyCodeRequest request,
             IAuthFlowService authFlowService,
             IApiSessionService apiSessionService,
             CancellationToken cancellationToken) =>
         {
-            var result = await authFlowService.VerifyAsync(request.Token, cancellationToken);
+            var result = await authFlowService.VerifyCodeAsync(request.Email, request.Code, cancellationToken);
             if (!result.Accepted || result.User is null)
             {
-                return Results.Problem(title: "Token exchange failed", detail: result.Message, statusCode: StatusCodes.Status400BadRequest);
+                var statusCode = result.Status == AuthVerificationStatus.TooManyAttempts
+                    ? StatusCodes.Status429TooManyRequests
+                    : StatusCodes.Status400BadRequest;
+                return Results.Problem(title: "Code verification failed", detail: result.Message, statusCode: statusCode);
             }
 
             var session = await apiSessionService.IssueAsync(result.User, cancellationToken);
             return Results.Ok(session.ToSessionTokenResponse(result.User));
         })
-        .ValidateRequest<TokenExchangeRequest>();
+        .ValidateRequest<VerifyCodeRequest>();
 
         group.MapPost("/refresh", [Authorize(AuthenticationSchemes = ApiSessionAuthenticationHandler.SchemeName)] async (
             HttpContext httpContext,
@@ -108,11 +117,11 @@ public static class AuthEndpoints
     }
 }
 
-public sealed record MagicLinkRequest(string Email);
+public sealed record SendCodeRequest(string Email);
 
-public sealed record MagicLinkResponse(bool Accepted, string Message, Uri? DevelopmentLink);
+public sealed record SendCodeResponse(string Message);
 
-public sealed record TokenExchangeRequest(string Token);
+public sealed record VerifyCodeRequest(string Email, string Code);
 
 public sealed record SessionTokenResponse(
     string AccessToken,

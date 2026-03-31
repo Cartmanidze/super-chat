@@ -1,5 +1,5 @@
+using SuperChat.Contracts.Features.Integrations.Telegram;
 using SuperChat.Domain.Features.Integrations.Telegram;
-using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Infrastructure.Features.Operations;
 
 namespace SuperChat.Tests;

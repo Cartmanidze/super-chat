@@ -2,14 +2,15 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Rebus.Bus;
 using Rebus.Handlers;
+using SuperChat.Contracts.Features.Intelligence.Extraction;
 using SuperChat.Contracts.Features.Intelligence.Meetings;
 using SuperChat.Contracts.Features.Intelligence.Retrieval;
+using SuperChat.Contracts.Features.Messaging;
 using SuperChat.Contracts.Features.Operations;
+using SuperChat.Contracts.Features.WorkItems;
 using SuperChat.Domain.Features.Intelligence;
 using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Infrastructure.Diagnostics;
-using SuperChat.Infrastructure.Features.Intelligence.Extraction;
-using SuperChat.Infrastructure.Features.Messaging;
 using System.Diagnostics;
 
 namespace SuperChat.Infrastructure.Features.Operations;

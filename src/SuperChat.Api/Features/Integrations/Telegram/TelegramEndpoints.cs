@@ -1,11 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using SuperChat.Api.Features.Auth;
 using SuperChat.Api.Security;
+using SuperChat.Contracts.Features.Auth;
+using SuperChat.Contracts.Features.Integrations;
+using SuperChat.Contracts.Features.Integrations.Matrix;
 using SuperChat.Domain.Features.Integrations;
-using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Features.Auth;
-using SuperChat.Infrastructure.Features.Integrations;
-using SuperChat.Infrastructure.Features.Integrations.Matrix;
 
 namespace SuperChat.Api.Features.Integrations.Telegram;
 
@@ -65,6 +64,31 @@ public static class TelegramEndpoints
             return Results.Ok(connection.ToTelegramConnectionResponse(matrixIdentity?.MatrixUserId));
         });
 
+        group.MapPost("/login-input", async (
+            HttpContext httpContext,
+            IAuthFlowService authFlowService,
+            IIntegrationConnectionService integrationConnectionService,
+            IMatrixProvisioningService matrixProvisioningService,
+            TelegramLoginInputRequest request,
+            CancellationToken cancellationToken) =>
+        {
+            var user = await authFlowService.FindUserAsync(httpContext.User.GetRequiredEmail(), cancellationToken);
+            if (user is null)
+            {
+                return Results.Unauthorized();
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Input))
+            {
+                return Results.BadRequest("Input is required.");
+            }
+
+            var connection = await integrationConnectionService.SubmitLoginInputAsync(
+                user, IntegrationProvider.Telegram, request.Input.Trim(), cancellationToken);
+            var matrixIdentity = await matrixProvisioningService.GetIdentityAsync(user.Id, cancellationToken);
+            return Results.Ok(connection.ToTelegramConnectionResponse(matrixIdentity?.MatrixUserId));
+        });
+
         group.MapDelete(string.Empty, async (
             HttpContext httpContext,
             IIntegrationConnectionService integrationConnectionService,
@@ -82,9 +106,12 @@ public static class TelegramEndpoints
     }
 }
 
+public sealed record TelegramLoginInputRequest(string Input);
+
 public sealed record TelegramConnectionResponse(
     string State,
     string? MatrixUserId,
     Uri? WebLoginUrl,
+    string? ChatLoginStep,
     DateTimeOffset? LastSyncedAt,
     bool RequiresAction);

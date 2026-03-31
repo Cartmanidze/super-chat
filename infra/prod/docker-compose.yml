@@ -183,7 +183,8 @@ services:
       SuperChat__BaseUrl: ${SUPERCHAT_BASE_URL}
       SuperChat__AdminEmails__0: ${SUPERCHAT_ADMIN_EMAILS__0:-}
       SuperChat__AdminPasswordHash: ${SUPERCHAT_ADMIN_PASSWORD_HASH:-}
-      SuperChat__MagicLinkMinutes: ${SUPERCHAT_MAGIC_LINK_MINUTES}
+      SuperChat__VerificationCodeMinutes: ${SUPERCHAT_VERIFICATION_CODE_MINUTES:-10}
+      SuperChat__MaxVerificationAttempts: ${SUPERCHAT_MAX_VERIFICATION_ATTEMPTS:-5}
       SuperChat__ApiSessionDays: ${SUPERCHAT_API_SESSION_DAYS}
       SuperChat__DevSeedSampleData: ${SUPERCHAT_DEV_SEED_SAMPLE_DATA}
       SuperChat__EnableGroupIngestion: ${SUPERCHAT_ENABLE_GROUP_INGESTION:-false}
@@ -258,7 +259,8 @@ services:
       SuperChat__BaseUrl: ${SUPERCHAT_BASE_URL}
       SuperChat__AdminEmails__0: ${SUPERCHAT_ADMIN_EMAILS__0:-}
       SuperChat__AdminPasswordHash: ${SUPERCHAT_ADMIN_PASSWORD_HASH:-}
-      SuperChat__MagicLinkMinutes: ${SUPERCHAT_MAGIC_LINK_MINUTES}
+      SuperChat__VerificationCodeMinutes: ${SUPERCHAT_VERIFICATION_CODE_MINUTES:-10}
+      SuperChat__MaxVerificationAttempts: ${SUPERCHAT_MAX_VERIFICATION_ATTEMPTS:-5}
       SuperChat__ApiSessionDays: ${SUPERCHAT_API_SESSION_DAYS}
       SuperChat__DevSeedSampleData: ${SUPERCHAT_DEV_SEED_SAMPLE_DATA}
       SuperChat__EnableGroupIngestion: ${SUPERCHAT_ENABLE_GROUP_INGESTION:-false}

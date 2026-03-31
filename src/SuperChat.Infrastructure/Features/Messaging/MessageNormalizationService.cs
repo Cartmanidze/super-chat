@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SuperChat.Contracts.Features.Messaging;
 using SuperChat.Domain.Features.Messaging;
 using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Infrastructure.Diagnostics;

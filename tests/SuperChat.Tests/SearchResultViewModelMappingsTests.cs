@@ -19,7 +19,7 @@ public sealed class SearchResultViewModelMappingsTests
             null,
             new DateTimeOffset(2026, 03, 16, 09, 00, 00, TimeSpan.Zero),
             null,
-            0.88,
+            new Confidence(0.88),
             ResolutionSource: "auto_ai_completion",
             ResolutionTrace: new ResolutionTrace(0.93, "deepseek-reasoner", ["$evt-done"]))
             .ToSearchResultViewModel();
@@ -42,7 +42,7 @@ public sealed class SearchResultViewModelMappingsTests
             null,
             new DateTimeOffset(2026, 03, 16, 09, 00, 00, TimeSpan.Zero),
             null,
-            0.55)
+            new Confidence(0.55))
             .ToSearchResultViewModel();
 
         Assert.Null(result.ResolutionNote);

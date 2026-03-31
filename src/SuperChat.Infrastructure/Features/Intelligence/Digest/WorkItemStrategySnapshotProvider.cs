@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Logging;
 using SuperChat.Contracts.Features.Auth;
-using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Contracts.Features.Intelligence.Meetings;
+using SuperChat.Contracts.Features.Intelligence.Retrieval;
+using SuperChat.Contracts.Features.WorkItems;
 
 namespace SuperChat.Infrastructure.Features.Intelligence.Digest;
 

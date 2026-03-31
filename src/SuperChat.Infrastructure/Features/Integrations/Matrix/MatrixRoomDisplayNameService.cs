@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
-using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Contracts.Features.Intelligence.Retrieval;
 using SuperChat.Infrastructure.Shared.Persistence;
 
 namespace SuperChat.Infrastructure.Features.Integrations.Matrix;

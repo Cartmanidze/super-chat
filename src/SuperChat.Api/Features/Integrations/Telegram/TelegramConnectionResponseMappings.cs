@@ -12,6 +12,7 @@ internal static class TelegramConnectionResponseMappings
             State: connection.State.ToString(),
             MatrixUserId: matrixUserId,
             WebLoginUrl: connection.ActionUrl,
+            ChatLoginStep: connection.ChatLoginStep,
             LastSyncedAt: connection.LastSyncedAt,
             RequiresAction: connection.State is not IntegrationConnectionState.Connected);
     }

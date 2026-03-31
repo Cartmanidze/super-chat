@@ -10,23 +10,23 @@
     <h1>@T["Auth.RequestLink.Title"]</h1>
     <p class="auth-copy">@T["Auth.RequestLink.Description"]</p>
 
-    <form method="post" class="auth-form">
-      <label asp-for="Email" class="visually-hidden">@T["Common.Email"]</label>
-      <input asp-for="Email" type="email" placeholder="@T["Home.PilotEmailPlaceholder"]" autocomplete="email" />
-      <button type="submit" class="send-button wide">@T["Auth.RequestLink.Send"]</button>
-    </form>
-
-    @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+    @if (!Model.CodeSent)
+    {
+      <form method="post" class="auth-form">
+        <label asp-for="Email" class="visually-hidden">@T["Common.Email"]</label>
+        <input asp-for="Email" type="email" placeholder="@T["Home.PilotEmailPlaceholder"]" autocomplete="email" />
+        <button type="submit" class="send-button wide">@T["Auth.RequestLink.Send"]</button>
+      </form>
+    }
+    else
     {
       <p class="status-note">@Model.StatusMessage</p>
+      <a class="inline-link" asp-page="/Auth/Verify" asp-route-email="@Model.Email">@T["Auth.RequestLink.EnterCode"]</a>
     }
 
-    @if (Model.DevelopmentLink is not null)
+    @if (!Model.CodeSent && !string.IsNullOrWhiteSpace(Model.StatusMessage))
     {
-      <p class="status-note">
-        @T["Auth.RequestLink.DevelopmentShortcut"]
-        <a class="inline-link" href="@Model.DevelopmentLink">@Model.DevelopmentLink</a>
-      </p>
+      <p class="status-note">@Model.StatusMessage</p>
     }
   </div>
 </section>

@@ -2,8 +2,7 @@ using System.Security.Claims;
 using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
-using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Features.Auth;
+using SuperChat.Contracts.Features.Auth;
 
 namespace SuperChat.Api.Features.Auth;
 

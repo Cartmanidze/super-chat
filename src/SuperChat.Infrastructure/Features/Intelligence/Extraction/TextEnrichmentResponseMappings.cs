@@ -1,4 +1,4 @@
-using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Contracts.Features.Intelligence.Extraction;
 
 namespace SuperChat.Infrastructure.Features.Intelligence.Extraction;
 

@@ -1,9 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using SuperChat.Api.Features.Auth;
 using SuperChat.Api.Security;
+using SuperChat.Contracts.Features.Operations;
 using SuperChat.Contracts.Features.WorkItems;
-using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Features.Intelligence.Digest;
 
 namespace SuperChat.Api.Features.WorkItems;
 

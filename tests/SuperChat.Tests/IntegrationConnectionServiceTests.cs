@@ -1,9 +1,8 @@
+using SuperChat.Contracts.Features.Integrations.Telegram;
 using SuperChat.Domain.Features.Auth;
 using SuperChat.Domain.Features.Integrations;
 using SuperChat.Domain.Features.Integrations.Telegram;
-using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Infrastructure.Features.Integrations;
-using SuperChat.Infrastructure.Features.Integrations.Telegram;
 
 namespace SuperChat.Tests;
 
@@ -49,7 +48,7 @@ public sealed class IntegrationConnectionServiceTests
     [Fact]
     public async Task ReconnectAsync_MapsTelegramConnectionToGenericIntegration()
     {
-        var user = new AppUser(Guid.NewGuid(), "pilot@example.com", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
+        var user = new AppUser(Guid.NewGuid(), new Email("pilot@example.com"), DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
         var expected = new TelegramConnection(
             user.Id,
             TelegramConnectionState.BridgePending,

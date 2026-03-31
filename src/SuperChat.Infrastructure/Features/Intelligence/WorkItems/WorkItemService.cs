@@ -1,5 +1,5 @@
+using SuperChat.Contracts.Features.WorkItems;
 using SuperChat.Domain.Features.Intelligence;
-using SuperChat.Infrastructure.Abstractions;
 
 namespace SuperChat.Infrastructure.Features.Intelligence.WorkItems;
 

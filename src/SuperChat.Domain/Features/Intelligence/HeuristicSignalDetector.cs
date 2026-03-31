@@ -104,7 +104,7 @@ public static partial class HeuristicSignalDetector
                 person,
                 unresolvedMessage.SentAt,
                 null,
-                ComputeWaitingConfidence(summary)));
+                new Confidence(ComputeWaitingConfidence(summary))));
         }
 
         if (IsTaskCandidate(summary))
@@ -120,7 +120,7 @@ public static partial class HeuristicSignalDetector
                 person,
                 unresolvedMessage.SentAt,
                 null,
-                ComputeTaskConfidence(summary)));
+                new Confidence(ComputeTaskConfidence(summary))));
         }
     }
 
@@ -151,7 +151,7 @@ public static partial class HeuristicSignalDetector
                 null,
                 message.SentAt,
                 null,
-                ComputeCommitmentConfidence(summary)));
+                new Confidence(ComputeCommitmentConfidence(summary))));
             return;
         }
     }

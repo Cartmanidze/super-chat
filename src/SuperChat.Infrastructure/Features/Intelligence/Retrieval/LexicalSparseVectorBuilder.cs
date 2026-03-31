@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
-using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Contracts.Features.Intelligence.Retrieval;
 
 namespace SuperChat.Infrastructure.Features.Intelligence.Retrieval;
 

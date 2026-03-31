@@ -6,4 +6,14 @@ public sealed record MeetingSignal(
     string? Person,
     DateTimeOffset ObservedAt,
     DateTimeOffset ScheduledFor,
-    double Confidence);
+    Confidence Confidence)
+{
+    private readonly bool _validated = Validate(Title, Summary);
+
+    private static bool Validate(string title, string summary)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(title);
+        ArgumentException.ThrowIfNullOrWhiteSpace(summary);
+        return true;
+    }
+}

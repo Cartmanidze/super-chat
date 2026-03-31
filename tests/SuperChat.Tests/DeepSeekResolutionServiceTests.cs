@@ -3,9 +3,9 @@ using Microsoft.Extensions.Options;
 using SuperChat.Contracts;
 using SuperChat.Contracts.Features.Auth;
 using SuperChat.Contracts.Features.Intelligence.Extraction;
+using SuperChat.Contracts.Features.Intelligence.Retrieval;
 using SuperChat.Contracts.Features.Operations;
 using SuperChat.Domain.Features.Intelligence;
-using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Infrastructure.Features.Intelligence.Resolution;
 using SuperChat.Infrastructure.Shared.Presentation;
 

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SuperChat.Contracts.Features.Auth;
+using SuperChat.Contracts.Features.Integrations.Matrix;
 using SuperChat.Contracts.Features.Integrations.Telegram;
 using SuperChat.Domain.Features.Auth;
 using SuperChat.Domain.Features.Integrations.Telegram;
@@ -35,82 +36,15 @@ public sealed class TelegramConnectionService(
         var identity = await matrixProvisioningService.EnsureIdentityAsync(user, cancellationToken);
         if (!IsLiveAccessToken(identity.AccessToken))
         {
-            return await SetStateAsync(
-                user.Id,
-                TelegramConnectionState.RequiresSetup,
-                webLoginUrl: null,
-                managementRoomId: null,
-                cancellationToken);
-        }
-
-        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-        var entity = await FindOrCreateConnectionAsync(dbContext, user.Id, cancellationToken);
-
-        if (entity.State == TelegramConnectionState.Connected &&
-            !string.IsNullOrWhiteSpace(entity.ManagementRoomId) &&
-            string.IsNullOrWhiteSpace(entity.WebLoginUrl))
-        {
-            return entity.ToDomain();
-        }
-
-        var managementRoomId = entity.ManagementRoomId;
-        if (string.IsNullOrWhiteSpace(managementRoomId))
-        {
-            managementRoomId = await matrixApiClient.CreateDirectRoomAsync(
-                identity.AccessToken,
-                bridgeOptions.Value.BotUserId,
-                cancellationToken);
-        }
-
-        entity.ManagementRoomId = managementRoomId;
-        entity.State = TelegramConnectionState.BridgePending;
-        entity.WebLoginUrl = null;
-        entity.UpdatedAt = timeProvider.GetUtcNow();
-
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        var bridgeBotReady = await WaitForBridgeBotJoinAsync(identity.AccessToken, managementRoomId, cancellationToken);
-        if (bridgeBotReady)
-        {
-            await matrixApiClient.SendTextMessageAsync(identity.AccessToken, managementRoomId, "login", cancellationToken);
-            logger.LogInformation("Started Telegram bridge login for user {UserId} in room {RoomId}.", user.Id, managementRoomId);
-        }
-        else
-        {
-            logger.LogWarning(
-                "Telegram bridge bot {BotUserId} did not join room {RoomId} for user {UserId} before timeout. Leaving connection pending until the room becomes ready.",
-                bridgeOptions.Value.BotUserId,
-                managementRoomId,
-                user.Id);
-        }
-
-        return entity.ToDomain();
-    }
-
-    public async Task<TelegramConnection> ReconnectAsync(AppUser user, CancellationToken cancellationToken)
-    {
-        await DisconnectAsync(user.Id, cancellationToken);
-        return await StartAsync(user, cancellationToken);
-    }
-
-    public async Task<TelegramConnection> StartChatLoginAsync(AppUser user, CancellationToken cancellationToken)
-    {
-        var identity = await matrixProvisioningService.EnsureIdentityAsync(user, cancellationToken);
-        if (!IsLiveAccessToken(identity.AccessToken))
-        {
             return await SetStateAsync(user.Id, TelegramConnectionState.RequiresSetup, null, null, cancellationToken);
         }
 
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         var entity = await FindOrCreateConnectionAsync(dbContext, user.Id, cancellationToken);
 
-        // Two-phase reconnect: if already connected, phase 1 sends logout and
-        // persists Disconnected state. The bridge processes logout asynchronously —
-        // we cannot know when it finishes without polling room messages. Instead we
-        // save Disconnected and fall through to phase 2 which sends login.
-        // If the bridge hasn't finished logout yet, login will get "already logged in"
-        // and the user clicks "Начать заново" again — this time state is already
-        // Disconnected so logout is skipped and login succeeds immediately.
+        // If already connected, send logout first. The bridge processes logout
+        // asynchronously — we persist Disconnected immediately so a retry skips
+        // the logout phase and goes straight to login.
         if (entity.State == TelegramConnectionState.Connected &&
             !string.IsNullOrWhiteSpace(entity.ManagementRoomId))
         {
@@ -121,10 +55,9 @@ public sealed class TelegramConnectionService(
             catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Failed to send logout before chat login for user {UserId}.", user.Id);
+                logger.LogWarning(ex, "Failed to send logout before login for user {UserId}.", user.Id);
             }
 
-            // Persist Disconnected immediately so a retry skips the logout phase.
             entity.State = TelegramConnectionState.Disconnected;
             entity.WebLoginUrl = null;
             entity.UpdatedAt = timeProvider.GetUtcNow();
@@ -149,7 +82,7 @@ public sealed class TelegramConnectionService(
             {
                 await matrixApiClient.SendTextMessageAsync(identity.AccessToken, managementRoomId, "login", cancellationToken);
                 entity.State = TelegramConnectionState.LoginAwaitingPhone;
-                logger.LogInformation("Started Telegram chat login for user {UserId} in room {RoomId}.", user.Id, managementRoomId);
+                logger.LogInformation("Started Telegram login for user {UserId} in room {RoomId}.", user.Id, managementRoomId);
             }
             catch (OperationCanceledException) { throw; }
             catch (Exception ex)
@@ -168,52 +101,72 @@ public sealed class TelegramConnectionService(
         return entity.ToDomain();
     }
 
+    public async Task<TelegramConnection> ReconnectAsync(AppUser user, CancellationToken cancellationToken)
+    {
+        await DisconnectAsync(user.Id, cancellationToken);
+        return await StartAsync(user, cancellationToken);
+    }
+
+    public async Task<TelegramConnection> StartChatLoginAsync(AppUser user, CancellationToken cancellationToken)
+    {
+        return await StartAsync(user, cancellationToken);
+    }
+
     public async Task<TelegramConnection> SubmitLoginInputAsync(AppUser user, string input, CancellationToken cancellationToken)
     {
         var identity = await matrixProvisioningService.EnsureIdentityAsync(user, cancellationToken);
+        if (!IsLiveAccessToken(identity.AccessToken))
+        {
+            return await SetStateAsync(user.Id, TelegramConnectionState.RequiresSetup, null, null, cancellationToken);
+        }
+
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         var entity = await FindOrCreateConnectionAsync(dbContext, user.Id, cancellationToken);
 
-        if (entity.State is not (TelegramConnectionState.LoginAwaitingPhone
-            or TelegramConnectionState.LoginAwaitingCode
-            or TelegramConnectionState.LoginAwaitingPassword))
+        // Auto-setup: ensure management room exists and bridge bot has joined
+        if (string.IsNullOrWhiteSpace(entity.ManagementRoomId))
         {
-            logger.LogWarning("Rejected login input for user {UserId}: state is {State}, not in login flow.", user.Id, entity.State);
+            entity.ManagementRoomId = await matrixApiClient.CreateDirectRoomAsync(
+                identity.AccessToken, bridgeOptions.Value.BotUserId, cancellationToken);
+            entity.UpdatedAt = timeProvider.GetUtcNow();
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        if (!await WaitForBridgeBotJoinAsync(identity.AccessToken, entity.ManagementRoomId, cancellationToken))
+        {
+            entity.State = TelegramConnectionState.Error;
+            entity.UpdatedAt = timeProvider.GetUtcNow();
+            await dbContext.SaveChangesAsync(cancellationToken);
+            logger.LogWarning("Bridge bot did not join room {RoomId} for user {UserId} before timeout.", entity.ManagementRoomId, user.Id);
             return entity.ToDomain();
         }
 
-        if (string.IsNullOrWhiteSpace(entity.ManagementRoomId) || !IsLiveAccessToken(identity.AccessToken))
-        {
-            logger.LogWarning("Cannot submit login input for user {UserId}: missing management room or valid access token.", user.Id);
-            return entity.ToDomain();
-        }
+        // For phone step: normalize input, re-issue login to ensure bridge is ready
+        var isPhoneStep = entity.State is not (TelegramConnectionState.LoginAwaitingCode
+            or TelegramConnectionState.LoginAwaitingPassword);
 
-        var sanitizedInput = entity.State == TelegramConnectionState.LoginAwaitingPhone
-            ? NormalizePhoneNumber(input)
-            : input;
+        var sanitizedInput = isPhoneStep ? NormalizePhoneNumber(input) : input;
 
-        if (entity.State == TelegramConnectionState.LoginAwaitingPhone && string.IsNullOrEmpty(sanitizedInput))
+        if (isPhoneStep && string.IsNullOrEmpty(sanitizedInput))
         {
             logger.LogWarning("Rejected invalid phone number for user {UserId}: input contained no digits.", user.Id);
             return entity.ToDomain();
         }
 
-        // Re-issue the login command before sending the phone number.
-        // The bridge exits login mode if it rejected a previous phone attempt
-        // or timed out waiting for input, so we must re-enter it.
-        // This is NOT done for code/password steps: re-issuing "login" there
-        // would restart the entire flow, discarding the phone verification already completed.
-        if (entity.State == TelegramConnectionState.LoginAwaitingPhone)
+        // For phone step: send "login" first to ensure bridge is in login mode.
+        // Not done for code/password — that would restart the flow.
+        if (isPhoneStep)
         {
             try
             {
                 await matrixApiClient.SendTextMessageAsync(identity.AccessToken, entity.ManagementRoomId, "login", cancellationToken);
                 await Task.Delay(LoginRetryDelay, timeProvider, cancellationToken);
+                entity.State = TelegramConnectionState.LoginAwaitingPhone;
             }
             catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Failed to re-issue login command for user {UserId} in room {RoomId}. Proceeding anyway.", user.Id, entity.ManagementRoomId);
+                logger.LogWarning(ex, "Failed to send login command for user {UserId}. Proceeding anyway.", user.Id);
             }
         }
 
@@ -230,6 +183,7 @@ public sealed class TelegramConnectionService(
             logger.LogWarning(ex, "Failed to send login input for user {UserId} in room {RoomId}.", user.Id, entity.ManagementRoomId);
         }
 
+        entity.UpdatedAt = timeProvider.GetUtcNow();
         await dbContext.SaveChangesAsync(cancellationToken);
         return entity.ToDomain();
     }

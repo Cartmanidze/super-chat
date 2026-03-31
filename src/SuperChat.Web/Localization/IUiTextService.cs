@@ -1,5 +1,4 @@
-﻿using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Features.Auth;
+using SuperChat.Contracts.Features.Auth;
 
 namespace SuperChat.Web.Localization;
 
@@ -13,7 +12,7 @@ public interface IUiTextService
 
     string SourceRoom(string sourceRoom);
 
-    string MagicLinkRequestStatusText(MagicLinkRequestStatus status);
+    string SendCodeStatusText(SendCodeStatus status);
 
     string AuthVerificationStatusText(AuthVerificationStatus status);
 }

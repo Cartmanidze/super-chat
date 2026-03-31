@@ -1,15 +1,14 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using SuperChat.Contracts.Features.Auth;
 using SuperChat.Contracts.Features.Chat;
+using SuperChat.Contracts.Features.Intelligence.Retrieval;
+using SuperChat.Contracts.Features.Messaging;
+using SuperChat.Contracts.Features.Operations;
 using SuperChat.Contracts.Features.Search;
 using SuperChat.Contracts.Features.WorkItems;
 using SuperChat.Domain.Features.Chat;
 using SuperChat.Domain.Features.Messaging;
-using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Infrastructure.Features.Chat;
-using SuperChat.Infrastructure.Features.Intelligence.Digest;
-using SuperChat.Infrastructure.Features.Messaging;
-using SuperChat.Infrastructure.Features.Search;
 
 namespace SuperChat.Tests;
 

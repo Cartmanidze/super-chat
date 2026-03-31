@@ -1,12 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using SuperChat.Contracts.Features.Integrations;
+using SuperChat.Contracts.Features.Operations;
+using SuperChat.Contracts.Features.WorkItems;
 using SuperChat.Domain.Features.Integrations;
 using SuperChat.Domain.Features.Intelligence;
-using SuperChat.Contracts.Features.WorkItems;
-using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Features.Integrations;
-using SuperChat.Infrastructure.Features.Intelligence.Digest;
 using SuperChat.Web.Security;
 
 namespace SuperChat.Web.Pages;

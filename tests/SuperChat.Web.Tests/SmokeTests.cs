@@ -128,6 +128,8 @@ public class WebTestApplicationFactory : WebApplicationFactory<Program>
             services.RemoveAll(typeof(IDbContextFactory<SuperChatDbContext>));
             services.RemoveAll(typeof(DbContextOptions<SuperChatDbContext>));
             services.AddDbContextFactory<SuperChatDbContext>(options => options.UseSqlite($"Data Source={_databasePath}"));
+            services.RemoveAll(typeof(SuperChat.Contracts.Features.Auth.IVerificationCodeSender));
+            services.AddSingleton<SuperChat.Contracts.Features.Auth.IVerificationCodeSender, NoOpWebCodeSender>();
         });
     }
 
@@ -185,4 +187,9 @@ public class WebTestApplicationFactory : WebApplicationFactory<Program>
 public sealed class PipelineEnabledWebTestApplicationFactory : WebTestApplicationFactory
 {
     protected override bool PipelineMessagingEnabled => true;
+}
+
+internal sealed class NoOpWebCodeSender : SuperChat.Contracts.Features.Auth.IVerificationCodeSender
+{
+    public Task SendAsync(string email, string code, CancellationToken cancellationToken) => Task.CompletedTask;
 }

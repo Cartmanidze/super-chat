@@ -4,7 +4,7 @@ using Microsoft.Extensions.Options;
 using SuperChat.Contracts.Features.Auth;
 using SuperChat.Contracts.Features.Intelligence.Meetings;
 using SuperChat.Domain.Features.Intelligence;
-using SuperChat.Infrastructure.Features.Intelligence.Digest;
+using SuperChat.Application.Features.WorkItems;
 using SuperChat.Infrastructure.Features.Intelligence.Meetings;
 using SuperChat.Infrastructure.Features.Intelligence.WorkItems;
 using SuperChat.Infrastructure.Shared.Persistence;
@@ -34,7 +34,7 @@ public sealed class ExtractedItemServiceTests
                 null,
                 DateTimeOffset.UtcNow,
                 null,
-                0.51)
+                new Confidence(0.51))
         ],
         CancellationToken.None);
 
@@ -111,7 +111,7 @@ public sealed class ExtractedItemServiceTests
                 null,
                 dueAt.AddHours(-1),
                 dueAt,
-                0.86)
+                new Confidence(0.86))
         ],
         CancellationToken.None);
 
@@ -151,7 +151,7 @@ public sealed class ExtractedItemServiceTests
                 null,
                 dueAt.AddHours(-1),
                 dueAt,
-                0.93)
+                new Confidence(0.93))
         ],
         CancellationToken.None);
 
@@ -460,13 +460,11 @@ public sealed class ExtractedItemServiceTests
             new MeetingManualResolutionService(factory));
     }
 
-    private static EventWorkItemCommandService CreateEventCommandService(IDbContextFactory<SuperChatDbContext> factory)
+    private static EventWorkItemCommandAppService CreateEventCommandService(IDbContextFactory<SuperChatDbContext> factory)
     {
-        var meetingService = CreateMeetingService(factory);
-
-        return new EventWorkItemCommandService(
-            meetingService,
-            new MeetingLookupService(factory));
+        return new EventWorkItemCommandAppService(
+            new EfMeetingRepository(factory),
+            TimeProvider.System);
     }
 
     private static PilotOptions CreatePilotOptions()

@@ -1,10 +1,12 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using SuperChat.Contracts.Features.Auth;
+using SuperChat.Contracts.Features.Intelligence.Meetings;
+using SuperChat.Contracts.Features.Intelligence.Retrieval;
+using SuperChat.Contracts.Features.Messaging;
+using SuperChat.Contracts.Features.WorkItems;
 using SuperChat.Domain.Features.Intelligence;
 using SuperChat.Domain.Features.Messaging;
-using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Infrastructure.Features.Intelligence.Digest;
-using SuperChat.Infrastructure.Features.Messaging;
 using SuperChat.Infrastructure.Features.Search;
 
 namespace SuperChat.Tests;
@@ -28,7 +30,7 @@ public sealed class RoomDisplayNamePresentationTests
                     null,
                     DateTimeOffset.UtcNow,
                     DateTimeOffset.UtcNow.AddHours(1),
-                    0.9)
+                    new Confidence(0.9))
             ]),
             new StubMessageNormalizationService([]),
             new StubRoomDisplayNameService(new Dictionary<string, string>
@@ -121,7 +123,7 @@ public sealed class RoomDisplayNamePresentationTests
                     null,
                     now,
                     now.AddHours(2),
-                    0.95)
+                    new Confidence(0.95))
             ]),
             new StubMeetingService([]),
             new StubRoomDisplayNameService(new Dictionary<string, string>

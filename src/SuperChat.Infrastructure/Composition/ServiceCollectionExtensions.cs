@@ -5,13 +5,26 @@ using Microsoft.Extensions.Options;
 using Rebus.Config;
 using Rebus.ServiceProvider;
 using Rebus.Transport.InMem;
+using SuperChat.Contracts.Features.Admin;
 using SuperChat.Contracts.Features.Auth;
+using SuperChat.Contracts.Features.Chat;
+using SuperChat.Contracts.Features.Integrations;
 using SuperChat.Contracts.Features.Integrations.Matrix;
 using SuperChat.Contracts.Features.Integrations.Telegram;
 using SuperChat.Contracts.Features.Intelligence.Extraction;
 using SuperChat.Contracts.Features.Intelligence.Meetings;
 using SuperChat.Contracts.Features.Intelligence.Retrieval;
+using SuperChat.Contracts.Features.Messaging;
 using SuperChat.Contracts.Features.Operations;
+using SuperChat.Contracts.Features.Search;
+using SuperChat.Contracts.Features.WorkItems;
+using SuperChat.Domain.Features.Auth;
+using SuperChat.Domain.Features.Feedback;
+using SuperChat.Domain.Features.Integrations.Matrix;
+using SuperChat.Domain.Features.Integrations.Telegram;
+using SuperChat.Domain.Features.Intelligence;
+using SuperChat.Domain.Features.Messaging;
+using SuperChat.Application.Composition;
 using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Infrastructure.Diagnostics;
 using SuperChat.Infrastructure.Features.Auth;
@@ -76,7 +89,11 @@ public static class ServiceCollectionExtensions
             .Bind(configuration.GetSection(MessageIngestionFilterOptions.SectionName));
         services
             .AddOptions<PilotOptions>()
-            .Bind(configuration.GetSection(PilotOptions.SectionName));
+            .Bind(configuration.GetSection(PilotOptions.SectionName))
+            .Validate(o => o.VerificationCodeMinutes > 0, "SuperChat:VerificationCodeMinutes must be positive.")
+            .Validate(o => o.MaxVerificationAttempts > 0, "SuperChat:MaxVerificationAttempts must be positive.")
+            .Validate(o => o.ApiSessionDays > 0, "SuperChat:ApiSessionDays must be positive.")
+            .ValidateOnStart();
         services
             .AddOptions<RetrievalOptions>()
             .Bind(configuration.GetSection(RetrievalOptions.SectionName));
@@ -158,6 +175,10 @@ public static class ServiceCollectionExtensions
             SuperChatDbContextConfiguration.Configure(optionsBuilder, connectionString, persistence.Provider);
         });
 
+        services.AddSuperChatApplication();
+
+        services.AddSingleton(sp => sp.GetRequiredService<IOptions<EmailOptions>>().Value);
+        services.AddSingleton<IVerificationCodeSender, SmtpVerificationCodeSender>();
         services.AddSingleton<IAuthFlowService, AuthFlowService>();
         services.AddSingleton<IApiSessionService, ApiSessionService>();
         services.AddSingleton<IPilotInviteAdminService, PilotInviteAdminService>();
@@ -194,9 +215,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IWorkItemTypeStrategy, EventWorkItemTypeStrategy>();
         services.AddSingleton<IWorkItemTypeStrategy, ActionItemWorkItemTypeStrategy>();
         services.AddSingleton<IWorkItemCatalogService, WorkItemCatalogService>();
-        services.AddSingleton<IRequestWorkItemCommandService, RequestWorkItemCommandService>();
-        services.AddSingleton<IEventWorkItemCommandService, EventWorkItemCommandService>();
-        services.AddSingleton<IActionItemWorkItemCommandService, ActionItemWorkItemCommandService>();
         services.AddSingleton<IRetrievalService, RetrievalService>();
         services.AddSingleton<HeuristicStructuredExtractionService>();
         services.AddSingleton<DeepSeekStructuredExtractionService>();
@@ -205,7 +223,16 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IDigestService, DigestService>();
         services.AddSingleton<ISearchService, SearchService>();
         services.AddSingleton<IChatExperienceService, ChatExperienceService>();
-        services.AddSingleton<IFeedbackService, FeedbackService>();
+
+        // Repositories
+        services.AddSingleton<IAppUserRepository, EfAppUserRepository>();
+        services.AddSingleton<IWorkItemRepository, EfWorkItemRepository>();
+        services.AddSingleton<IMeetingRepository, EfMeetingRepository>();
+        services.AddSingleton<INormalizedMessageRepository, EfNormalizedMessageRepository>();
+        services.AddSingleton<ITelegramConnectionRepository, EfTelegramConnectionRepository>();
+        services.AddSingleton<IMatrixIdentityRepository, EfMatrixIdentityRepository>();
+        services.AddSingleton<IFeedbackEventRepository, EfFeedbackEventRepository>();
+
         if (enableBackgroundWorkers)
         {
             services.AddHostedService<MatrixSyncBackgroundService>();

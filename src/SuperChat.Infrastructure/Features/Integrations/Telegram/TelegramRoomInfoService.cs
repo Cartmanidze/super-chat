@@ -1,7 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.Logging;
-using SuperChat.Infrastructure.Abstractions;
+using SuperChat.Contracts.Features.Integrations.Telegram;
 
 namespace SuperChat.Infrastructure.Features.Integrations.Telegram;
 

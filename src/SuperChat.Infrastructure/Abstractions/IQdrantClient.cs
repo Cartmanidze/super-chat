@@ -1,3 +1,5 @@
+using SuperChat.Contracts.Features.Intelligence.Retrieval;
+
 namespace SuperChat.Infrastructure.Abstractions;
 
 public interface IQdrantClient

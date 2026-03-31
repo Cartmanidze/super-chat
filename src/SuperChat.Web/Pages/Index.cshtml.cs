@@ -1,12 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Localization;
+using SuperChat.Contracts.Features.Auth;
 using SuperChat.Contracts.Features.Chat;
+using SuperChat.Contracts.Features.Integrations;
 using SuperChat.Domain.Features.Chat;
 using SuperChat.Domain.Features.Integrations;
-using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Features.Auth;
-using SuperChat.Infrastructure.Features.Chat;
-using SuperChat.Infrastructure.Features.Integrations;
 using SuperChat.Web.Localization;
 using SuperChat.Web.Security;
 
@@ -17,7 +16,8 @@ public sealed class IndexModel(
     IIntegrationConnectionService integrationConnectionService,
     IChatTemplateCatalog chatTemplateCatalog,
     IChatExperienceService chatExperienceService,
-    IUiTextService uiTextService) : PageModel
+    IUiTextService uiTextService,
+    IStringLocalizer<SharedResource> localizer) : PageModel
 {
     [BindProperty]
     public string Email { get; set; } = string.Empty;
@@ -34,7 +34,7 @@ public sealed class IndexModel(
 
     public string StatusMessage { get; private set; } = string.Empty;
 
-    public Uri? DevelopmentLink { get; private set; }
+    public bool CodeSent { get; private set; }
 
     public int MaxQuestionLength => ChatPromptRequest.MaxQuestionLength;
 
@@ -54,9 +54,27 @@ public sealed class IndexModel(
 
     public async Task<IActionResult> OnPostRequestLinkAsync(CancellationToken cancellationToken)
     {
-        var result = await authFlowService.RequestMagicLinkAsync(Email, cancellationToken);
-        StatusMessage = uiTextService.MagicLinkRequestStatusText(result.Status);
-        DevelopmentLink = result.DevelopmentLink;
+        if (string.IsNullOrWhiteSpace(Email))
+        {
+            StatusMessage = localizer["Auth.Email.Required"];
+            return Page();
+        }
+
+        try
+        {
+            var result = await authFlowService.SendCodeAsync(Email, cancellationToken);
+            StatusMessage = uiTextService.SendCodeStatusText(result.Status);
+            CodeSent = result.Accepted;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            StatusMessage = localizer["Auth.Code.GenericError"];
+        }
+
         return Page();
     }
 

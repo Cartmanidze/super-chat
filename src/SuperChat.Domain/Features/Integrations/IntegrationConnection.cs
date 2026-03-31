@@ -1,3 +1,5 @@
+using SuperChat.Domain.Shared;
+
 namespace SuperChat.Domain.Features.Integrations;
 
 public sealed record IntegrationConnection(
@@ -8,4 +10,13 @@ public sealed record IntegrationConnection(
     Uri? ActionUrl,
     DateTimeOffset UpdatedAt,
     DateTimeOffset? LastSyncedAt,
-    string? ChatLoginStep = null);
+    string? ChatLoginStep = null)
+{
+    private readonly bool _validated = Validate(UserId);
+
+    private static bool Validate(Guid userId)
+    {
+        DomainGuard.NotEmpty(userId);
+        return true;
+    }
+}

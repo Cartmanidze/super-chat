@@ -1,14 +1,13 @@
+using SuperChat.Contracts.Features.Auth;
 using SuperChat.Domain.Features.Auth;
-using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Features.Auth;
 
 namespace SuperChat.Api.Features.Auth;
 
 internal static class AuthResponseMappings
 {
-    public static MagicLinkResponse ToMagicLinkResponse(this MagicLinkRequestResult result)
+    public static SendCodeResponse ToSendCodeResponse(this SendCodeResult result)
     {
-        return new MagicLinkResponse(result.Accepted, result.Message, result.DevelopmentLink);
+        return new SendCodeResponse(result.Message);
     }
 
     public static SessionTokenResponse ToSessionTokenResponse(this ApiSession session, AppUser user)

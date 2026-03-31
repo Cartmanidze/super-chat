@@ -1,5 +1,5 @@
+using SuperChat.Contracts.Features.Intelligence.Meetings;
 using SuperChat.Domain.Features.Intelligence;
-using SuperChat.Infrastructure.Abstractions;
 
 namespace SuperChat.Infrastructure.Features.Intelligence.Meetings;
 

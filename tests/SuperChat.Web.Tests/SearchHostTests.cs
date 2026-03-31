@@ -1,4 +1,7 @@
 using System.Net;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -31,7 +34,21 @@ public sealed class SearchHostTests : IClassFixture<WebTestApplicationFactory>
             AllowAutoRedirect = false
         });
 
-        var verifyResponse = await client.GetAsync($"/auth/verify?token={token}");
+        // Authenticate via the OTP verify form
+        var verifyPage = await client.GetAsync($"/auth/verify?email={Uri.EscapeDataString(email)}");
+        var verifyContent = await verifyPage.Content.ReadAsStringAsync();
+        var antiforgeryToken = ExtractAntiforgeryToken(verifyContent);
+        var verifyCookies = verifyPage.Headers.GetValues("Set-Cookie");
+
+        var verifyRequest = new HttpRequestMessage(HttpMethod.Post, "/auth/verify");
+        verifyRequest.Headers.Add("Cookie", verifyCookies);
+        verifyRequest.Content = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["Email"] = email,
+            ["Code"] = "123456",
+            ["__RequestVerificationToken"] = antiforgeryToken
+        });
+        var verifyResponse = await client.SendAsync(verifyRequest);
         Assert.Equal(HttpStatusCode.Redirect, verifyResponse.StatusCode);
 
         var response = await client.GetAsync("/search?query=deck");
@@ -60,13 +77,22 @@ public sealed class SearchHostTests : IClassFixture<WebTestApplicationFactory>
             LastSeenAt = now
         });
 
-        dbContext.MagicLinks.Add(new MagicLinkTokenEntity
+        var salt = RandomNumberGenerator.GetBytes(16);
+        var codeBytes = "123456"u8.ToArray();
+        var hashInput = new byte[salt.Length + codeBytes.Length];
+        salt.CopyTo(hashInput, 0);
+        codeBytes.CopyTo(hashInput, salt.Length);
+
+        dbContext.VerificationCodes.Add(new VerificationCodeEntity
         {
-            Value = token,
+            Id = Guid.NewGuid(),
             Email = email,
+            CodeHash = Convert.ToBase64String(SHA256.HashData(hashInput)),
+            CodeSalt = Convert.ToBase64String(salt),
             CreatedAt = now,
-            ExpiresAt = now.AddMinutes(15),
-            Consumed = false
+            ExpiresAt = now.AddMinutes(10),
+            Consumed = false,
+            FailedAttempts = 0
         });
 
         dbContext.WorkItems.Add(new WorkItemEntity
@@ -91,5 +117,16 @@ public sealed class SearchHostTests : IClassFixture<WebTestApplicationFactory>
         });
 
         await dbContext.SaveChangesAsync();
+    }
+
+    private static string ExtractAntiforgeryToken(string html)
+    {
+        var match = Regex.Match(html, @"name=""__RequestVerificationToken""\s+type=""hidden""\s+value=""([^""]+)""");
+        if (!match.Success)
+        {
+            match = Regex.Match(html, @"value=""([^""]+)""\s+name=""__RequestVerificationToken""");
+        }
+
+        return match.Success ? match.Groups[1].Value : string.Empty;
     }
 }

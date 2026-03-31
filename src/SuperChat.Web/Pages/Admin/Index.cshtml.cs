@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Options;
 using SuperChat.Contracts.Features.Admin;
 using SuperChat.Contracts.Features.Auth;
-using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Web.Security;
 
 namespace SuperChat.Web.Pages.Admin;

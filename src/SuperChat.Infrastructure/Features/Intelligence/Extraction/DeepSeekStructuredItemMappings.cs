@@ -57,7 +57,7 @@ internal static class DeepSeekStructuredItemMappings
                 person,
                 window.TsTo,
                 dueAt,
-                confidence));
+                new Confidence(confidence)));
         }
 
         return new StructuredItemMappingResult(result, unknownKindCount, invalidContentCount);
@@ -94,7 +94,7 @@ internal static class DeepSeekStructuredItemMappings
             Person = deterministicMeeting.Person ?? existingMeeting.Person,
             ObservedAt = window.TsTo,
             DueAt = deterministicMeeting.ScheduledFor,
-            Confidence = Math.Max(existingMeeting.Confidence, deterministicMeeting.Confidence)
+            Confidence = new Confidence(Math.Max(existingMeeting.Confidence, deterministicMeeting.Confidence))
         };
     }
 

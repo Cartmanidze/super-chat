@@ -2,13 +2,12 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using SuperChat.Contracts.Features.Integrations;
+using SuperChat.Contracts.Features.Operations;
 using SuperChat.Contracts.Features.WorkItems;
 using SuperChat.Domain.Features.Auth;
 using SuperChat.Domain.Features.Integrations;
 using SuperChat.Domain.Features.Intelligence;
-using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Features.Integrations;
-using SuperChat.Infrastructure.Features.Intelligence.Digest;
 using SuperChat.Web.Pages;
 
 namespace SuperChat.Web.Tests;

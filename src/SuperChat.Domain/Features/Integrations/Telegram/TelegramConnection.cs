@@ -1,3 +1,5 @@
+using SuperChat.Domain.Shared;
+
 namespace SuperChat.Domain.Features.Integrations.Telegram;
 
 public sealed record TelegramConnection(
@@ -5,4 +7,13 @@ public sealed record TelegramConnection(
     TelegramConnectionState State,
     Uri? WebLoginUrl,
     DateTimeOffset UpdatedAt,
-    DateTimeOffset? LastSyncedAt);
+    DateTimeOffset? LastSyncedAt)
+{
+    private readonly bool _validated = Validate(UserId);
+
+    private static bool Validate(Guid userId)
+    {
+        DomainGuard.NotEmpty(userId);
+        return true;
+    }
+}

@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SuperChat.Contracts.Features.Intelligence.Meetings;
 using SuperChat.Domain.Features.Intelligence;
-using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Infrastructure.Diagnostics;
 using SuperChat.Infrastructure.Features.Intelligence.Extraction;
 using SuperChat.Infrastructure.Shared.Persistence;

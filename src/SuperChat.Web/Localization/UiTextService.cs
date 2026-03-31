@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Localization;
-using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Features.Auth;
+using SuperChat.Contracts.Features.Auth;
 
 namespace SuperChat.Web.Localization;
 
@@ -59,13 +58,15 @@ public sealed class UiTextService(IStringLocalizer<SharedResource> localizer) : 
             : sourceRoom;
     }
 
-    public string MagicLinkRequestStatusText(MagicLinkRequestStatus status)
+    public string SendCodeStatusText(SendCodeStatus status)
     {
         return status switch
         {
-            MagicLinkRequestStatus.Created => localizer["Auth.MagicLink.Created"],
-            MagicLinkRequestStatus.NotInvited => localizer["Auth.MagicLink.NotInvited"],
-            _ => localizer["Auth.MagicLink.Unknown"]
+            SendCodeStatus.Sent => localizer["Auth.Code.Sent"],
+            SendCodeStatus.NotInvited => localizer["Auth.Code.NotInvited"],
+            SendCodeStatus.TooManyRequests => localizer["Auth.Code.TooManyRequests"],
+            SendCodeStatus.DeliveryFailed => localizer["Auth.Code.DeliveryFailed"],
+            _ => localizer["Auth.Code.Unknown"]
         };
     }
 
@@ -75,6 +76,7 @@ public sealed class UiTextService(IStringLocalizer<SharedResource> localizer) : 
         {
             AuthVerificationStatus.Success => localizer["Auth.Verify.Success"],
             AuthVerificationStatus.InvalidOrExpired => localizer["Auth.Verify.InvalidOrExpired"],
+            AuthVerificationStatus.TooManyAttempts => localizer["Auth.Verify.TooManyAttempts"],
             _ => localizer["Auth.Verify.Unknown"]
         };
     }

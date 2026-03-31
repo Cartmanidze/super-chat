@@ -3,8 +3,6 @@ using SuperChat.Api.Features.Auth;
 using SuperChat.Api.Security;
 using SuperChat.Api.Validation;
 using SuperChat.Contracts.Features.Chat;
-using SuperChat.Infrastructure.Abstractions;
-using SuperChat.Infrastructure.Features.Chat;
 
 namespace SuperChat.Api.Features.Chat;
 
