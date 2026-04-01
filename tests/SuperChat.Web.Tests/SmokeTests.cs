@@ -109,9 +109,11 @@ public class WebTestApplicationFactory : WebApplicationFactory<Program>
 
     protected virtual bool PipelineMessagingEnabled => false;
 
+    protected virtual string EnvironmentName => "Development";
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Development");
+        builder.UseEnvironment(EnvironmentName);
         builder.ConfigureAppConfiguration((_, config) =>
         {
             config.AddInMemoryCollection(new Dictionary<string, string?>
@@ -187,6 +189,11 @@ public class WebTestApplicationFactory : WebApplicationFactory<Program>
 public sealed class PipelineEnabledWebTestApplicationFactory : WebTestApplicationFactory
 {
     protected override bool PipelineMessagingEnabled => true;
+}
+
+public sealed class ProductionWebTestApplicationFactory : WebTestApplicationFactory
+{
+    protected override string EnvironmentName => "Production";
 }
 
 internal sealed class NoOpWebCodeSender : SuperChat.Contracts.Features.Auth.IVerificationCodeSender

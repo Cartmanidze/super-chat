@@ -30,27 +30,7 @@ public sealed class TodayHostTests : IClassFixture<WebTestApplicationFactory>
 
         await SeedTodayDataAsync(userId, email, token);
 
-        using var client = _factory.CreateClient(new WebApplicationFactoryClientOptions
-        {
-            AllowAutoRedirect = false
-        });
-
-        // Authenticate via the OTP verify form
-        var verifyPage = await client.GetAsync($"/auth/verify?email={Uri.EscapeDataString(email)}");
-        var verifyContent = await verifyPage.Content.ReadAsStringAsync();
-        var antiforgeryToken = ExtractAntiforgeryToken(verifyContent);
-        var verifyCookies = verifyPage.Headers.GetValues("Set-Cookie");
-
-        var verifyRequest = new HttpRequestMessage(HttpMethod.Post, "/auth/verify");
-        verifyRequest.Headers.Add("Cookie", verifyCookies);
-        verifyRequest.Content = new FormUrlEncodedContent(new Dictionary<string, string>
-        {
-            ["Email"] = email,
-            ["Code"] = "123456",
-            ["__RequestVerificationToken"] = antiforgeryToken
-        });
-        var verifyResponse = await client.SendAsync(verifyRequest);
-        Assert.Equal(HttpStatusCode.Redirect, verifyResponse.StatusCode);
+        using var client = await CreateAuthenticatedClientAsync(email);
 
         var response = await client.GetAsync("/today");
         var content = await response.Content.ReadAsStringAsync();
@@ -64,7 +44,83 @@ public sealed class TodayHostTests : IClassFixture<WebTestApplicationFactory>
         Assert.Contains("Недавно закрыто автоматически", content, StringComparison.Ordinal);
     }
 
-    private async Task SeedTodayDataAsync(Guid userId, string email, string token)
+    [Fact]
+    public async Task TodayPage_LoadsWhenResolutionEvidenceJsonIsInvalid()
+    {
+        var userId = Guid.NewGuid();
+        const string email = "today-invalid-json@example.com";
+        const string token = "today-invalid-json-token";
+
+        await SeedTodayDataAsync(userId, email, token, resolutionEvidenceJson: "{broken-json");
+
+        using var client = await CreateAuthenticatedClientAsync(email);
+
+        var response = await client.GetAsync("/today");
+        var content = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("?handler=Complete", content, StringComparison.Ordinal);
+        Assert.Contains("class=\"signal-feedback\"", content, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task TodayPage_LoadsWhenPersistedConfidenceIsOutOfRange()
+    {
+        var userId = Guid.NewGuid();
+        const string email = "today-invalid-confidence@example.com";
+        const string token = "today-invalid-confidence-token";
+
+        await SeedTodayDataAsync(
+            userId,
+            email,
+            token,
+            waitingConfidence: 1.7,
+            meetingConfidence: -0.25);
+
+        using var client = await CreateAuthenticatedClientAsync(email);
+
+        var response = await client.GetAsync("/today");
+        var content = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("?handler=Complete", content, StringComparison.Ordinal);
+        Assert.Contains("class=\"signal-feedback\"", content, StringComparison.Ordinal);
+    }
+
+    private async Task<HttpClient> CreateAuthenticatedClientAsync(string email)
+    {
+        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+
+        var verifyPage = await client.GetAsync($"/auth/verify?email={Uri.EscapeDataString(email)}");
+        var verifyContent = await verifyPage.Content.ReadAsStringAsync();
+        var antiforgeryToken = ExtractAntiforgeryToken(verifyContent);
+        var verifyCookies = verifyPage.Headers.GetValues("Set-Cookie");
+
+        var verifyRequest = new HttpRequestMessage(HttpMethod.Post, "/auth/verify");
+        verifyRequest.Headers.Add("Cookie", verifyCookies);
+        verifyRequest.Content = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["Email"] = email,
+            ["Code"] = "123456",
+            ["__RequestVerificationToken"] = antiforgeryToken
+        });
+
+        var verifyResponse = await client.SendAsync(verifyRequest);
+        Assert.Equal(HttpStatusCode.Redirect, verifyResponse.StatusCode);
+
+        return client;
+    }
+
+    private async Task SeedTodayDataAsync(
+        Guid userId,
+        string email,
+        string token,
+        string resolutionEvidenceJson = "[\"$evt-done\"]",
+        double waitingConfidence = 0.95,
+        double meetingConfidence = 0.92)
     {
         using var scope = _factory.Services.CreateScope();
         var dbContextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<SuperChatDbContext>>();
@@ -116,7 +172,7 @@ public sealed class TodayHostTests : IClassFixture<WebTestApplicationFactory>
             SourceEventId = "$waiting-1",
             ObservedAt = now.AddMinutes(-30),
             DueAt = now.AddHours(1),
-            Confidence = 0.95,
+            Confidence = waitingConfidence,
             CreatedAt = now,
             UpdatedAt = now
         });
@@ -138,7 +194,7 @@ public sealed class TodayHostTests : IClassFixture<WebTestApplicationFactory>
             ResolutionSource = "auto_ai_completion",
             ResolutionConfidence = 0.93,
             ResolutionModel = "deepseek-reasoner",
-            ResolutionEvidenceJson = "[\"$evt-done\"]",
+            ResolutionEvidenceJson = resolutionEvidenceJson,
             CreatedAt = now.AddHours(-2),
             UpdatedAt = now.AddMinutes(-20)
         });
@@ -153,7 +209,7 @@ public sealed class TodayHostTests : IClassFixture<WebTestApplicationFactory>
             SourceEventId = "$meeting-1",
             ObservedAt = now.AddMinutes(-10),
             ScheduledFor = now.AddHours(2),
-            Confidence = 0.92,
+            Confidence = meetingConfidence,
             CreatedAt = now,
             UpdatedAt = now
         });

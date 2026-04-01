@@ -64,7 +64,7 @@ internal static class PersistenceMappings
             entity.Person,
             entity.ObservedAt,
             entity.DueAt,
-            new Confidence(entity.Confidence));
+            NormalizeConfidence(entity.Confidence));
     }
 
     public static WorkItemRecord ToDomain(this WorkItemEntity entity)
@@ -80,7 +80,7 @@ internal static class PersistenceMappings
             entity.Person,
             entity.ObservedAt,
             entity.DueAt,
-            new Confidence(entity.Confidence),
+            NormalizeConfidence(entity.Confidence),
             entity.ResolutionKind,
             entity.ResolutionSource,
             ToResolutionTrace(entity.ResolutionConfidence, entity.ResolutionModel, entity.ResolutionEvidenceJson),
@@ -99,7 +99,7 @@ internal static class PersistenceMappings
             entity.Person,
             entity.ObservedAt,
             entity.ScheduledFor,
-            new Confidence(entity.Confidence),
+            NormalizeConfidence(entity.Confidence),
             entity.ResolutionKind,
             entity.ResolutionSource,
             ToResolutionTrace(entity.ResolutionConfidence, entity.ResolutionModel, entity.ResolutionEvidenceJson),
@@ -120,19 +120,62 @@ internal static class PersistenceMappings
         string? model,
         string? evidenceJson)
     {
-        if (confidence is null &&
-            string.IsNullOrWhiteSpace(model) &&
+        var normalizedConfidence = NormalizeProbability(confidence);
+        var normalizedModel = string.IsNullOrWhiteSpace(model) ? null : model;
+
+        if (normalizedConfidence is null &&
+            normalizedModel is null &&
             string.IsNullOrWhiteSpace(evidenceJson))
         {
             return null;
         }
 
-        IReadOnlyList<string>? evidence = null;
-        if (!string.IsNullOrWhiteSpace(evidenceJson))
+        var evidence = TryDeserializeStringList(evidenceJson);
+        if (normalizedConfidence is null &&
+            normalizedModel is null &&
+            evidence is null)
         {
-            evidence = JsonSerializer.Deserialize<List<string>>(evidenceJson, JsonOptions);
+            return null;
         }
 
-        return new ResolutionTrace(confidence, model, evidence);
+        return new ResolutionTrace(normalizedConfidence, normalizedModel, evidence);
+    }
+
+    private static Confidence NormalizeConfidence(double value)
+    {
+        var normalizedValue = double.IsFinite(value)
+            ? Math.Clamp(value, 0d, 1d)
+            : 0d;
+
+        return new Confidence(normalizedValue);
+    }
+
+    private static double? NormalizeProbability(double? value)
+    {
+        if (!value.HasValue)
+        {
+            return null;
+        }
+
+        return double.IsFinite(value.Value)
+            ? Math.Clamp(value.Value, 0d, 1d)
+            : 0d;
+    }
+
+    private static IReadOnlyList<string>? TryDeserializeStringList(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<string>>(json, JsonOptions);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 }

@@ -13,7 +13,22 @@ public static class ClaimsPrincipalExtensions
     public static Guid GetUserId(this ClaimsPrincipal user)
     {
         var value = user.FindFirstValue(ClaimTypes.NameIdentifier);
-        return value is null ? Guid.Empty : Guid.Parse(value);
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new InvalidSessionException(InvalidSessionFailureReason.MissingUserIdClaim);
+        }
+
+        if (!Guid.TryParse(value, out var userId))
+        {
+            throw new InvalidSessionException(InvalidSessionFailureReason.MalformedUserIdClaim, value);
+        }
+
+        if (userId == Guid.Empty)
+        {
+            throw new InvalidSessionException(InvalidSessionFailureReason.EmptyUserIdClaim, value);
+        }
+
+        return userId;
     }
 
     public static bool IsConfiguredAdmin(this ClaimsPrincipal user, PilotOptions options)

@@ -48,6 +48,8 @@ builder.Services.AddSingleton<IAdminPasswordService, AdminPasswordService>();
 builder.Services
     .AddRazorPages(options =>
     {
+        options.Conventions.AddFolderApplicationModelConvention("/", model =>
+            model.Filters.Add(new SuperChat.Web.Security.InvalidSessionPageFilter()));
         options.Conventions.AllowAnonymousToPage("/Index");
         options.Conventions.AllowAnonymousToPage("/Error");
         options.Conventions.AllowAnonymousToPage("/Privacy");

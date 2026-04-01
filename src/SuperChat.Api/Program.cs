@@ -16,6 +16,7 @@ using SuperChat.Infrastructure.Composition;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<SuperChat.Api.Security.InvalidSessionExceptionHandler>();
 builder.Services
     .AddAuthentication(ApiSessionAuthenticationHandler.SchemeName)
     .AddScheme<AuthenticationSchemeOptions, ApiSessionAuthenticationHandler>(

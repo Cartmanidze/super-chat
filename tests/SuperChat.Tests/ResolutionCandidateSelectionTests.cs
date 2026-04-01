@@ -87,4 +87,73 @@ public sealed class ResolutionCandidateSelectionTests
 
         Assert.Empty(result);
     }
+
+    [Fact]
+    public void SelectTopCandidates_DoesNotThrowForWaitingOnSelfReplyEvidence()
+    {
+        var candidateId = Guid.NewGuid();
+
+        var result = ResolutionCandidateSelection.SelectTopCandidates(
+        [
+            new ResolutionCandidateInput(
+                candidateId,
+                ExtractedItemKind.WaitingOn,
+                "Нужно ответить",
+                "Ждут финальный ответ по смете.",
+                null,
+                new DateTimeOffset(2026, 03, 16, 09, 00, 00, TimeSpan.Zero),
+                null,
+                [
+                    new ResolutionEvidenceMessageInput("You", "готово, уже ответил и отправил детали", new DateTimeOffset(2026, 03, 16, 09, 10, 00, TimeSpan.Zero))
+                ])
+        ],
+            new DateTimeOffset(2026, 03, 16, 09, 30, 00, TimeSpan.Zero),
+            5);
+
+        var selected = Assert.Single(result);
+        Assert.Equal(candidateId, selected.Id);
+        Assert.True(selected.Score > 0d);
+    }
+
+    [Fact]
+    public void SelectTopCandidates_WaitingOnOwnSenderScoresHigherThanExternal()
+    {
+        var ownId = Guid.NewGuid();
+        var externalId = Guid.NewGuid();
+        var observed = new DateTimeOffset(2026, 03, 16, 09, 00, 00, TimeSpan.Zero);
+        var now = observed.AddMinutes(30);
+        const string longMessage = "готово, уже ответил и всё отправил";
+
+        var result = ResolutionCandidateSelection.SelectTopCandidates(
+        [
+            new ResolutionCandidateInput(
+                ownId,
+                ExtractedItemKind.WaitingOn,
+                "Ожидание ответа",
+                "Ждут финальный ответ.",
+                null,
+                observed,
+                null,
+                [new ResolutionEvidenceMessageInput("You", longMessage, observed.AddMinutes(10))]),
+            new ResolutionCandidateInput(
+                externalId,
+                ExtractedItemKind.WaitingOn,
+                "Ожидание ответа 2",
+                "Ждут другой ответ.",
+                null,
+                observed,
+                null,
+                [new ResolutionEvidenceMessageInput("Alex", longMessage, observed.AddMinutes(10))])
+        ],
+            now,
+            5);
+
+        Assert.Equal(2, result.Count);
+        var ownScore = result.First(r => r.Id == ownId).Score;
+        var externalScore = result.First(r => r.Id == externalId).Score;
+
+        // "You" sender gets +0.5 bonus, external does not
+        Assert.True(ownScore > externalScore,
+            $"Own sender score ({ownScore:F2}) should be higher than external ({externalScore:F2})");
+    }
 }

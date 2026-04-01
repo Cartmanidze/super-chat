@@ -14,6 +14,9 @@
     </p>
 }
 
-<h3>@T["Error.DevelopmentModeTitle"]</h3>
-<p>@T["Error.DevelopmentModeDescription"]</p>
-<p>@T["Error.DevelopmentModeWarning"]</p>
+@if (Model.ShowDevelopmentModeHints)
+{
+    <h3>@T["Error.DevelopmentModeTitle"]</h3>
+    <p>@T["Error.DevelopmentModeDescription"]</p>
+    <p>@T["Error.DevelopmentModeWarning"]</p>
+}
