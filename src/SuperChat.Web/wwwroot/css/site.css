@@ -394,6 +394,22 @@ textarea {
   width: 100%;
 }
 
+.app-button:disabled {
+  cursor: progress;
+  opacity: 0.72;
+  transform: none;
+}
+
+.app-button.is-loading::before {
+  content: "";
+  width: 0.95rem;
+  height: 0.95rem;
+  border-radius: 999px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: button-spin 0.7s linear infinite;
+}
+
 .status-badge,
 .signal-kind,
 .signal-hint,
@@ -550,6 +566,70 @@ select {
   background: var(--danger-soft);
   border-color: rgba(220, 38, 38, 0.14);
   color: var(--danger);
+}
+
+.inline-alert-success {
+  background: var(--success-soft);
+  border-color: rgba(22, 163, 74, 0.14);
+  color: var(--success);
+}
+
+.connection-polling-note {
+  margin-top: 1rem;
+}
+
+.connection-status-summary {
+  margin-bottom: 1.1rem;
+  padding: 1rem 1.1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.85rem;
+  align-items: start;
+}
+
+.connection-status-summary strong,
+.connection-status-summary span {
+  display: block;
+}
+
+.connection-status-summary span {
+  margin-top: 0.25rem;
+  color: var(--text-muted);
+}
+
+.connection-status-icon {
+  width: 0.9rem;
+  height: 0.9rem;
+  margin-top: 0.35rem;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 0 0 6px color-mix(in srgb, currentColor 16%, transparent);
+}
+
+.connection-status-success {
+  background: var(--success-soft);
+  border-color: rgba(22, 163, 74, 0.16);
+  color: var(--success);
+}
+
+.connection-status-pending {
+  background: color-mix(in srgb, var(--warning-soft) 72%, white);
+  border-color: rgba(245, 158, 11, 0.18);
+  color: var(--warning);
+}
+
+.connection-status-error {
+  background: var(--danger-soft);
+  border-color: rgba(220, 38, 38, 0.16);
+  color: var(--danger);
+}
+
+.connection-status-neutral {
+  background: var(--surface-soft);
+  border-color: var(--border);
+  color: var(--text);
 }
 
 .insight-hero {
@@ -1093,6 +1173,53 @@ select {
 
 .dialog-field label {
   font-weight: 600;
+}
+
+.field-hint {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.validation-summary {
+  display: none;
+  margin-bottom: 1rem;
+  padding: 0.95rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(220, 38, 38, 0.14);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.validation-summary-errors {
+  display: block;
+}
+
+.validation-summary-errors ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.field-error,
+.field-validation-error {
+  color: var(--danger);
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+
+.field-validation-valid {
+  display: none;
+}
+
+.input-validation-error {
+  border-color: rgba(220, 38, 38, 0.4);
+  background: color-mix(in srgb, var(--danger-soft) 40%, white);
+}
+
+@keyframes button-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .settings-grid {

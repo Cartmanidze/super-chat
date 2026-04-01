@@ -15,7 +15,7 @@ internal sealed class MeetingUpsertService(
             .Where(item => !StructuredArtifactDetector.LooksLikeStructuredArtifact(item.Summary))
             .GroupBy(item => (item.UserId, item.SourceEventId))
             .Select(group => group
-                .OrderByDescending(item => item.Confidence)
+                .OrderByDescending(item => item.Confidence.Value)
                 .ThenByDescending(item => item.ObservedAt)
                 .First())
             .ToList();

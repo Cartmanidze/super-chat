@@ -141,7 +141,7 @@ public sealed class MeetingProjectionService(
                 .OfType<MeetingRecord>()
                 .GroupBy(item => item.ToMeetingDeduplicationKey(), StringComparer.Ordinal)
                 .Select(group => group
-                    .OrderByDescending(item => item.Confidence)
+                    .OrderByDescending(item => item.Confidence.Value)
                     .ThenByDescending(item => item.ObservedAt)
                     .ThenBy(item => item.ScheduledFor)
                     .First())
@@ -260,7 +260,7 @@ public sealed class MeetingProjectionService(
             .OfType<MeetingRecord>()
             .GroupBy(item => item.ToMeetingDeduplicationKey(), StringComparer.Ordinal)
             .Select(group => group
-                .OrderByDescending(item => item.Confidence)
+                .OrderByDescending(item => item.Confidence.Value)
                 .ThenByDescending(item => item.ObservedAt)
                 .ThenBy(item => item.ScheduledFor)
                 .First())

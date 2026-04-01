@@ -35,11 +35,11 @@ internal sealed class MeetingUpcomingQueryService(
             .GroupBy(item => item.ToMeetingDeduplicationKey(), StringComparer.Ordinal)
             .Select(group => group
                 .OrderBy(item => item.ScheduledFor)
-                .ThenByDescending(item => item.Confidence)
+                .ThenByDescending(item => item.Confidence.Value)
                 .ThenByDescending(item => item.ObservedAt)
                 .First())
             .OrderBy(item => item.ScheduledFor)
-            .ThenByDescending(item => item.Confidence)
+            .ThenByDescending(item => item.Confidence.Value)
             .Take(boundedTake)
             .ToList();
     }

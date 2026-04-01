@@ -13,7 +13,7 @@ public static class DigestComposer
                 item.Kind is ExtractedItemKind.Task or ExtractedItemKind.Commitment ||
                 (item.Kind == ExtractedItemKind.Meeting && item.DueAt <= now.AddDays(3)))
             .OrderBy(item => item.DueAt ?? now.AddYears(1))
-            .ThenByDescending(item => item.Confidence)
+            .ThenByDescending(item => item.Confidence.Value)
             .Take(10)
             .ToList();
     }
@@ -32,7 +32,7 @@ public static class DigestComposer
         return items
             .Where(item => item.ScheduledFor >= now.AddHours(-1) && item.ScheduledFor <= now.AddDays(14))
             .OrderBy(item => item.ScheduledFor)
-            .ThenByDescending(item => item.Confidence)
+            .ThenByDescending(item => item.Confidence.Value)
             .Take(10)
             .ToList();
     }

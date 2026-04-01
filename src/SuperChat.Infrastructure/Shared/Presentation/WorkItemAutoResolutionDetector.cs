@@ -130,7 +130,7 @@ internal static class WorkItemAutoResolutionDetector
         var reply = laterMessages.FirstOrDefault(message =>
             message.MatrixEventId != sourceEventId &&
             LooksMeaningful(message) &&
-            WaitingOnTurnDetector.IsOwnMessage(message.ToDomain()));
+            WaitingOnTurnDetector.IsOwnSender(message.SenderName));
 
         return reply is null
             ? null

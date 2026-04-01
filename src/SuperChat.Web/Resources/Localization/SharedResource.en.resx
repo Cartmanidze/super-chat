@@ -144,6 +144,45 @@
   <data name="ConnectTelegram.DevModeHint" xml:space="preserve">
     <value>In development mode the app still seeds sample messages so the product surface remains inspectable without a live Telegram account.</value>
   </data>
+  <data name="ConnectTelegram.SuccessConnected" xml:space="preserve">
+    <value>The account is confirmed. SuperChat will now keep pulling new work signals from Telegram.</value>
+  </data>
+  <data name="ConnectTelegram.Error.StartFailed" xml:space="preserve">
+    <value>The bridge could not start the Telegram login flow. Please try again in a few seconds.</value>
+  </data>
+  <data name="ConnectTelegram.Error.RequiresSetup" xml:space="preserve">
+    <value>A Matrix profile still needs to be provisioned for this user before the bridge can finish the login.</value>
+  </data>
+  <data name="ConnectTelegram.Error.ConfirmationFailed" xml:space="preserve">
+    <value>The bridge did not confirm the login. Restart the connection flow and try the steps again.</value>
+  </data>
+  <data name="ConnectTelegram.Validation.PhoneRequired" xml:space="preserve">
+    <value>Enter a phone number to continue the login.</value>
+  </data>
+  <data name="ConnectTelegram.Validation.PhoneInvalid" xml:space="preserve">
+    <value>The phone number looks incomplete. Use a format like +7 999 123-45-67.</value>
+  </data>
+  <data name="ConnectTelegram.Validation.CodeRequired" xml:space="preserve">
+    <value>Enter the confirmation code from Telegram.</value>
+  </data>
+  <data name="ConnectTelegram.Validation.CodeInvalid" xml:space="preserve">
+    <value>The code looks too short. Please check it and try again.</value>
+  </data>
+  <data name="ConnectTelegram.Validation.PasswordRequired" xml:space="preserve">
+    <value>Enter the two-factor authentication password.</value>
+  </data>
+  <data name="ConnectTelegram.Progress.Started" xml:space="preserve">
+    <value>Starting the secure bridge login and waiting for the next step.</value>
+  </data>
+  <data name="ConnectTelegram.Progress.PhoneStepStarted" xml:space="preserve">
+    <value>The login form is ready. Send the phone number so the bridge can request the confirmation code.</value>
+  </data>
+  <data name="ConnectTelegram.Progress.CodeSubmitted" xml:space="preserve">
+    <value>The code has been sent. Checking whether Telegram confirms the login.</value>
+  </data>
+  <data name="ConnectTelegram.Progress.PasswordSubmitted" xml:space="preserve">
+    <value>The password has been sent. Finishing the login confirmation and refreshing the status automatically.</value>
+  </data>
   <data name="Today.PageTitle" xml:space="preserve">
     <value>Today</value>
   </data>

@@ -13,7 +13,7 @@ internal sealed class ActionItemWorkItemTypeStrategy : IWorkItemTypeStrategy
         return snapshot.WorkItems
             .Where(IsActionItem)
             .OrderBy(item => item.DueAt ?? DateTimeOffset.MaxValue)
-            .ThenByDescending(item => item.Confidence)
+            .ThenByDescending(item => item.Confidence.Value)
             .ThenByDescending(item => item.ObservedAt)
             .Select(item => item.ToWorkItemCardViewModel(snapshot.Now).WithResolvedSourceRoom(snapshot.RoomNames))
             .ToList();

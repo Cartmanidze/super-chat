@@ -144,6 +144,45 @@
   <data name="ConnectTelegram.DevModeHint" xml:space="preserve">
     <value>В development-режиме приложение по-прежнему подмешивает sample messages, чтобы поверхность продукта можно было проверить даже без живого Telegram-аккаунта.</value>
   </data>
+  <data name="ConnectTelegram.SuccessConnected" xml:space="preserve">
+    <value>Аккаунт подтверждён. SuperChat начнёт подтягивать новые рабочие сигналы из Telegram.</value>
+  </data>
+  <data name="ConnectTelegram.Error.StartFailed" xml:space="preserve">
+    <value>Не удалось запустить вход через bridge. Попробуйте ещё раз через несколько секунд.</value>
+  </data>
+  <data name="ConnectTelegram.Error.RequiresSetup" xml:space="preserve">
+    <value>Нужно сначала подготовить Matrix-профиль пользователя, иначе bridge не сможет завершить вход.</value>
+  </data>
+  <data name="ConnectTelegram.Error.ConfirmationFailed" xml:space="preserve">
+    <value>Bridge не подтвердил вход. Перезапустите подключение и повторите шаги ещё раз.</value>
+  </data>
+  <data name="ConnectTelegram.Validation.PhoneRequired" xml:space="preserve">
+    <value>Введите номер телефона, чтобы продолжить вход.</value>
+  </data>
+  <data name="ConnectTelegram.Validation.PhoneInvalid" xml:space="preserve">
+    <value>Похоже, номер телефона неполный. Используйте формат вроде +7 999 123-45-67.</value>
+  </data>
+  <data name="ConnectTelegram.Validation.CodeRequired" xml:space="preserve">
+    <value>Введите код подтверждения из Telegram.</value>
+  </data>
+  <data name="ConnectTelegram.Validation.CodeInvalid" xml:space="preserve">
+    <value>Код выглядит слишком коротким. Проверьте его и попробуйте снова.</value>
+  </data>
+  <data name="ConnectTelegram.Validation.PasswordRequired" xml:space="preserve">
+    <value>Введите пароль двухфакторной аутентификации.</value>
+  </data>
+  <data name="ConnectTelegram.Progress.Started" xml:space="preserve">
+    <value>Запускаем безопасный вход через bridge и ждём следующий шаг.</value>
+  </data>
+  <data name="ConnectTelegram.Progress.PhoneStepStarted" xml:space="preserve">
+    <value>Форма готова. Теперь отправьте номер телефона, чтобы bridge запросил код подтверждения.</value>
+  </data>
+  <data name="ConnectTelegram.Progress.CodeSubmitted" xml:space="preserve">
+    <value>Код отправлен. Проверяем, подтвердил ли Telegram вход.</value>
+  </data>
+  <data name="ConnectTelegram.Progress.PasswordSubmitted" xml:space="preserve">
+    <value>Пароль отправлен. Заканчиваем подтверждение входа и обновим статус автоматически.</value>
+  </data>
   <data name="Today.PageTitle" xml:space="preserve">
     <value>Сегодня</value>
   </data>

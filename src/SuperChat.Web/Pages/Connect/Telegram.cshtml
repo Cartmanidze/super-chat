@@ -11,7 +11,47 @@
   var hasActionUrl = Model.Connection.ActionUrl is not null;
   var loginStep = Model.Connection.ChatLoginStep;
   var isLoginFlow = loginStep is not null;
-  var canReconnect = connected || error || pending;
+  var shouldPoll = !connected && (pending || isLoginFlow) && ViewContext.ModelState.IsValid;
+
+  var statusBadgeClass = connected
+    ? "status-success"
+    : pending
+      ? "status-warning"
+      : error
+        ? "status-danger"
+        : "status-neutral";
+
+  var statusSummaryClass = connected
+    ? "connection-status-success"
+    : isLoginFlow || pending
+      ? "connection-status-pending"
+      : error
+        ? "connection-status-error"
+        : "connection-status-neutral";
+
+  var statusTitle = connected
+    ? "Telegram подключён"
+    : isLoginFlow
+      ? "Подтверждаем вход"
+      : pending
+        ? "Готовим подключение"
+        : error
+          ? "Подключение остановилось"
+          : requiresSetup
+            ? "Нужна подготовка Matrix"
+            : "Telegram ещё не подключён";
+
+  var statusDescription = connected
+    ? "Аккаунт уже связан с SuperChat. Можно открыть Today или переподключить Telegram."
+    : isLoginFlow
+      ? "Страница сама проверяет, когда bridge переведёт вас на следующий шаг или завершит вход."
+      : pending
+        ? "Поднимаем management-room и ждём bridge. Статус обновится автоматически."
+        : error
+          ? "Нужно перезапустить подключение или начать вход заново."
+          : requiresSetup
+            ? "Для продолжения нужен рабочий Matrix-профиль, который создаётся внутри SuperChat."
+            : "Запустите подключение, чтобы SuperChat начал синхронизировать рабочие сигналы из Telegram.";
 }
 
 <section class="page-stack">
@@ -20,21 +60,53 @@
       <p class="section-kicker">@T["ConnectTelegram.Eyebrow"]</p>
       <h1>Подключение Telegram</h1>
       <p class="page-intro">
-        Подключение происходит изнутри SuperChat. После этого продукт начнёт собирать обещания, follow-up'ы,
+        Подключение происходит внутри SuperChat. После этого продукт начнёт собирать обещания, follow-up'ы,
         встречи и важные сигналы прямо из ваших рабочих переписок.
       </p>
     </div>
-    <span class="status-badge @(connected ? "status-success" : pending ? "status-warning" : error ? "status-danger" : "status-neutral")">
+    <span class="status-badge @statusBadgeClass">
       @UiText.ConnectionState(state.ToString())
     </span>
   </div>
+
+  @if (!string.IsNullOrWhiteSpace(Model.SuccessMessage))
+  {
+    <div class="inline-alert inline-alert-success" role="status" aria-live="polite">
+      <strong>Telegram подключён</strong>
+      <span>@Model.SuccessMessage</span>
+    </div>
+  }
+
+  @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+  {
+    <div class="inline-alert inline-alert-info" role="status" aria-live="polite">
+      <strong>Подключение продолжается</strong>
+      <span>@Model.StatusMessage</span>
+    </div>
+  }
+
+  @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+  {
+    <div class="inline-alert inline-alert-error" role="alert">
+      <strong>Нужно ваше внимание</strong>
+      <span>@Model.ErrorMessage</span>
+    </div>
+  }
 
   <div class="split-panel">
     <section class="premium-card connection-panel">
       <div class="section-headline">
         <div>
           <p class="section-kicker">Статус подключения</p>
-          <h2>@(connected ? "Telegram подключён" : isLoginFlow ? "Вход в Telegram" : pending ? "Ожидание подключения" : error ? "Ошибка подключения" : "Подключите Telegram")</h2>
+          <h2>@statusTitle</h2>
+        </div>
+      </div>
+
+      <div class="connection-status-summary @statusSummaryClass">
+        <span class="connection-status-icon" aria-hidden="true"></span>
+        <div>
+          <strong>@statusTitle</strong>
+          <span>@statusDescription</span>
         </div>
       </div>
 
@@ -53,6 +125,13 @@
         </div>
       </dl>
 
+      @if (shouldPoll)
+      {
+        <div class="inline-alert inline-alert-info connection-polling-note">
+          Статус обновляется автоматически каждые несколько секунд. Если вы уже отправили код или пароль, просто оставьте страницу открытой.
+        </div>
+      }
+
       @if (isLoginFlow)
       {
         <div class="inline-alert inline-alert-info">
@@ -64,42 +143,79 @@
           else if (loginStep == "code")
           {
             <strong>Шаг 2 из 3.</strong>
-            <span>Введите код подтверждения, отправленный в Telegram.</span>
+            <span>Введите код подтверждения, который Telegram отправил вам в приложение.</span>
           }
           else if (loginStep == "password")
           {
             <strong>Шаг 3 из 3.</strong>
-            <span>Введите пароль двухфакторной аутентификации (2FA).</span>
+            <span>Введите пароль двухфакторной аутентификации, если он включён.</span>
           }
         </div>
 
-        <form method="post" asp-page-handler="SubmitLoginInput" class="login-step-form">
+        <form method="post" asp-page-handler="SubmitLoginInput" class="login-step-form" data-telegram-submit-form>
+          <div asp-validation-summary="ModelOnly" class="validation-summary validation-summary-valid"></div>
+
           @if (loginStep == "phone")
           {
             <div class="dialog-field">
-              <label for="login-input">Номер телефона</label>
-              <input id="login-input" type="tel" name="LoginInput" placeholder="+7 999 123-45-67"
-                     required autofocus autocomplete="tel" />
+              <label asp-for="LoginInput">Номер телефона</label>
+              <input asp-for="LoginInput"
+                     id="login-input"
+                     type="tel"
+                     placeholder="+7 999 123-45-67"
+                     required
+                     autofocus
+                     autocomplete="tel" />
+              <small class="field-hint">Лучше вводить в международном формате, чтобы bridge сразу понял номер.</small>
+              <span asp-validation-for="LoginInput" class="field-error"></span>
             </div>
-            <button type="submit" class="app-button app-button-primary">Отправить номер</button>
+            <button type="submit"
+                    class="app-button app-button-primary"
+                    data-loading-label="Отправляем номер...">
+              Отправить номер
+            </button>
           }
           else if (loginStep == "code")
           {
             <div class="dialog-field">
-              <label for="login-input">Код подтверждения</label>
-              <input id="login-input" type="text" name="LoginInput" placeholder="12345"
-                     required autofocus autocomplete="one-time-code" inputmode="numeric" />
+              <label asp-for="LoginInput">Код подтверждения</label>
+              <input asp-for="LoginInput"
+                     id="login-input"
+                     type="text"
+                     placeholder="12345"
+                     required
+                     autofocus
+                     autocomplete="one-time-code"
+                     inputmode="numeric"
+                     maxlength="8" />
+              <small class="field-hint">Если Telegram показал код с пробелами, можно вставить его как есть — формат будет очищен автоматически.</small>
+              <span asp-validation-for="LoginInput" class="field-error"></span>
             </div>
-            <button type="submit" class="app-button app-button-primary">Подтвердить код</button>
+            <button type="submit"
+                    class="app-button app-button-primary"
+                    data-loading-label="Проверяем код...">
+              Подтвердить код
+            </button>
           }
           else if (loginStep == "password")
           {
             <div class="dialog-field">
-              <label for="login-input">Пароль 2FA</label>
-              <input id="login-input" type="password" name="LoginInput" placeholder="Пароль двухфакторной аутентификации"
-                     required autofocus autocomplete="current-password" />
+              <label asp-for="LoginInput">Пароль 2FA</label>
+              <input asp-for="LoginInput"
+                     id="login-input"
+                     type="password"
+                     placeholder="Пароль двухфакторной аутентификации"
+                     required
+                     autofocus
+                     autocomplete="current-password" />
+              <small class="field-hint">Пароль отправляется как есть, без обрезки пробелов по краям.</small>
+              <span asp-validation-for="LoginInput" class="field-error"></span>
             </div>
-            <button type="submit" class="app-button app-button-primary">Войти</button>
+            <button type="submit"
+                    class="app-button app-button-primary"
+                    data-loading-label="Проверяем пароль...">
+              Войти
+            </button>
           }
         </form>
       }
@@ -120,7 +236,7 @@
       else if (error)
       {
         <div class="inline-alert inline-alert-error">
-          Произошла ошибка при подключении. Попробуйте переподключиться.
+          Произошла ошибка при подключении. Попробуйте запустить вход заново.
         </div>
       }
       else if (requiresSetup)
@@ -155,35 +271,55 @@
       <div class="inline-actions">
         @if (connected)
         {
-          <form method="post" asp-page-handler="StartChatLogin" style="display:inline">
-            <button type="submit" class="app-button app-button-primary">Переподключить Telegram</button>
+          <form method="post" asp-page-handler="StartChatLogin" style="display:inline" data-telegram-submit-form>
+            <button type="submit"
+                    class="app-button app-button-primary"
+                    data-loading-label="Переподключаем...">
+              Переподключить Telegram
+            </button>
           </form>
           <a class="app-button app-button-secondary" asp-page="/Today">Открыть Today</a>
         }
         else if (isLoginFlow)
         {
-          <form method="post" asp-page-handler="StartChatLogin" style="display:inline">
-            <button type="submit" class="app-button app-button-secondary">Начать заново</button>
+          <form method="post" asp-page-handler="StartChatLogin" style="display:inline" data-telegram-submit-form>
+            <button type="submit"
+                    class="app-button app-button-secondary"
+                    data-loading-label="Перезапускаем вход...">
+              Начать заново
+            </button>
           </form>
         }
         else if (pending)
         {
-          <form method="post" asp-page-handler="StartChatLogin" style="display:inline">
-            <button type="submit" class="app-button app-button-secondary">Начать заново</button>
+          <form method="post" asp-page-handler="StartChatLogin" style="display:inline" data-telegram-submit-form>
+            <button type="submit"
+                    class="app-button app-button-secondary"
+                    data-loading-label="Перезапускаем вход...">
+              Начать заново
+            </button>
           </form>
           <a class="app-button app-button-secondary" asp-page="/Today">Открыть Today</a>
         }
         else if (error)
         {
-          <form method="post" asp-page-handler="StartChatLogin" style="display:inline">
-            <button type="submit" class="app-button app-button-primary">Повторить подключение</button>
+          <form method="post" asp-page-handler="StartChatLogin" style="display:inline" data-telegram-submit-form>
+            <button type="submit"
+                    class="app-button app-button-primary"
+                    data-loading-label="Повторяем подключение...">
+              Повторить подключение
+            </button>
           </form>
           <a class="app-button app-button-secondary" asp-page="/Today">Открыть Today</a>
         }
         else
         {
-          <form method="post" asp-page-handler="StartChatLogin" style="display:inline">
-            <button type="submit" class="app-button app-button-primary">Подключить Telegram</button>
+          <form method="post" asp-page-handler="StartChatLogin" style="display:inline" data-telegram-submit-form>
+            <button type="submit"
+                    class="app-button app-button-primary"
+                    data-loading-label="Готовим вход...">
+              Подключить Telegram
+            </button>
           </form>
           <a class="app-button app-button-secondary" asp-page="/Today">Открыть Today</a>
         }
@@ -194,17 +330,17 @@
       <p class="section-kicker">Как это работает</p>
       <h2>Три шага подключения</h2>
       <ol class="timeline-list">
-        <li class="@(loginStep == "phone" ? "timeline-active" : loginStep is "code" or "password" ? "timeline-done" : "")">
+        <li class="@(loginStep == "phone" ? "timeline-active" : loginStep is "code" or "password" || connected ? "timeline-done" : "")">
           <strong>1. Номер телефона</strong>
-          <span>Введите номер — bridge запустит безопасный Telegram login.</span>
+          <span>Введите номер, и bridge переведёт вас в безопасный Telegram login.</span>
         </li>
-        <li class="@(loginStep == "code" ? "timeline-active" : loginStep == "password" ? "timeline-done" : "")">
+        <li class="@(loginStep == "code" ? "timeline-active" : loginStep == "password" || connected ? "timeline-done" : "")">
           <strong>2. Код подтверждения</strong>
-          <span>Telegram пришлёт код — введите его здесь.</span>
+          <span>Telegram пришлёт код, который нужно ввести на этой странице.</span>
         </li>
-        <li class="@(loginStep == "password" ? "timeline-active" : "")">
-          <strong>3. 2FA (если включён)</strong>
-          <span>Если у аккаунта есть пароль — ещё один шаг.</span>
+        <li class="@(loginStep == "password" ? "timeline-active" : connected ? "timeline-done" : "")">
+          <strong>3. 2FA, если включён</strong>
+          <span>Если у аккаунта есть дополнительный пароль, SuperChat подскажет этот шаг отдельно.</span>
         </li>
       </ol>
 
@@ -218,27 +354,54 @@
 
 @section Scripts
 {
+  <partial name="_ValidationScriptsPartial" />
+
   <script>
     (function () {
-      @if (isLoginFlow)
+      var forms = document.querySelectorAll('[data-telegram-submit-form]');
+      forms.forEach(function (form) {
+        form.addEventListener('submit', function () {
+          if (form.classList.contains('is-submitting')) {
+            return;
+          }
+
+          form.classList.add('is-submitting');
+
+          var button = form.querySelector('button[type="submit"]');
+          if (!button) {
+            return;
+          }
+
+          button.disabled = true;
+          button.classList.add('is-loading');
+
+          var loadingLabel = button.getAttribute('data-loading-label');
+          if (loadingLabel) {
+            button.dataset.originalLabel = button.textContent;
+            button.textContent = loadingLabel;
+          }
+        });
+      });
+
+      @if (shouldPoll)
       {
         <text>
-        var refreshTimer = setTimeout(function () { window.location.reload(); }, 5000);
         var loginInput = document.getElementById('login-input');
-        if (loginInput) {
-          loginInput.addEventListener('focus', function () { clearTimeout(refreshTimer); });
-          loginInput.addEventListener('blur', function () {
-            if (!loginInput.value.trim()) {
-              refreshTimer = setTimeout(function () { window.location.reload(); }, 5000);
-            }
-          });
-        }
-        </text>
-      }
-      else if (pending && !hasActionUrl)
-      {
-        <text>
-        setTimeout(function () { window.location.reload(); }, 5000);
+        var refreshTimer = window.setInterval(function () {
+          if (document.querySelector('[data-telegram-submit-form].is-submitting')) {
+            return;
+          }
+
+          if (loginInput && loginInput.value.trim().length > 0) {
+            return;
+          }
+
+          window.location.reload();
+        }, 5000);
+
+        window.addEventListener('beforeunload', function () {
+          window.clearInterval(refreshTimer);
+        });
         </text>
       }
     })();

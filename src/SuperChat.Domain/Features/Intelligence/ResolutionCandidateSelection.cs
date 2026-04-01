@@ -95,17 +95,7 @@ public static class ResolutionCandidateSelection
     private static double ScoreWaitingOn(ResolutionEvidenceMessageInput message, string lowered)
     {
         var score = 0.2d;
-        if (WaitingOnTurnDetector.IsOwnMessage(new Features.Messaging.NormalizedMessage(
-            Guid.Empty,
-            Guid.Empty,
-            "telegram",
-            string.Empty,
-            string.Empty,
-            message.SenderName,
-            message.Text,
-            message.SentAt,
-            message.SentAt,
-            true)))
+        if (WaitingOnTurnDetector.IsOwnSender(message.SenderName))
         {
             score += 0.5d;
         }

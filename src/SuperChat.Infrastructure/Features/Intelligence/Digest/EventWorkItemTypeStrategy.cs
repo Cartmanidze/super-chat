@@ -10,7 +10,7 @@ internal sealed class EventWorkItemTypeStrategy : IWorkItemTypeStrategy
     {
         return snapshot.Meetings
             .OrderBy(item => item.ScheduledFor)
-            .ThenByDescending(item => item.Confidence)
+            .ThenByDescending(item => item.Confidence.Value)
             .Select(item => item.ToWorkItemCardViewModel(snapshot.Now).WithResolvedSourceRoom(snapshot.RoomNames))
             .ToList();
     }

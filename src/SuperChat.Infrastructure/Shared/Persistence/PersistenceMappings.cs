@@ -31,7 +31,7 @@ internal static class PersistenceMappings
         return new TelegramConnection(
             entity.UserId,
             entity.State,
-            string.IsNullOrWhiteSpace(entity.WebLoginUrl) ? null : new Uri(entity.WebLoginUrl, UriKind.Absolute),
+            TryParseAbsoluteUri(entity.WebLoginUrl),
             entity.UpdatedAt,
             entity.LastSyncedAt);
     }
@@ -105,7 +105,14 @@ internal static class PersistenceMappings
             ToResolutionTrace(entity.ResolutionConfidence, entity.ResolutionModel, entity.ResolutionEvidenceJson),
             entity.ResolvedAt,
             entity.MeetingProvider,
-            string.IsNullOrWhiteSpace(entity.MeetingJoinUrl) ? null : new Uri(entity.MeetingJoinUrl, UriKind.Absolute));
+            TryParseAbsoluteUri(entity.MeetingJoinUrl));
+    }
+
+    private static Uri? TryParseAbsoluteUri(string? value)
+    {
+        return !string.IsNullOrWhiteSpace(value) && Uri.TryCreate(value, UriKind.Absolute, out var uri)
+            ? uri
+            : null;
     }
 
     private static ResolutionTrace? ToResolutionTrace(

@@ -38,7 +38,12 @@ public static class WaitingOnTurnDetector
 
     public static bool IsOwnMessage(NormalizedMessage message)
     {
-        return string.Equals(message.SenderName?.Trim(), "You", StringComparison.OrdinalIgnoreCase);
+        return IsOwnSender(message.SenderName);
+    }
+
+    public static bool IsOwnSender(string? senderName)
+    {
+        return string.Equals(senderName?.Trim(), "You", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool LooksMeaningful(NormalizedMessage message)

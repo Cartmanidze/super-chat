@@ -432,6 +432,61 @@ public sealed class ExtractedItemServiceTests
         Assert.StartsWith("chunk:", meeting.SourceEventId, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task GetUpcomingAsync_DeduplicatesMeetingsByConfidenceWithoutThrowing()
+    {
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        var userId = Guid.NewGuid();
+        var scheduledFor = new DateTimeOffset(2026, 03, 13, 17, 00, 00, TimeSpan.Zero);
+
+        await using (var dbContext = await factory.CreateDbContextAsync(CancellationToken.None))
+        {
+            dbContext.Meetings.AddRange(
+            [
+                new MeetingEntity
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    Title = "Lower confidence duplicate",
+                    Summary = "Sync with product",
+                    SourceRoom = "!team:matrix.localhost",
+                    SourceEventId = "$meeting-low",
+                    ObservedAt = scheduledFor.AddHours(-3),
+                    ScheduledFor = scheduledFor,
+                    Confidence = 0.61,
+                    CreatedAt = scheduledFor.AddHours(-3),
+                    UpdatedAt = scheduledFor.AddHours(-3)
+                },
+                new MeetingEntity
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    Title = "Higher confidence duplicate",
+                    Summary = "Sync with product",
+                    SourceRoom = "!team:matrix.localhost",
+                    SourceEventId = "$meeting-high",
+                    ObservedAt = scheduledFor.AddHours(-2),
+                    ScheduledFor = scheduledFor,
+                    Confidence = 0.93,
+                    CreatedAt = scheduledFor.AddHours(-2),
+                    UpdatedAt = scheduledFor.AddHours(-2)
+                }
+            ]);
+
+            await dbContext.SaveChangesAsync(CancellationToken.None);
+        }
+
+        var meetings = await CreateMeetingService(factory).GetUpcomingAsync(
+            userId,
+            scheduledFor.AddHours(-4),
+            10,
+            CancellationToken.None);
+
+        var meeting = Assert.Single(meetings);
+        Assert.Equal("Higher confidence duplicate", meeting.Title);
+        Assert.Equal("$meeting-high", meeting.SourceEventId);
+    }
+
     private static async Task<IDbContextFactory<SuperChatDbContext>> CreateFactoryAsync(CancellationToken cancellationToken)
     {
         var dbContextOptions = new DbContextOptionsBuilder<SuperChatDbContext>()

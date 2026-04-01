@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using SuperChat.Domain.Features.Integrations.Telegram;
 using SuperChat.Infrastructure.Shared.Persistence;
 
 namespace SuperChat.Web.Tests;
@@ -23,8 +24,78 @@ public sealed class TelegramConnectHostTests : IClassFixture<WebTestApplicationF
     {
         const string email = "telegram-connect@example.com";
         await SeedUserAsync(email);
+        using var client = await CreateAuthenticatedClientAsync(email);
 
-        using var client = _factory.CreateClient(new WebApplicationFactoryClientOptions
+        var response = await client.GetAsync("/connect/telegram");
+        var content = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("class=\"premium-card connection-panel\"", content, StringComparison.Ordinal);
+        Assert.Contains("?handler=StartChatLogin", content, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task StartChatLogin_ShowsExplicitSuccessFeedback()
+    {
+        const string email = "telegram-connect-success@example.com";
+        await SeedUserAsync(email);
+        using var client = await CreateAuthenticatedClientAsync(email);
+
+        var connectPage = await client.GetAsync("/connect/telegram");
+        var connectContent = await connectPage.Content.ReadAsStringAsync();
+        var antiforgeryToken = ExtractAntiforgeryToken(connectContent);
+        var connectCookies = connectPage.Headers.TryGetValues("Set-Cookie", out var values) ? values : [];
+
+        var request = new HttpRequestMessage(HttpMethod.Post, "/connect/telegram?handler=StartChatLogin");
+        AddCookies(request, connectCookies);
+        request.Content = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = antiforgeryToken
+        });
+
+        var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+
+        var followUp = await client.GetAsync(response.Headers.Location?.ToString() ?? "/connect/telegram");
+        var followUpContent = WebUtility.HtmlDecode(await followUp.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, followUp.StatusCode);
+        Assert.Contains("Аккаунт подтверждён. SuperChat начнёт подтягивать новые рабочие сигналы из Telegram.", followUpContent, StringComparison.Ordinal);
+        Assert.Contains("Telegram подключён", followUpContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SubmitLoginInput_ShowsValidationError_ForEmptyCode()
+    {
+        const string email = "telegram-connect-validation@example.com";
+        var userId = await SeedUserAsync(email);
+        await SeedTelegramConnectionAsync(userId, TelegramConnectionState.LoginAwaitingCode);
+        using var client = await CreateAuthenticatedClientAsync(email);
+
+        var connectPage = await client.GetAsync("/connect/telegram");
+        var connectContent = await connectPage.Content.ReadAsStringAsync();
+        var antiforgeryToken = ExtractAntiforgeryToken(connectContent);
+        var connectCookies = connectPage.Headers.TryGetValues("Set-Cookie", out var values) ? values : [];
+
+        var request = new HttpRequestMessage(HttpMethod.Post, "/connect/telegram?handler=SubmitLoginInput");
+        AddCookies(request, connectCookies);
+        request.Content = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["LoginInput"] = string.Empty,
+            ["__RequestVerificationToken"] = antiforgeryToken
+        });
+
+        var response = await client.SendAsync(request);
+        var responseContent = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Введите код подтверждения из Telegram.", responseContent, StringComparison.Ordinal);
+        Assert.Contains("field-validation-error", responseContent, StringComparison.Ordinal);
+    }
+
+    private async Task<HttpClient> CreateAuthenticatedClientAsync(string email)
+    {
+        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions
         {
             AllowAutoRedirect = false
         });
@@ -32,10 +103,10 @@ public sealed class TelegramConnectHostTests : IClassFixture<WebTestApplicationF
         var verifyPage = await client.GetAsync($"/auth/verify?email={Uri.EscapeDataString(email)}");
         var verifyContent = await verifyPage.Content.ReadAsStringAsync();
         var antiforgeryToken = ExtractAntiforgeryToken(verifyContent);
-        var verifyCookies = verifyPage.Headers.GetValues("Set-Cookie");
+        var verifyCookies = verifyPage.Headers.TryGetValues("Set-Cookie", out var values) ? values : [];
 
         var verifyRequest = new HttpRequestMessage(HttpMethod.Post, "/auth/verify");
-        verifyRequest.Headers.Add("Cookie", verifyCookies);
+        AddCookies(verifyRequest, verifyCookies);
         verifyRequest.Content = new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["Email"] = email,
@@ -46,15 +117,10 @@ public sealed class TelegramConnectHostTests : IClassFixture<WebTestApplicationF
         var verifyResponse = await client.SendAsync(verifyRequest);
         Assert.Equal(HttpStatusCode.Redirect, verifyResponse.StatusCode);
 
-        var response = await client.GetAsync("/connect/telegram");
-        var content = await response.Content.ReadAsStringAsync();
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("class=\"premium-card connection-panel\"", content, StringComparison.Ordinal);
-        Assert.Contains("?handler=StartChatLogin", content, StringComparison.Ordinal);
+        return client;
     }
 
-    private async Task SeedUserAsync(string email)
+    private async Task<Guid> SeedUserAsync(string email)
     {
         using var scope = _factory.Services.CreateScope();
         var dbContextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<SuperChatDbContext>>();
@@ -90,6 +156,35 @@ public sealed class TelegramConnectHostTests : IClassFixture<WebTestApplicationF
         });
 
         await dbContext.SaveChangesAsync();
+        return userId;
+    }
+
+    private async Task SeedTelegramConnectionAsync(Guid userId, TelegramConnectionState state)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var dbContextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<SuperChatDbContext>>();
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync();
+
+        dbContext.TelegramConnections.Add(new TelegramConnectionEntity
+        {
+            UserId = userId,
+            State = state,
+            ManagementRoomId = "!management:matrix.test",
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+
+        await dbContext.SaveChangesAsync();
+    }
+
+    private static void AddCookies(HttpRequestMessage request, IEnumerable<string> cookies)
+    {
+        var cookieValues = cookies.ToArray();
+        if (cookieValues.Length == 0)
+        {
+            return;
+        }
+
+        request.Headers.Add("Cookie", cookieValues);
     }
 
     private static string ExtractAntiforgeryToken(string html)
