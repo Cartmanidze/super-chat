@@ -11,13 +11,15 @@ public static class HealthEndpoints
             CancellationToken cancellationToken) =>
         {
             var report = await healthCheckService.CheckHealthAsync(cancellationToken);
-            var statusCode = report.Status == HealthStatus.Healthy
-                ? StatusCodes.Status200OK
-                : StatusCodes.Status503ServiceUnavailable;
+            var statusCode = report.Status == HealthStatus.Unhealthy
+                ? StatusCodes.Status503ServiceUnavailable
+                : StatusCodes.Status200OK;
+
+            var status = report.Status == HealthStatus.Unhealthy ? "error" : "ok";
 
             return Results.Json(new
             {
-                status = report.Status == HealthStatus.Healthy ? "ok" : "error"
+                status
             }, statusCode: statusCode);
         })
         .WithTags("Health");

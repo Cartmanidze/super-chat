@@ -198,7 +198,7 @@ services:
       SuperChat__EnableGroupIngestion: ${SUPERCHAT_ENABLE_GROUP_INGESTION:-false}
       SuperChat__MaxIngestedGroupMembers: ${SUPERCHAT_MAX_INGESTED_GROUP_MEMBERS:-30}
       SuperChat__TodayTimeZoneId: ${SUPERCHAT_TODAY_TIME_ZONE_ID:-Europe/Moscow}
-      Matrix__HomeserverUrl: ${MATRIX_PUBLIC_BASEURL}
+      Matrix__HomeserverUrl: ${MATRIX_INTERNAL_BASEURL:-http://synapse:8008}
       Matrix__AdminAccessToken: ${MATRIX_ADMIN_ACCESS_TOKEN}
       Matrix__UserIdPrefix: ${MATRIX_USER_ID_PREFIX}
       TelegramBridge__BotUserId: ${TELEGRAM_BRIDGE_BOT_USER_ID}
@@ -284,7 +284,7 @@ services:
       SuperChat__EnableGroupIngestion: ${SUPERCHAT_ENABLE_GROUP_INGESTION:-false}
       SuperChat__MaxIngestedGroupMembers: ${SUPERCHAT_MAX_INGESTED_GROUP_MEMBERS:-30}
       SuperChat__TodayTimeZoneId: ${SUPERCHAT_TODAY_TIME_ZONE_ID:-Europe/Moscow}
-      Matrix__HomeserverUrl: ${MATRIX_PUBLIC_BASEURL}
+      Matrix__HomeserverUrl: ${MATRIX_INTERNAL_BASEURL:-http://synapse:8008}
       Matrix__AdminAccessToken: ${MATRIX_ADMIN_ACCESS_TOKEN}
       Matrix__UserIdPrefix: ${MATRIX_USER_ID_PREFIX}
       TelegramBridge__BotUserId: ${TELEGRAM_BRIDGE_BOT_USER_ID}
