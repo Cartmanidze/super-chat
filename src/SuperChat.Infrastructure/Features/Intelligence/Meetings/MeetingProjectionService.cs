@@ -3,7 +3,6 @@ using Microsoft.Extensions.Options;
 using SuperChat.Contracts.Features.Auth;
 using SuperChat.Contracts.Features.Intelligence.Meetings;
 using SuperChat.Domain.Features.Intelligence;
-using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Infrastructure.Shared.Persistence;
 
 namespace SuperChat.Infrastructure.Features.Intelligence.Meetings;
@@ -172,6 +171,7 @@ public sealed class MeetingProjectionService(
                     existing.ObservedAt = MeetingTimeSupport.NormalizeToUtc(meeting.ObservedAt);
                     existing.ScheduledFor = MeetingTimeSupport.NormalizeToUtc(meeting.ScheduledFor);
                     existing.Confidence = meeting.Confidence;
+                    existing.Status = meeting.Status;
                     existing.MeetingProvider = meeting.MeetingProvider;
                     existing.MeetingJoinUrl = meeting.MeetingJoinUrl?.ToString();
                     existing.UpdatedAt = now;
@@ -190,6 +190,7 @@ public sealed class MeetingProjectionService(
                     ObservedAt = MeetingTimeSupport.NormalizeToUtc(meeting.ObservedAt),
                     ScheduledFor = MeetingTimeSupport.NormalizeToUtc(meeting.ScheduledFor),
                     Confidence = meeting.Confidence,
+                    Status = meeting.Status,
                     MeetingProvider = meeting.MeetingProvider,
                     MeetingJoinUrl = meeting.MeetingJoinUrl?.ToString(),
                     CreatedAt = now,
@@ -291,6 +292,7 @@ public sealed class MeetingProjectionService(
                 existing.ObservedAt = MeetingTimeSupport.NormalizeToUtc(meeting.ObservedAt);
                 existing.ScheduledFor = MeetingTimeSupport.NormalizeToUtc(meeting.ScheduledFor);
                 existing.Confidence = meeting.Confidence;
+                existing.Status = meeting.Status;
                 existing.MeetingProvider = meeting.MeetingProvider;
                 existing.MeetingJoinUrl = meeting.MeetingJoinUrl?.ToString();
                 existing.UpdatedAt = now;
@@ -309,6 +311,7 @@ public sealed class MeetingProjectionService(
                 ObservedAt = MeetingTimeSupport.NormalizeToUtc(meeting.ObservedAt),
                 ScheduledFor = MeetingTimeSupport.NormalizeToUtc(meeting.ScheduledFor),
                 Confidence = meeting.Confidence,
+                Status = meeting.Status,
                 MeetingProvider = meeting.MeetingProvider,
                 MeetingJoinUrl = meeting.MeetingJoinUrl?.ToString(),
                 CreatedAt = now,

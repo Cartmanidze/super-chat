@@ -6,20 +6,10 @@ namespace SuperChat.Infrastructure.Features.Intelligence.Digest;
 
 internal static class WorkItemCardViewModelMappings
 {
-    public static WorkItemCardViewModel ToWorkItemCardViewModel(this WorkItemRecord item, DateTimeOffset now)
-    {
-        var metadata = WorkItemPresentationMetadata.FromWorkItem(item, now);
-        return metadata.Type switch
-        {
-            WorkItemType.Request => RequestWorkItemCardViewModelMapper.Map(item, metadata),
-            _ => ActionItemWorkItemCardViewModelMapper.Map(item, metadata)
-        };
-    }
-
     public static WorkItemCardViewModel ToWorkItemCardViewModel(this MeetingRecord meeting, DateTimeOffset now)
     {
         var metadata = WorkItemPresentationMetadata.FromMeeting(meeting, now);
-        return EventWorkItemCardViewModelMapper.Map(meeting, metadata);
+        return MeetingWorkItemCardViewModelMapper.Map(meeting, metadata);
     }
 
     public static WorkItemCardViewModel WithResolvedSourceRoom(

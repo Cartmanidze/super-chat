@@ -1,3 +1,5 @@
+using SuperChat.Domain.Features.Intelligence;
+
 namespace SuperChat.Infrastructure.Shared.Persistence;
 
 internal sealed class MeetingEntity
@@ -12,6 +14,7 @@ internal sealed class MeetingEntity
     public DateTimeOffset ObservedAt { get; set; }
     public DateTimeOffset ScheduledFor { get; set; }
     public double Confidence { get; set; }
+    public MeetingStatus Status { get; set; } = MeetingStatus.PendingConfirmation;
     public string? MeetingProvider { get; set; }
     public string? MeetingJoinUrl { get; set; }
     public DateTimeOffset? ResolvedAt { get; set; }

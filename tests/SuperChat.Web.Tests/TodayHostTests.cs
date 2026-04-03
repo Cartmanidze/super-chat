@@ -1,12 +1,10 @@
 using System.Net;
 using System.Security.Cryptography;
-using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SuperChat.Domain.Features.Integrations.Telegram;
-using SuperChat.Domain.Features.Intelligence;
 using SuperChat.Infrastructure.Shared.Persistence;
 
 namespace SuperChat.Web.Tests;
@@ -22,13 +20,12 @@ public sealed class TodayHostTests : IClassFixture<WebTestApplicationFactory>
     }
 
     [Fact]
-    public async Task TodayPage_LoadsForAuthenticatedUser_WhenCardsExist()
+    public async Task TodayPage_LoadsForAuthenticatedUser_WhenMeetingsExist()
     {
         var userId = Guid.NewGuid();
         const string email = "today@example.com";
-        const string token = "today-test-token";
 
-        await SeedTodayDataAsync(userId, email, token);
+        await SeedTodayDataAsync(userId, email);
 
         using var client = await CreateAuthenticatedClientAsync(email);
 
@@ -36,22 +33,20 @@ public sealed class TodayHostTests : IClassFixture<WebTestApplicationFactory>
         var content = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("class=\"page-hero insight-hero\"", content, StringComparison.Ordinal);
         Assert.Contains("?handler=Complete", content, StringComparison.Ordinal);
         Assert.Contains("?handler=Dismiss", content, StringComparison.Ordinal);
         Assert.Contains("class=\"signal-feedback\"", content, StringComparison.Ordinal);
-        Assert.Contains("class=\"signal-feedback-link\"", content, StringComparison.Ordinal);
-        Assert.DoesNotContain("action-link action-link-muted", content, StringComparison.Ordinal);
-        Assert.Contains("Недавно закрыто автоматически", content, StringComparison.Ordinal);
+        Assert.Contains("class=\"signal-card signal-card-focus\"", content, StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task TodayPage_LoadsWhenResolutionEvidenceJsonIsInvalid()
+    public async Task TodayPage_ShowsEmptyState_WhenNoMeetingsExist()
     {
         var userId = Guid.NewGuid();
-        const string email = "today-invalid-json@example.com";
-        const string token = "today-invalid-json-token";
+        const string email = "today-empty@example.com";
 
-        await SeedTodayDataAsync(userId, email, token, resolutionEvidenceJson: "{broken-json");
+        await SeedTodayDataAsync(userId, email, includeMeeting: false);
 
         using var client = await CreateAuthenticatedClientAsync(email);
 
@@ -59,23 +54,17 @@ public sealed class TodayHostTests : IClassFixture<WebTestApplicationFactory>
         var content = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("?handler=Complete", content, StringComparison.Ordinal);
-        Assert.Contains("class=\"signal-feedback\"", content, StringComparison.Ordinal);
+        Assert.Contains("class=\"lane-empty\"", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("?handler=Complete", content, StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task TodayPage_LoadsWhenPersistedConfidenceIsOutOfRange()
+    public async Task TodayPage_ShowsConnectPrompt_WhenTelegramIsNotConnected()
     {
         var userId = Guid.NewGuid();
-        const string email = "today-invalid-confidence@example.com";
-        const string token = "today-invalid-confidence-token";
+        const string email = "today-disconnected@example.com";
 
-        await SeedTodayDataAsync(
-            userId,
-            email,
-            token,
-            waitingConfidence: 1.7,
-            meetingConfidence: -0.25);
+        await SeedTodayDataAsync(userId, email, telegramConnected: false, includeMeeting: false);
 
         using var client = await CreateAuthenticatedClientAsync(email);
 
@@ -83,8 +72,8 @@ public sealed class TodayHostTests : IClassFixture<WebTestApplicationFactory>
         var content = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("?handler=Complete", content, StringComparison.Ordinal);
-        Assert.Contains("class=\"signal-feedback\"", content, StringComparison.Ordinal);
+        Assert.Contains("class=\"status-badge status-warning\"", content, StringComparison.Ordinal);
+        Assert.Contains("class=\"inline-actions\"", content, StringComparison.Ordinal);
     }
 
     private async Task<HttpClient> CreateAuthenticatedClientAsync(string email)
@@ -117,10 +106,8 @@ public sealed class TodayHostTests : IClassFixture<WebTestApplicationFactory>
     private async Task SeedTodayDataAsync(
         Guid userId,
         string email,
-        string token,
-        string resolutionEvidenceJson = "[\"$evt-done\"]",
-        double waitingConfidence = 0.95,
-        double meetingConfidence = 0.92)
+        bool telegramConnected = true,
+        bool includeMeeting = true)
     {
         using var scope = _factory.Services.CreateScope();
         var dbContextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<SuperChatDbContext>>();
@@ -157,74 +144,35 @@ public sealed class TodayHostTests : IClassFixture<WebTestApplicationFactory>
         dbContext.TelegramConnections.Add(new TelegramConnectionEntity
         {
             UserId = userId,
-            State = TelegramConnectionState.Connected,
+            State = telegramConnected ? TelegramConnectionState.Connected : TelegramConnectionState.NotStarted,
             UpdatedAt = now
         });
 
-        dbContext.WorkItems.Add(new WorkItemEntity
+        if (includeMeeting)
         {
-            Id = Guid.NewGuid(),
-            UserId = userId,
-            Kind = ExtractedItemKind.WaitingOn,
-            Title = "Ответить Марине",
-            Summary = "Марина ждет подтверждение по смете.",
-            SourceRoom = "Team chat",
-            SourceEventId = "$waiting-1",
-            ObservedAt = now.AddMinutes(-30),
-            DueAt = now.AddHours(1),
-            Confidence = waitingConfidence,
-            CreatedAt = now,
-            UpdatedAt = now
-        });
-
-        dbContext.WorkItems.Add(new WorkItemEntity
-        {
-            Id = Guid.NewGuid(),
-            UserId = userId,
-            Kind = ExtractedItemKind.Commitment,
-            Title = "Отправить дек",
-            Summary = "Финальный дек уже отправлен.",
-            SourceRoom = "Sales",
-            SourceEventId = "$resolved-1",
-            ObservedAt = now.AddHours(-2),
-            DueAt = now.AddHours(-1),
-            Confidence = 0.91,
-            ResolvedAt = now.AddMinutes(-20),
-            ResolutionKind = "completed",
-            ResolutionSource = "auto_ai_completion",
-            ResolutionConfidence = 0.93,
-            ResolutionModel = "deepseek-reasoner",
-            ResolutionEvidenceJson = resolutionEvidenceJson,
-            CreatedAt = now.AddHours(-2),
-            UpdatedAt = now.AddMinutes(-20)
-        });
-
-        dbContext.Meetings.Add(new MeetingEntity
-        {
-            Id = Guid.NewGuid(),
-            UserId = userId,
-            Title = "Созвон с партнером",
-            Summary = "Подтвержденный созвон сегодня вечером.",
-            SourceRoom = "Partners",
-            SourceEventId = "$meeting-1",
-            ObservedAt = now.AddMinutes(-10),
-            ScheduledFor = now.AddHours(2),
-            Confidence = meetingConfidence,
-            CreatedAt = now,
-            UpdatedAt = now
-        });
+            dbContext.Meetings.Add(new MeetingEntity
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                Title = "Созвон с партнёром",
+                Summary = "Подтверждённый созвон сегодня вечером.",
+                SourceRoom = "Partners",
+                SourceEventId = "$meeting-1",
+                ObservedAt = now.AddMinutes(-10),
+                ScheduledFor = now.AddHours(2),
+                Confidence = 0.92,
+                CreatedAt = now,
+                UpdatedAt = now
+            });
+        }
 
         await dbContext.SaveChangesAsync();
     }
 
     private static string ExtractAntiforgeryToken(string html)
     {
-        var match = Regex.Match(html, @"name=""__RequestVerificationToken""\s+type=""hidden""\s+value=""([^""]+)""");
-        if (!match.Success)
-        {
-            match = Regex.Match(html, @"value=""([^""]+)""\s+name=""__RequestVerificationToken""");
-        }
-
-        return match.Success ? match.Groups[1].Value : string.Empty;
+        var match = Regex.Match(html, "<input name=\"__RequestVerificationToken\" type=\"hidden\" value=\"([^\"]+)\" />");
+        Assert.True(match.Success);
+        return match.Groups[1].Value;
     }
 }

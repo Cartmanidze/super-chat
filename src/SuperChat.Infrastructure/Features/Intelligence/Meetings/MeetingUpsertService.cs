@@ -42,6 +42,7 @@ internal sealed class MeetingUpsertService(
         foreach (var item in meetingItems)
         {
             var joinLink = MeetingJoinLinkParser.TryParse(item.Summary);
+            var status = WorkItemPresentationMetadata.ResolveMeetingStatus(item.Summary);
             var key = BuildKey(item.UserId, item.SourceEventId);
             if (existingByKey.TryGetValue(key, out var existing))
             {
@@ -52,6 +53,7 @@ internal sealed class MeetingUpsertService(
                 existing.ObservedAt = MeetingTimeSupport.NormalizeToUtc(item.ObservedAt);
                 existing.ScheduledFor = MeetingTimeSupport.NormalizeToUtc(item.DueAt!.Value);
                 existing.Confidence = item.Confidence;
+                existing.Status = status;
                 existing.MeetingProvider = joinLink?.Provider.ToString();
                 existing.MeetingJoinUrl = joinLink?.Url.ToString();
                 existing.UpdatedAt = now;
@@ -70,6 +72,7 @@ internal sealed class MeetingUpsertService(
                 ObservedAt = MeetingTimeSupport.NormalizeToUtc(item.ObservedAt),
                 ScheduledFor = MeetingTimeSupport.NormalizeToUtc(item.DueAt!.Value),
                 Confidence = item.Confidence,
+                Status = status,
                 MeetingProvider = joinLink?.Provider.ToString(),
                 MeetingJoinUrl = joinLink?.Url.ToString(),
                 CreatedAt = now,

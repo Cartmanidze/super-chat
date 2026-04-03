@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Diagnostics;
-using Microsoft.Extensions.Logging;
 using SuperChat.Contracts.Features.Auth;
 
 namespace SuperChat.Api.Security;

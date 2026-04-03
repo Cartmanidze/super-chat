@@ -1,13 +1,8 @@
 using Microsoft.Extensions.Logging.Abstractions;
-using SuperChat.Contracts.Features.Auth;
 using SuperChat.Contracts.Features.Chat;
-using SuperChat.Contracts.Features.Intelligence.Retrieval;
-using SuperChat.Contracts.Features.Messaging;
 using SuperChat.Contracts.Features.Operations;
-using SuperChat.Contracts.Features.Search;
 using SuperChat.Contracts.Features.WorkItems;
 using SuperChat.Domain.Features.Chat;
-using SuperChat.Domain.Features.Messaging;
 using SuperChat.Infrastructure.Features.Chat;
 
 namespace SuperChat.Tests;
@@ -15,52 +10,52 @@ namespace SuperChat.Tests;
 public sealed class ChatExperienceServiceTests
 {
     [Fact]
-    public async Task AskAsync_ReturnsTodayCards_ForTodayTemplate()
+    public async Task AskAsync_ReturnsMeetingCards_ForMeetingsTemplate()
     {
+        var scheduledFor = new DateTimeOffset(2026, 03, 13, 11, 00, 00, TimeSpan.FromHours(6));
         var service = CreateService(
             digestService: new StubDigestService(
-                today:
-                [
-                    new WorkItemCardViewModel("Нужно отправить договор", "Свериться с Валерией", "Task", DateTimeOffset.UtcNow, null, "Личные")
-                ]));
+            [
+                new MeetingWorkItemCardViewModel("Upcoming meeting", "Мб заехать за тобой в 11?", scheduledFor.AddHours(-1), scheduledFor, "Stanislav Klyukhin (Telegram)")
+            ]));
 
         var answer = await service.AskAsync(
             Guid.NewGuid(),
-            new ChatPromptRequest(ChatPromptTemplate.Today, "Что для меня важно сегодня?"),
+            new ChatPromptRequest(ChatPromptTemplate.Meetings, "Какие у меня ближайшие встречи?"),
             CancellationToken.None);
 
-        Assert.Equal(ChatPromptTemplate.Today, answer.Mode);
-        Assert.Single(answer.Items);
-        Assert.Equal("Нужно отправить договор", answer.Items[0].Title);
-        Assert.IsType<ActionItemChatResultItemViewModel>(answer.Items[0]);
+        Assert.Equal(ChatPromptTemplate.Meetings, answer.Mode);
+        var item = Assert.Single(answer.Items);
+        Assert.Equal("Мб заехать за тобой в 11?", item.Title);
+        Assert.Equal(string.Empty, item.Summary);
+        Assert.Equal(scheduledFor, item.Timestamp);
+        Assert.IsType<MeetingChatResultItemViewModel>(item);
     }
 
     [Fact]
-    public async Task AskAsync_TodayTemplateUsesGeneratedAiAnswerWhenAvailable()
+    public async Task AskAsync_MeetingsTemplateUsesGeneratedAiAnswerWhenAvailable()
     {
         var service = CreateService(
             digestService: new StubDigestService(
-                today:
-                [
-                    new WorkItemCardViewModel("Нужно отправить договор", "Свериться с Валерией", "Task", DateTimeOffset.UtcNow, null, "Личные")
-                ]),
+            [
+                new MeetingWorkItemCardViewModel("Upcoming meeting", "Созвон с Валерией в 14:00", DateTimeOffset.UtcNow, null, "Личные")
+            ]),
             answerGenerationService: new StubChatAnswerGenerationService(
                 new GeneratedChatAnswer(
-                    "Сегодня главное закрыть вопрос с договором и свериться с Валерией.",
+                    "Ближайшая встреча сегодня в 14:00 с Валерией.",
                     [
-                        new GeneratedChatAnswerItem("ctx_1", "Главный приоритет", "Нужно отправить договор и подтвердить детали с Валерией.")
+                        new GeneratedChatAnswerItem("ctx_1", "Созвон с Валерией", "Подтверждённый созвон сегодня в 14:00.")
                     ])));
 
         var answer = await service.AskAsync(
             Guid.NewGuid(),
-            new ChatPromptRequest(ChatPromptTemplate.Today, "Что для меня важно сегодня?"),
+            new ChatPromptRequest(ChatPromptTemplate.Meetings, "Какие у меня ближайшие встречи?"),
             CancellationToken.None);
 
-        Assert.Equal(ChatPromptTemplate.Today, answer.Mode);
-        Assert.Equal("Сегодня главное закрыть вопрос с договором и свериться с Валерией.", answer.AssistantText);
+        Assert.Equal("Ближайшая встреча сегодня в 14:00 с Валерией.", answer.AssistantText);
         var item = Assert.Single(answer.Items);
-        Assert.Equal("Главный приоритет", item.Title);
-        Assert.Equal("Нужно отправить договор и подтвердить детали с Валерией.", item.Summary);
+        Assert.Equal("Созвон с Валерией", item.Title);
+        Assert.Equal("Подтверждённый созвон сегодня в 14:00.", item.Summary);
         Assert.Equal("Личные", item.SourceRoom);
     }
 
@@ -69,10 +64,9 @@ public sealed class ChatExperienceServiceTests
     {
         var service = CreateService(
             digestService: new StubDigestService(
-                meetings:
-                [
-                    new WorkItemCardViewModel("Upcoming meeting", "Мб заехать за тобой в 11?", "Meeting", DateTimeOffset.UtcNow, null, "Stanislav Klyukhin (Telegram)")
-                ]),
+            [
+                new MeetingWorkItemCardViewModel("Upcoming meeting", "Мб заехать за тобой в 11?", DateTimeOffset.UtcNow, null, "Stanislav Klyukhin (Telegram)")
+            ]),
             answerGenerationService: new StubChatAnswerGenerationService(
                 new GeneratedChatAnswer(
                     "Похоже, ближайшая встреча сегодня в 11.",
@@ -84,76 +78,29 @@ public sealed class ChatExperienceServiceTests
             CancellationToken.None);
 
         Assert.Equal("Похоже, ближайшая встреча сегодня в 11.", answer.AssistantText);
-        var item = Assert.Single(answer.Items);
-        Assert.Equal("Мб заехать за тобой в 11?", item.Title);
-        Assert.Equal("Stanislav Klyukhin (Telegram)", item.SourceRoom);
+        Assert.Equal("Мб заехать за тобой в 11?", Assert.Single(answer.Items).Title);
     }
 
     [Fact]
     public async Task AskAsync_TemplateSuppressesBaseItems_WhenAiReportsNoRelevantContext()
     {
-        var observedAt = new DateTimeOffset(2026, 03, 14, 09, 39, 51, TimeSpan.Zero);
         var service = CreateService(
             digestService: new StubDigestService(
-                today:
-                [
-                    new WorkItemCardViewModel(
-                        "Action needed",
-                        "Design a high-fidelity, modern B2B SaaS web app called SuperChat.",
-                        "Task",
-                        observedAt,
-                        null,
-                        "Stanislav Klyukhin (Telegram)")
-                ]),
+            [
+                new MeetingWorkItemCardViewModel("Upcoming meeting", "Черновой слот без подтверждения", DateTimeOffset.UtcNow, null, "Team")
+            ]),
             answerGenerationService: new StubChatAnswerGenerationService(
                 new GeneratedChatAnswer(
-                    "Контекст не содержит информации о вашей текущей ситуации.",
+                    "Контекст не содержит информации о ваших ближайших встречах.",
                     [])));
-
-        var answer = await service.AskAsync(
-            Guid.NewGuid(),
-            new ChatPromptRequest(ChatPromptTemplate.Today, "Что для меня важно сегодня?"),
-            CancellationToken.None);
-
-        Assert.Equal("Контекст не содержит информации о вашей текущей ситуации.", answer.AssistantText);
-        Assert.Empty(answer.Items);
-    }
-
-    [Fact]
-    public async Task AskAsync_RejectsQuestionsOverOneHundredCharacters()
-    {
-        var service = CreateService();
-
-        var exception = await Assert.ThrowsAsync<ArgumentException>(() => service.AskAsync(
-            Guid.NewGuid(),
-            new ChatPromptRequest(ChatPromptTemplate.Today, new string('x', 101)),
-            CancellationToken.None));
-
-        Assert.Contains("100", exception.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task AskAsync_ReturnsMeetingCards_ForMeetingsTemplate()
-    {
-        var scheduledFor = new DateTimeOffset(2026, 03, 13, 11, 00, 00, TimeSpan.FromHours(6));
-        var service = CreateService(
-            digestService: new StubDigestService(
-                meetings:
-                [
-                    new WorkItemCardViewModel("Upcoming meeting", "Мб заехать за тобой в 11?", "Meeting", scheduledFor.AddHours(-1), scheduledFor, "Stanislav Klyukhin (Telegram)")
-                ]));
 
         var answer = await service.AskAsync(
             Guid.NewGuid(),
             new ChatPromptRequest(ChatPromptTemplate.Meetings, "Какие у меня ближайшие встречи?"),
             CancellationToken.None);
 
-        Assert.Equal(ChatPromptTemplate.Meetings, answer.Mode);
-        Assert.Single(answer.Items);
-        Assert.Equal("Мб заехать за тобой в 11?", answer.Items[0].Title);
-        Assert.Equal(string.Empty, answer.Items[0].Summary);
-        Assert.Equal(scheduledFor, answer.Items[0].Timestamp);
-        Assert.IsType<EventChatResultItemViewModel>(answer.Items[0]);
+        Assert.Equal("Контекст не содержит информации о ваших ближайших встречах.", answer.AssistantText);
+        Assert.Empty(answer.Items);
     }
 
     [Fact]
@@ -163,28 +110,25 @@ public sealed class ChatExperienceServiceTests
         var joinUrl = new Uri("https://meet.google.com/abc-defg-hij");
         var service = CreateService(
             digestService: new StubDigestService(
-                meetings:
-                [
-                    new WorkItemCardViewModel(
-                        "Upcoming meeting",
-                        "Созвон с командой",
-                        "Meeting",
-                        scheduledFor.AddHours(-1),
-                        scheduledFor,
-                        "Stanislav Klyukhin (Telegram)",
-                        0.95,
-                        Type: WorkItemType.Event,
-                        Status: WorkItemStatus.Confirmed,
-                        Priority: WorkItemPriority.Important,
-                        Owner: WorkItemOwner.Both,
-                        Origin: WorkItemOrigin.DetectedFromChat,
-                        ReviewState: AiReviewState.Confirmed,
-                        PlannedAt: scheduledFor,
-                        Source: WorkItemSource.Telegram,
-                        UpdatedAt: scheduledFor.AddMinutes(-5),
-                        MeetingProvider: MeetingJoinProvider.GoogleMeet,
-                        MeetingJoinUrl: joinUrl)
-                ]));
+            [
+                new MeetingWorkItemCardViewModel(
+                    "Upcoming meeting",
+                    "Созвон с командой",
+                    scheduledFor.AddHours(-1),
+                    scheduledFor,
+                    "Stanislav Klyukhin (Telegram)",
+                    MeetingStatus: MeetingStatus.Confirmed,
+                    Confidence: 0.95,
+                    Priority: WorkItemPriority.Important,
+                    Owner: WorkItemOwner.Both,
+                    Origin: WorkItemOrigin.DetectedFromChat,
+                    ReviewState: AiReviewState.Confirmed,
+                    PlannedAt: scheduledFor,
+                    Source: WorkItemSource.Telegram,
+                    UpdatedAt: scheduledFor.AddMinutes(-5),
+                    MeetingProvider: MeetingJoinProvider.GoogleMeet,
+                    MeetingJoinUrl: joinUrl)
+            ]));
 
         var answer = await service.AskAsync(
             Guid.NewGuid(),
@@ -194,268 +138,54 @@ public sealed class ChatExperienceServiceTests
         var item = Assert.Single(answer.Items);
         Assert.Equal(MeetingJoinProvider.GoogleMeet, item.MeetingProvider);
         Assert.Equal(joinUrl, item.MeetingJoinUrl);
-        Assert.Equal(WorkItemType.Event, item.Type);
+        Assert.Equal(WorkItemType.Meeting, item.Type);
         Assert.Equal(WorkItemStatus.Confirmed, item.Status);
-        Assert.IsType<EventChatResultItemViewModel>(item);
     }
 
     [Fact]
-    public async Task AskAsync_WaitingTemplate_HidesGenericAwaitingResponseTitle()
+    public async Task AskAsync_RejectsRemovedTemplate()
     {
-        var service = CreateService(
-            digestService: new StubDigestService(
-                waiting:
-                [
-                    new WorkItemCardViewModel("Awaiting response", "Нужен ответ от Валерии по договору", "WaitingOn", DateTimeOffset.UtcNow, null, "Валерия (Telegram)")
-                ]));
+        var service = CreateService();
 
-        var answer = await service.AskAsync(
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() => service.AskAsync(
             Guid.NewGuid(),
-            new ChatPromptRequest(ChatPromptTemplate.Waiting, "Где я сейчас жду ответа?"),
-            CancellationToken.None);
+            new ChatPromptRequest("today", "Что для меня важно сегодня?"),
+            CancellationToken.None));
 
-        Assert.Equal(ChatPromptTemplate.Waiting, answer.Mode);
-        Assert.Single(answer.Items);
-        Assert.Equal("Нужен ответ от Валерии по договору", answer.Items[0].Title);
-        Assert.Equal(string.Empty, answer.Items[0].Summary);
-        Assert.IsType<RequestChatResultItemViewModel>(answer.Items[0]);
+        Assert.Contains("Unsupported chat template.", exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task AskAsync_CustomQuestionFallsBackToTokenSearch()
+    public async Task AskAsync_RejectsQuestionsOverOneHundredCharacters()
     {
-        var searchService = new StubSearchService();
-        searchService.Add("договору",
-        [
-            new SearchResultViewModel("Валерия", "Ждёт договор", "Message", "Личные", DateTimeOffset.UtcNow)
-        ]);
+        var service = CreateService();
 
-        var service = CreateService(searchService: searchService);
-
-        var answer = await service.AskAsync(
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() => service.AskAsync(
             Guid.NewGuid(),
-            new ChatPromptRequest(ChatPromptTemplate.Custom, "Что с договору у Валерии?"),
-            CancellationToken.None);
+            new ChatPromptRequest(ChatPromptTemplate.Meetings, new string('x', 101)),
+            CancellationToken.None));
 
-        Assert.Equal(ChatPromptTemplate.Custom, answer.Mode);
-        Assert.Single(answer.Items);
-        Assert.Equal("Валерия", answer.Items[0].Title);
-    }
-
-    [Fact]
-    public async Task AskAsync_CustomQuestionUsesRetrievalBeforeTokenSearch()
-    {
-        var retrievalService = new StubRetrievalService(
-        [
-            new RetrievedChunk(
-                Guid.NewGuid(),
-                "!room-1",
-                "ivan",
-                "dialog_chunk",
-                "Ivan: Please send the proposal tomorrow.\nYou: I will send it today.",
-                DateTimeOffset.UtcNow.AddMinutes(-15),
-                DateTimeOffset.UtcNow.AddMinutes(-5),
-                0.92)
-        ]);
-
-        var service = CreateService(
-            retrievalService: retrievalService,
-            roomDisplayNameService: new StubRoomDisplayNameService(new Dictionary<string, string> { ["!room-1"] = "Иван" }),
-            searchService: new StubSearchService());
-
-        var answer = await service.AskAsync(
-            Guid.NewGuid(),
-            new ChatPromptRequest(ChatPromptTemplate.Custom, "Что я обещал Ивану?"),
-            CancellationToken.None);
-
-        Assert.Equal(ChatPromptTemplate.Custom, answer.Mode);
-        Assert.Single(answer.Items);
-        Assert.Equal("Ivan: Please send the proposal tomorrow.", answer.Items[0].Title);
-        Assert.Equal("Иван", answer.Items[0].SourceRoom);
-    }
-
-    [Fact]
-    public async Task AskAsync_CustomQuestionUsesGeneratedAiAnswerWhenAvailable()
-    {
-        var retrievalService = new StubRetrievalService(
-        [
-            new RetrievedChunk(
-                Guid.NewGuid(),
-                "!room-1",
-                "ivan",
-                "dialog_chunk",
-                "Ivan: Please send the proposal tomorrow.\nYou: I will send it today.",
-                DateTimeOffset.UtcNow.AddMinutes(-15),
-                DateTimeOffset.UtcNow.AddMinutes(-5),
-                0.92)
-        ]);
-
-        var answerGenerationService = new StubChatAnswerGenerationService(
-            new GeneratedChatAnswer(
-                "You promised Ivan that you would send the proposal today.",
-                [
-                    new GeneratedChatAnswerItem("ctx_1", "Promise to Ivan", "You explicitly said you would send the proposal today.")
-                ]));
-
-        var service = CreateService(
-            retrievalService: retrievalService,
-            answerGenerationService: answerGenerationService,
-            roomDisplayNameService: new StubRoomDisplayNameService(new Dictionary<string, string> { ["!room-1"] = "Иван" }),
-            searchService: new StubSearchService());
-
-        var answer = await service.AskAsync(
-            Guid.NewGuid(),
-            new ChatPromptRequest(ChatPromptTemplate.Custom, "Что я обещал Ивану?"),
-            CancellationToken.None);
-
-        Assert.Equal(ChatPromptTemplate.Custom, answer.Mode);
-        Assert.Equal("You promised Ivan that you would send the proposal today.", answer.AssistantText);
-        Assert.Single(answer.Items);
-        Assert.Equal("Promise to Ivan", answer.Items[0].Title);
-        Assert.Equal("Иван", answer.Items[0].SourceRoom);
-    }
-
-    [Fact]
-    public async Task AskAsync_FiltersRecentMessagesToConfiguredDay()
-    {
-        var timeProvider = new StaticTimeProvider(new DateTimeOffset(2026, 03, 12, 10, 00, 00, TimeSpan.Zero));
-        var messages = new[]
-        {
-            new NormalizedMessage(Guid.NewGuid(), Guid.NewGuid(), "telegram", "!room-1", "$1", "Alice", "Сегодняшнее сообщение", new DateTimeOffset(2026, 03, 12, 08, 00, 00, TimeSpan.Zero), DateTimeOffset.UtcNow, true),
-            new NormalizedMessage(Guid.NewGuid(), Guid.NewGuid(), "telegram", "!room-1", "$2", "Alice", "Старое сообщение", new DateTimeOffset(2026, 03, 11, 08, 00, 00, TimeSpan.Zero), DateTimeOffset.UtcNow, true)
-        };
-
-        var service = CreateService(
-            messageNormalizationService: new StubMessageNormalizationService(messages),
-            roomDisplayNameService: new StubRoomDisplayNameService(new Dictionary<string, string> { ["!room-1"] = "Личные" }),
-            timeProvider: timeProvider);
-
-        var answer = await service.AskAsync(
-            Guid.NewGuid(),
-            new ChatPromptRequest(ChatPromptTemplate.Recent, "Что было в сообщениях сегодня?"),
-            CancellationToken.None);
-
-        Assert.Equal(ChatPromptTemplate.Recent, answer.Mode);
-        Assert.Single(answer.Items);
-        Assert.Equal("Сегодняшнее сообщение", answer.Items[0].Summary);
-    }
-
-    [Fact]
-    public async Task AskAsync_RecentUsesRoomDisplayNameWhenSenderNameIsOpaqueNumericId()
-    {
-        var userId = Guid.NewGuid();
-        var now = new DateTimeOffset(2026, 03, 13, 10, 00, 00, TimeSpan.Zero);
-        var messages = new[]
-        {
-            new NormalizedMessage(
-                Guid.NewGuid(),
-                userId,
-                "telegram",
-                "!room-1",
-                "$1",
-                "349223531",
-                "video.mp4",
-                now.AddMinutes(-5),
-                now.AddMinutes(-4),
-                true)
-        };
-
-        var service = CreateService(
-            messageNormalizationService: new StubMessageNormalizationService(messages),
-            roomDisplayNameService: new StubRoomDisplayNameService(new Dictionary<string, string> { ["!room-1"] = "Bi (Telegram)" }),
-            timeProvider: new StaticTimeProvider(now));
-
-        var answer = await service.AskAsync(
-            userId,
-            new ChatPromptRequest(ChatPromptTemplate.Recent, "Что было в сообщениях сегодня?"),
-            CancellationToken.None);
-
-        Assert.Single(answer.Items);
-        Assert.Equal("Bi", answer.Items[0].Title);
-        Assert.Equal("Bi (Telegram)", answer.Items[0].SourceRoom);
+        Assert.Contains("100", exception.Message, StringComparison.Ordinal);
     }
 
     private static ChatExperienceService CreateService(
         IDigestService? digestService = null,
-        IChatAnswerGenerationService? answerGenerationService = null,
-        IRetrievalService? retrievalService = null,
-        ISearchService? searchService = null,
-        IMessageNormalizationService? messageNormalizationService = null,
-        IRoomDisplayNameService? roomDisplayNameService = null,
-        TimeProvider? timeProvider = null)
+        IChatAnswerGenerationService? answerGenerationService = null)
     {
-        var resolvedDigestService = digestService ?? new StubDigestService();
-        var resolvedMessageNormalizationService = messageNormalizationService ?? new StubMessageNormalizationService([]);
-        var resolvedRoomDisplayNameService = roomDisplayNameService ?? new StubRoomDisplayNameService(new Dictionary<string, string>());
-        var resolvedTimeProvider = timeProvider ?? new StaticTimeProvider(DateTimeOffset.UtcNow);
-        var pilotOptions = new PilotOptions { TodayTimeZoneId = "Europe/Moscow" };
-
-        var handlers = new IChatTemplateHandler[]
-        {
-            new TodayChatTemplateHandler(resolvedDigestService),
-            new WaitingChatTemplateHandler(resolvedDigestService),
-            new MeetingsChatTemplateHandler(resolvedDigestService),
-            new RecentChatTemplateHandler(
-                resolvedMessageNormalizationService,
-                resolvedRoomDisplayNameService,
-                resolvedTimeProvider,
-                pilotOptions,
-                NullLogger<RecentChatTemplateHandler>.Instance)
-        };
+        var resolvedDigestService = digestService ?? new StubDigestService([]);
 
         return new ChatExperienceService(
             new ChatTemplateCatalog(),
-            handlers,
+            [new MeetingsChatTemplateHandler(resolvedDigestService)],
             answerGenerationService ?? new StubChatAnswerGenerationService(null),
-            retrievalService ?? new StubRetrievalService([]),
-            searchService ?? new StubSearchService(),
-            resolvedRoomDisplayNameService,
             NullLogger<ChatExperienceService>.Instance);
     }
 
-    private sealed class StubDigestService(
-        IReadOnlyList<WorkItemCardViewModel>? today = null,
-        IReadOnlyList<WorkItemCardViewModel>? waiting = null,
-        IReadOnlyList<WorkItemCardViewModel>? meetings = null) : IDigestService
+    private sealed class StubDigestService(IReadOnlyList<WorkItemCardViewModel> meetings) : IDigestService
     {
-        public Task<IReadOnlyList<WorkItemCardViewModel>> GetTodayAsync(Guid userId, CancellationToken cancellationToken)
-        {
-            return Task.FromResult(today ?? Array.Empty<WorkItemCardViewModel>());
-        }
-
-        public Task<IReadOnlyList<WorkItemCardViewModel>> GetWaitingAsync(Guid userId, CancellationToken cancellationToken)
-        {
-            return Task.FromResult(waiting ?? Array.Empty<WorkItemCardViewModel>());
-        }
-
         public Task<IReadOnlyList<WorkItemCardViewModel>> GetMeetingsAsync(Guid userId, CancellationToken cancellationToken)
         {
-            return Task.FromResult(meetings ?? Array.Empty<WorkItemCardViewModel>());
-        }
-    }
-
-    private sealed class StubSearchService : ISearchService
-    {
-        private readonly Dictionary<string, IReadOnlyList<SearchResultViewModel>> _results = new(StringComparer.OrdinalIgnoreCase);
-
-        public void Add(string query, IReadOnlyList<SearchResultViewModel> results)
-        {
-            _results[query] = results;
-        }
-
-        public Task<IReadOnlyList<SearchResultViewModel>> SearchAsync(Guid userId, string query, CancellationToken cancellationToken)
-        {
-            return Task.FromResult(_results.TryGetValue(query, out var results)
-                ? results
-                : Array.Empty<SearchResultViewModel>());
-        }
-    }
-
-    private sealed class StubRetrievalService(IReadOnlyList<RetrievedChunk> results) : IRetrievalService
-    {
-        public Task<IReadOnlyList<RetrievedChunk>> RetrieveAsync(RetrievalRequest request, CancellationToken cancellationToken)
-        {
-            return Task.FromResult(results);
+            return Task.FromResult(meetings);
         }
     }
 
@@ -468,55 +198,5 @@ public sealed class ChatExperienceServiceTests
         {
             return Task.FromResult(result);
         }
-    }
-
-    private sealed class StubMessageNormalizationService(IReadOnlyList<NormalizedMessage> messages) : IMessageNormalizationService
-    {
-        public Task<bool> TryStoreAsync(Guid userId, string roomId, string eventId, string senderName, string text, DateTimeOffset sentAt, CancellationToken cancellationToken)
-        {
-            throw new NotSupportedException();
-        }
-
-        public Task<IReadOnlyList<NormalizedMessage>> GetPendingMessagesAsync(CancellationToken cancellationToken)
-        {
-            throw new NotSupportedException();
-        }
-
-        public Task<IReadOnlyList<NormalizedMessage>> GetPendingMessagesForConversationAsync(
-            Guid userId,
-            string source,
-            string matrixRoomId,
-            CancellationToken cancellationToken)
-        {
-            throw new NotSupportedException();
-        }
-
-        public Task<IReadOnlyList<NormalizedMessage>> GetRecentMessagesAsync(Guid userId, int take, CancellationToken cancellationToken)
-        {
-            return Task.FromResult(messages.Take(take).ToList() as IReadOnlyList<NormalizedMessage>);
-        }
-
-        public Task MarkProcessedAsync(IEnumerable<Guid> messageIds, CancellationToken cancellationToken)
-        {
-            throw new NotSupportedException();
-        }
-    }
-
-    private sealed class StubRoomDisplayNameService(IReadOnlyDictionary<string, string> names) : IRoomDisplayNameService
-    {
-        public Task<IReadOnlyDictionary<string, string>> ResolveManyAsync(Guid userId, IEnumerable<string> sourceRooms, CancellationToken cancellationToken)
-        {
-            var resolved = sourceRooms
-                .Distinct(StringComparer.Ordinal)
-                .Where(names.ContainsKey)
-                .ToDictionary(sourceRoom => sourceRoom, sourceRoom => names[sourceRoom], StringComparer.Ordinal);
-
-            return Task.FromResult(resolved as IReadOnlyDictionary<string, string>);
-        }
-    }
-
-    private sealed class StaticTimeProvider(DateTimeOffset now) : TimeProvider
-    {
-        public override DateTimeOffset GetUtcNow() => now;
     }
 }

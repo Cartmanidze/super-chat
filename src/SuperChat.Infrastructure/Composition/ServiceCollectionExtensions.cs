@@ -3,7 +3,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Rebus.Config;
-using Rebus.ServiceProvider;
 using Rebus.Transport.InMem;
 using SuperChat.Contracts.Features.Admin;
 using SuperChat.Contracts.Features.Auth;
@@ -53,7 +52,9 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddSuperChatBootstrap(
         this IServiceCollection services,
         IConfiguration configuration,
-        bool enableBackgroundWorkers = true)
+        bool enableMatrixSyncWorker = true,
+        bool enablePipelineScheduling = true,
+        bool enablePipelineConsumers = true)
     {
         SuperChatMetrics.Initialize();
         services.AddMemoryCache();
@@ -191,10 +192,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ChatRoomHandler>();
         services.AddSingleton<IMessageNormalizationService, MessageNormalizationService>();
         services.AddSingleton<IChatTemplateCatalog, ChatTemplateCatalog>();
-        services.AddSingleton<IChatTemplateHandler, TodayChatTemplateHandler>();
-        services.AddSingleton<IChatTemplateHandler, WaitingChatTemplateHandler>();
         services.AddSingleton<IChatTemplateHandler, MeetingsChatTemplateHandler>();
-        services.AddSingleton<IChatTemplateHandler, RecentChatTemplateHandler>();
         services.AddSingleton<IChatAnswerGenerationService, ChatAnswerGenerationService>();
         services.AddSingleton<IChunkBuilderService, ChunkBuilderService>();
         services.AddSingleton<IChunkIndexingService, ChunkIndexingService>();
@@ -212,11 +210,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<WorkItemQueryService>();
         services.AddSingleton<WorkItemManualResolutionService>();
         services.AddSingleton<IWorkItemService, WorkItemService>();
-        services.AddSingleton<WorkItemStrategySnapshotProvider>();
-        services.AddSingleton<IWorkItemTypeStrategy, RequestWorkItemTypeStrategy>();
-        services.AddSingleton<IWorkItemTypeStrategy, EventWorkItemTypeStrategy>();
-        services.AddSingleton<IWorkItemTypeStrategy, ActionItemWorkItemTypeStrategy>();
-        services.AddSingleton<IWorkItemCatalogService, WorkItemCatalogService>();
         services.AddSingleton<IRetrievalService, RetrievalService>();
         services.AddSingleton<HeuristicStructuredExtractionService>();
         services.AddSingleton<DeepSeekStructuredExtractionService>();
@@ -235,14 +228,14 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IMatrixIdentityRepository, EfMatrixIdentityRepository>();
         services.AddSingleton<IFeedbackEventRepository, EfFeedbackEventRepository>();
 
-        if (enableBackgroundWorkers)
+        if (enableMatrixSyncWorker)
         {
             services.AddHostedService<MatrixSyncBackgroundService>();
         }
 
         var pipelineMessagingOptions = configuration.GetSection(PipelineMessagingOptions.SectionName).Get<PipelineMessagingOptions>() ?? new PipelineMessagingOptions();
         var persistenceOptions = configuration.GetSection(PersistenceOptions.SectionName).Get<PersistenceOptions>() ?? new PersistenceOptions();
-        var canUseRebusPipeline = enableBackgroundWorkers && pipelineMessagingOptions.Enabled;
+        var canUseRebusPipeline = pipelineMessagingOptions.Enabled && (enablePipelineScheduling || enablePipelineConsumers);
         if (canUseRebusPipeline)
         {
             var usePostgresTransport = string.Equals(persistenceOptions.Provider, "Postgres", StringComparison.OrdinalIgnoreCase);
@@ -254,40 +247,73 @@ public static class ServiceCollectionExtensions
             services.AddRebus(
                 (configurer, serviceProvider) =>
                 {
-                    if (usePostgresTransport)
+                    if (enablePipelineConsumers)
+                    {
+                        if (usePostgresTransport)
+                        {
+                            var connectionString = SuperChatDbContextConfiguration.ResolveConnectionString(configuration, persistenceOptions);
+                            configurer.Transport(transport => transport.UsePostgreSql(
+                                connectionString,
+                                pipelineMessagingOptions.TransportTableName,
+                                pipelineMessagingOptions.InputQueueName,
+                                expiredMessagesCleanupInterval: null,
+                                schemaName: null));
+                        }
+                        else
+                        {
+                            configurer.Transport(transport => transport.UseInMemoryTransport(
+                                serviceProvider.GetRequiredService<InMemNetwork>(),
+                                pipelineMessagingOptions.InputQueueName));
+                        }
+
+                        configurer.Options(options =>
+                        {
+                            options.SetNumberOfWorkers(Math.Max(1, pipelineMessagingOptions.Workers));
+                            options.SetMaxParallelism(Math.Max(1, pipelineMessagingOptions.MaxParallelism));
+                        });
+                    }
+                    else if (usePostgresTransport)
                     {
                         var connectionString = SuperChatDbContextConfiguration.ResolveConnectionString(configuration, persistenceOptions);
-                        configurer.Transport(transport => transport.UsePostgreSql(
+                        configurer.Transport(transport => transport.UsePostgreSqlAsOneWayClient(
                             connectionString,
-                            pipelineMessagingOptions.TransportTableName,
-                            pipelineMessagingOptions.InputQueueName,
-                            expiredMessagesCleanupInterval: null,
-                            schemaName: null));
+                            pipelineMessagingOptions.TransportTableName));
                     }
                     else
                     {
-                        configurer.Transport(transport => transport.UseInMemoryTransport(
-                            serviceProvider.GetRequiredService<InMemNetwork>(),
-                            pipelineMessagingOptions.InputQueueName));
+                        configurer.Transport(transport => transport.UseInMemoryTransportAsOneWayClient(
+                            serviceProvider.GetRequiredService<InMemNetwork>()));
                     }
-
-                    configurer.Options(options =>
-                    {
-                        options.SetNumberOfWorkers(Math.Max(1, pipelineMessagingOptions.Workers));
-                        options.SetMaxParallelism(Math.Max(1, pipelineMessagingOptions.MaxParallelism));
-                    });
 
                     return configurer;
                 },
                 isDefaultBus: true);
-            services.AutoRegisterHandlersFromAssemblyOf<ProcessConversationAfterSettleCommandHandler>();
-            if (usePostgresTransport)
+            if (enablePipelineConsumers)
             {
-                services.AddSingleton<IPipelineCommandScheduler, RebusPipelineCommandScheduler>();
+                services.AutoRegisterHandlersFromAssemblyOf<ProcessConversationAfterSettleCommandHandler>();
+            }
+
+            if (enablePipelineScheduling)
+            {
+                if (enablePipelineConsumers)
+                {
+                    if (usePostgresTransport)
+                    {
+                        services.AddSingleton<IPipelineCommandScheduler, RebusPipelineCommandScheduler>();
+                    }
+                    else
+                    {
+                        services.AddSingleton<IPipelineCommandScheduler, NonTransactionalRebusPipelineCommandScheduler>();
+                    }
+                }
+                else
+                {
+                    services.AddSingleton<IPipelineCommandScheduler, OneWayClientPipelineCommandScheduler>();
+                }
             }
             else
             {
-                services.AddSingleton<IPipelineCommandScheduler, NonTransactionalRebusPipelineCommandScheduler>();
+                services.AddSingleton<IPipelineCommandScheduler, NoOpPipelineCommandScheduler>();
             }
         }
         else

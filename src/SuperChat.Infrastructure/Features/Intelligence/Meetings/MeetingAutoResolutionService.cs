@@ -9,14 +9,6 @@ internal sealed class MeetingAutoResolutionService(
     IDbContextFactory<SuperChatDbContext> dbContextFactory,
     ILogger<MeetingAutoResolutionService> logger)
 {
-    public async Task ResolveAsync(
-        Guid userId,
-        DateTimeOffset fromInclusive,
-        CancellationToken cancellationToken)
-    {
-        await ResolveCoreAsync(userId, matrixRoomId: null, fromInclusive, dueBeforeInclusive: null, cancellationToken);
-    }
-
     public async Task ResolveConversationAsync(
         Guid userId,
         string matrixRoomId,

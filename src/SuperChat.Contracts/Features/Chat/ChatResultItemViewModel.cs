@@ -6,7 +6,7 @@ namespace SuperChat.Contracts.Features.Chat;
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "modelType")]
 [JsonDerivedType(typeof(GenericChatResultItemViewModel), "generic")]
 [JsonDerivedType(typeof(RequestChatResultItemViewModel), "request")]
-[JsonDerivedType(typeof(EventChatResultItemViewModel), "event")]
+[JsonDerivedType(typeof(MeetingChatResultItemViewModel), "meeting")]
 [JsonDerivedType(typeof(ActionItemChatResultItemViewModel), "actionItem")]
 public record ChatResultItemViewModel(
     Guid? Id,
@@ -140,12 +140,12 @@ public sealed record RequestChatResultItemViewModel(
         UpdatedAt,
         IsOverdue);
 
-public sealed record EventChatResultItemViewModel(
+public sealed record MeetingChatResultItemViewModel(
     string Title,
     string Summary,
     string SourceRoom,
     DateTimeOffset? Timestamp,
-    EventStatus EventStatus = EventStatus.PendingConfirmation,
+    MeetingStatus MeetingStatus = MeetingStatus.PendingConfirmation,
     WorkItemPriority PriorityValue = WorkItemPriority.Normal,
     WorkItemOwner? Owner = null,
     WorkItemOrigin OriginValue = WorkItemOrigin.DetectedFromChat,
@@ -163,8 +163,8 @@ public sealed record EventChatResultItemViewModel(
         Summary,
         SourceRoom,
         Timestamp,
-        WorkItemType.Event,
-        EventStatus.ToWorkItemStatus(),
+        WorkItemType.Meeting,
+        MeetingStatus.ToWorkItemStatus(),
         PriorityValue,
         Owner,
         OriginValue,

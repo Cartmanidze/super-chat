@@ -10,7 +10,6 @@ using SuperChat.Domain.Features.Integrations;
 using SuperChat.Domain.Features.Integrations.Telegram;
 using SuperChat.Infrastructure.Diagnostics;
 using SuperChat.Infrastructure.Features.Integrations.Matrix;
-using SuperChat.Infrastructure.Features.Messaging;
 using SuperChat.Infrastructure.Features.Operations.Sync;
 using SuperChat.Infrastructure.Shared.Persistence;
 using System.Diagnostics;

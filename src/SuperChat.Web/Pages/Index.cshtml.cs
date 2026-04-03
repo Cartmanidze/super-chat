@@ -23,7 +23,7 @@ public sealed class IndexModel(
     public string Email { get; set; } = string.Empty;
 
     [BindProperty]
-    public string TemplateId { get; set; } = ChatPromptTemplate.Today;
+    public string TemplateId { get; set; } = ChatPromptTemplate.Meetings;
 
     [BindProperty]
     public string Question { get; set; } = string.Empty;

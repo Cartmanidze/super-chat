@@ -8,7 +8,6 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Options;
 using SuperChat.Contracts.Features.Admin;
 using SuperChat.Contracts.Features.Auth;
-using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Web.Pages.Admin;
 using SuperChat.Web.Security;
 

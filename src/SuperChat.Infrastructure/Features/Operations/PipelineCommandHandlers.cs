@@ -9,8 +9,8 @@ using SuperChat.Contracts.Features.Messaging;
 using SuperChat.Contracts.Features.Operations;
 using SuperChat.Contracts.Features.WorkItems;
 using SuperChat.Domain.Features.Intelligence;
-using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Infrastructure.Diagnostics;
+using SuperChat.Infrastructure.Features.Intelligence.Meetings;
 using System.Diagnostics;
 
 namespace SuperChat.Infrastructure.Features.Operations;
@@ -355,7 +355,9 @@ internal sealed class IndexConversationChunksCommandHandler(
 
 internal sealed class ProjectConversationMeetingsCommandHandler(
     IMeetingProjectionService meetingProjectionService,
+    MeetingAutoResolutionService meetingAutoResolutionService,
     IOptions<MeetingProjectionOptions> meetingProjectionOptions,
+    TimeProvider timeProvider,
     ILogger<ProjectConversationMeetingsCommandHandler> logger) : IHandleMessages<ProjectConversationMeetingsCommand>
 {
     private const string CommandName = "project_conversation_meetings";
@@ -392,6 +394,18 @@ internal sealed class ProjectConversationMeetingsCommandHandler(
                 resultSummary.UsersProcessed,
                 resultSummary.RoomsRebuilt,
                 resultSummary.MeetingsProjected);
+
+            if (resultSummary.RoomsRebuilt > 0)
+            {
+                await meetingAutoResolutionService.ResolveConversationAsync(
+                    message.UserId,
+                    message.MatrixRoomId,
+                    timeProvider.GetUtcNow(),
+                    CancellationToken.None);
+                logger.LogInformation(
+                    "Completed post-projection meeting auto-resolution. RoomId={RoomId}.",
+                    message.MatrixRoomId);
+            }
         }
         catch (Exception exception)
         {

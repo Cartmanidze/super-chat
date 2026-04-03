@@ -8,6 +8,7 @@ using SuperChat.Domain.Features.Intelligence;
 using SuperChat.Domain.Features.Messaging;
 using SuperChat.Infrastructure.Features.Intelligence.Digest;
 using SuperChat.Infrastructure.Features.Search;
+using DomainMeetingStatus = SuperChat.Domain.Features.Intelligence.MeetingStatus;
 
 namespace SuperChat.Tests;
 
@@ -111,11 +112,10 @@ public sealed class RoomDisplayNamePresentationTests
         var userId = Guid.NewGuid();
         var now = new DateTimeOffset(2026, 03, 12, 12, 00, 00, TimeSpan.Zero);
         var service = new DigestService(
-            new StubWorkItemService([
-                new WorkItemRecord(
+            new StubMeetingService([
+                new MeetingRecord(
                     Guid.NewGuid(),
                     userId,
-                    ExtractedItemKind.Task,
                     "Action needed",
                     "Please send the proposal tomorrow.",
                     "!team:matrix.localhost",
@@ -123,9 +123,11 @@ public sealed class RoomDisplayNamePresentationTests
                     null,
                     now,
                     now.AddHours(2),
-                    new Confidence(0.95))
+                    new Confidence(0.95),
+                    null,
+                    null,
+                    null)
             ]),
-            new StubMeetingService([]),
             new StubRoomDisplayNameService(new Dictionary<string, string>
             {
                 ["!team:matrix.localhost"] = "Sales Ops"
@@ -137,10 +139,44 @@ public sealed class RoomDisplayNamePresentationTests
             },
             NullLogger<DigestService>.Instance);
 
-        var cards = await service.GetTodayAsync(userId, CancellationToken.None);
+        var cards = await service.GetMeetingsAsync(userId, CancellationToken.None);
 
         Assert.Single(cards);
         Assert.Equal("Sales Ops", cards[0].SourceRoom);
+    }
+
+    [Fact]
+    public async Task DigestService_UsesPersistedMeetingStatus()
+    {
+        var userId = Guid.NewGuid();
+        var now = new DateTimeOffset(2026, 03, 12, 12, 00, 00, TimeSpan.Zero);
+        var service = new DigestService(
+            new StubMeetingService([
+                new MeetingRecord(
+                    Guid.NewGuid(),
+                    userId,
+                    "Status should come from entity",
+                    "Neutral summary without confirmation keywords",
+                    "!team:matrix.localhost",
+                    "$evt-status",
+                    null,
+                    now,
+                    now.AddHours(2),
+                    new Confidence(0.9),
+                    Status: DomainMeetingStatus.Confirmed)
+            ]),
+            new StubRoomDisplayNameService(new Dictionary<string, string>()),
+            new FixedTimeProvider(now),
+            new PilotOptions
+            {
+                TodayTimeZoneId = "Europe/Moscow"
+            },
+            NullLogger<DigestService>.Instance);
+
+        var cards = await service.GetMeetingsAsync(userId, CancellationToken.None);
+
+        var card = Assert.Single(cards);
+        Assert.Equal(WorkItemStatus.Confirmed, card.Status);
     }
 
     private sealed class StubMeetingService(IReadOnlyList<MeetingRecord> items) : IMeetingService

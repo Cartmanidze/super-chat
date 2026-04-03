@@ -5,8 +5,7 @@ using SuperChat.Infrastructure.Shared.Persistence;
 namespace SuperChat.Infrastructure.Features.Intelligence.Meetings;
 
 internal sealed class MeetingUpcomingQueryService(
-    IDbContextFactory<SuperChatDbContext> dbContextFactory,
-    MeetingAutoResolutionService autoResolutionService)
+    IDbContextFactory<SuperChatDbContext> dbContextFactory)
 {
     public async Task<IReadOnlyList<MeetingRecord>> GetUpcomingAsync(
         Guid userId,
@@ -16,8 +15,6 @@ internal sealed class MeetingUpcomingQueryService(
     {
         var boundedTake = Math.Clamp(take, 1, 50);
         var utcFromInclusive = MeetingTimeSupport.NormalizeToUtc(fromInclusive);
-
-        await autoResolutionService.ResolveAsync(userId, utcFromInclusive, cancellationToken);
 
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         var entities = await dbContext.Meetings

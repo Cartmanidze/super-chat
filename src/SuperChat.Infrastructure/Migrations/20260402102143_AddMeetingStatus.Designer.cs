@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SuperChat.Infrastructure.Shared.Persistence;
@@ -11,9 +12,11 @@ using SuperChat.Infrastructure.Shared.Persistence;
 namespace SuperChat.Infrastructure.Migrations
 {
     [DbContext(typeof(SuperChatDbContext))]
-    partial class SuperChatDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260402102143_AddMeetingStatus")]
+    partial class AddMeetingStatus
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

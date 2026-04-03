@@ -2,14 +2,12 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Rebus.Bus;
 using Rebus.Bus.Advanced;
-using Rebus.Messages;
 using SuperChat.Contracts.Features.Intelligence.Extraction;
 using SuperChat.Contracts.Features.Messaging;
 using SuperChat.Contracts.Features.Operations;
 using SuperChat.Contracts.Features.WorkItems;
 using SuperChat.Domain.Features.Intelligence;
 using SuperChat.Domain.Features.Messaging;
-using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Infrastructure.Features.Operations;
 
 namespace SuperChat.Tests;

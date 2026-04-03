@@ -105,7 +105,8 @@ internal static class PersistenceMappings
             ToResolutionTrace(entity.ResolutionConfidence, entity.ResolutionModel, entity.ResolutionEvidenceJson),
             entity.ResolvedAt,
             entity.MeetingProvider,
-            TryParseAbsoluteUri(entity.MeetingJoinUrl));
+            TryParseAbsoluteUri(entity.MeetingJoinUrl),
+            entity.Status);
     }
 
     private static Uri? TryParseAbsoluteUri(string? value)

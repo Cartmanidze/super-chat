@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
 using SuperChat.Api.Validation;
-using SuperChat.Api.Security;
 using SuperChat.Domain.Features.Auth;
 using SuperChat.Contracts.Features.Auth;
 

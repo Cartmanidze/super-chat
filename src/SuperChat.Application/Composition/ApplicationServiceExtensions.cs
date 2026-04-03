@@ -11,9 +11,7 @@ public static class ApplicationServiceExtensions
     public static IServiceCollection AddSuperChatApplication(this IServiceCollection services)
     {
         services.AddSingleton<IFeedbackService, FeedbackAppService>();
-        services.AddSingleton<IRequestWorkItemCommandService, RequestWorkItemCommandAppService>();
-        services.AddSingleton<IEventWorkItemCommandService, EventWorkItemCommandAppService>();
-        services.AddSingleton<IActionItemWorkItemCommandService, ActionItemWorkItemCommandAppService>();
+        services.AddSingleton<IMeetingWorkItemCommandService, MeetingWorkItemCommandAppService>();
         return services;
     }
 }

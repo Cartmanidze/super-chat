@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <ItemGroup>
+    <ProjectReference Include="..\SuperChat.Domain\SuperChat.Domain.csproj" />
+    <ProjectReference Include="..\SuperChat.Infrastructure\SuperChat.Infrastructure.csproj" />
+    <ProjectReference Include="..\SuperChat.Contracts\SuperChat.Contracts.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>

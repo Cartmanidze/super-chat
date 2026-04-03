@@ -40,7 +40,8 @@ internal static class MeetingRecordMappings
             signal.ScheduledFor,
             signal.Confidence,
             MeetingProvider: joinLink?.Provider.ToString(),
-            MeetingJoinUrl: joinLink?.Url);
+            MeetingJoinUrl: joinLink?.Url,
+            Status: WorkItemPresentationMetadata.ResolveMeetingStatus(signal.Summary));
     }
 
     public static string ToChunkSourceEventId(this MessageChunkEntity chunk)

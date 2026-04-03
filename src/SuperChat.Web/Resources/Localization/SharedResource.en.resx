@@ -624,4 +624,139 @@
   <data name="Landing.InviteOnly" xml:space="preserve">
     <value>The product sits on top of Telegram and does not replace it. The goal is clarity, trust, and explainable context.</value>
   </data>
+  <data name="Today.Meetings.Title" xml:space="preserve">
+    <value>Upcoming meetings</value>
+  </data>
+  <data name="Today.Meetings.Intro" xml:space="preserve">
+    <value>This page keeps only the nearest upcoming meetings from your work chats.</value>
+  </data>
+  <data name="Today.Meetings.Metric.Label" xml:space="preserve">
+    <value>Starting soon</value>
+  </data>
+  <data name="Today.Meetings.Metric.Copy" xml:space="preserve">
+    <value>future meetings in the feed</value>
+  </data>
+  <data name="Today.Connection.Warning" xml:space="preserve">
+    <value>Telegram is not connected</value>
+  </data>
+  <data name="Today.Connection.Title" xml:space="preserve">
+    <value>Connect Telegram first</value>
+  </data>
+  <data name="Today.Connection.Copy" xml:space="preserve">
+    <value>After connection, SuperChat will start showing meetings and agreements from your work chats.</value>
+  </data>
+  <data name="Today.Connection.SearchAction" xml:space="preserve">
+    <value>Open search</value>
+  </data>
+  <data name="Today.Actions.Open" xml:space="preserve">
+    <value>Open</value>
+  </data>
+  <data name="Today.Actions.Complete" xml:space="preserve">
+    <value>Done</value>
+  </data>
+  <data name="Today.Actions.Dismiss" xml:space="preserve">
+    <value>Dismiss</value>
+  </data>
+  <data name="Landing.Point.Meetings.Title" xml:space="preserve">
+    <value>Upcoming meetings</value>
+  </data>
+  <data name="Landing.Point.Meetings.Copy" xml:space="preserve">
+    <value>See only what is getting close and should not get lost.</value>
+  </data>
+  <data name="Landing.Point.AutoRefresh.Title" xml:space="preserve">
+    <value>Auto refresh</value>
+  </data>
+  <data name="Landing.Point.AutoRefresh.Copy" xml:space="preserve">
+    <value>The meeting feed is assembled from work chats without maintaining a calendar by hand.</value>
+  </data>
+  <data name="Landing.Point.Context.Title" xml:space="preserve">
+    <value>Clear context</value>
+  </data>
+  <data name="Landing.Point.Context.Copy" xml:space="preserve">
+    <value>Each meeting keeps a link back to the source chat and wording.</value>
+  </data>
+  <data name="Landing.Point.Focus.Title" xml:space="preserve">
+    <value>No noisy lists</value>
+  </data>
+  <data name="Landing.Point.Focus.Copy" xml:space="preserve">
+    <value>Focus stays on the near future, without old work buckets.</value>
+  </data>
+  <data name="Search.Chat.Title" xml:space="preserve">
+    <value>Search your work memory</value>
+  </data>
+  <data name="Search.Chat.Intro" xml:space="preserve">
+    <value>Check the nearest meetings and see which chat captured the agreement.</value>
+  </data>
+  <data name="Search.Chat.MeetingsAction" xml:space="preserve">
+    <value>Open meetings</value>
+  </data>
+  <data name="Search.Chat.SearchAction" xml:space="preserve">
+    <value>Open full search</value>
+  </data>
+  <data name="Search.Connection.Warning" xml:space="preserve">
+    <value>Telegram is not connected yet</value>
+  </data>
+  <data name="Search.Connection.Title" xml:space="preserve">
+    <value>Connect Telegram inside the product</value>
+  </data>
+  <data name="Search.Connection.Copy" xml:space="preserve">
+    <value>After connection, SuperChat will start surfacing meetings and agreements straight from work chats.</value>
+  </data>
+  <data name="Search.Connection.SettingsAction" xml:space="preserve">
+    <value>Open settings</value>
+  </data>
+  <data name="Search.Query.Kicker" xml:space="preserve">
+    <value>Meeting template</value>
+  </data>
+  <data name="Search.Query.Title" xml:space="preserve">
+    <value>Upcoming scheduled events</value>
+  </data>
+  <data name="Search.Query.Status" xml:space="preserve">
+    <value>Telegram connected</value>
+  </data>
+  <data name="Chat.Ui.AnswerKicker" xml:space="preserve">
+    <value>Short answer</value>
+  </data>
+  <data name="Chat.Ui.AnswerTitle" xml:space="preserve">
+    <value>The answer appears here</value>
+  </data>
+  <data name="Chat.Ui.AnswerPlaceholder" xml:space="preserve">
+    <value>Pick a template and send the request. The answer will appear here with supporting cards.</value>
+  </data>
+  <data name="Chat.Ui.AnswerFallback" xml:space="preserve">
+    <value>The signals below are the closest explainable context for the selected question.</value>
+  </data>
+  <data name="Chat.Ui.EvidenceKicker" xml:space="preserve">
+    <value>Evidence</value>
+  </data>
+  <data name="Chat.Ui.EvidenceTitle" xml:space="preserve">
+    <value>Context from Telegram</value>
+  </data>
+  <data name="Chat.Ui.EvidenceEmptyTitle" xml:space="preserve">
+    <value>No results yet</value>
+  </data>
+  <data name="Chat.Ui.EvidenceEmpty" xml:space="preserve">
+    <value>After the answer, cards with the chat, message fragment, and time will appear here.</value>
+  </data>
+  <data name="Chat.Ui.ContextKicker" xml:space="preserve">
+    <value>Why this</value>
+  </data>
+  <data name="Chat.Ui.ContextTitle" xml:space="preserve">
+    <value>Open a card on the right</value>
+  </data>
+  <data name="Chat.Ui.ContextBody" xml:space="preserve">
+    <value>Every answer is tied to a specific chat, message fragment, and time.</value>
+  </data>
+  <data name="Chat.Ui.TimeLabel" xml:space="preserve">
+    <value>Time</value>
+  </data>
+  <data name="Chat.Ui.OpenLabel" xml:space="preserve">
+    <value>Open context</value>
+  </data>
+  <data name="Chat.Ui.SignalLabel" xml:space="preserve">
+    <value>Signal</value>
+  </data>
+  <data name="Chat.Ui.ErrorTitle" xml:space="preserve">
+    <value>Error</value>
+  </data>
 </root>
