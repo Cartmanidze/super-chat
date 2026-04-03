@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Localization;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
 using Prometheus;
-using SuperChat.Contracts.Features.Auth;
 using SuperChat.Infrastructure.Composition;
 using SuperChat.Web.Localization;
 using SuperChat.Web.Security;
@@ -56,7 +55,6 @@ builder.Services
         options.Conventions.AllowAnonymousToFolder("/Auth");
         options.Conventions.AuthorizePage("/Connect/Telegram");
         options.Conventions.AuthorizePage("/Today");
-        options.Conventions.AuthorizePage("/Waiting");
         options.Conventions.AuthorizeFolder("/Search");
         options.Conventions.AuthorizeFolder("/Feedback");
         options.Conventions.AuthorizeFolder("/Settings");
@@ -64,7 +62,11 @@ builder.Services
     })
     .AddViewLocalization();
 builder.Services.AddSingleton<IUiTextService, UiTextService>();
-builder.Services.AddSuperChatBootstrap(builder.Configuration);
+builder.Services.AddSuperChatBootstrap(
+    builder.Configuration,
+    enableMatrixSyncWorker: true,
+    enablePipelineScheduling: true,
+    enablePipelineConsumers: false);
 
 var app = builder.Build();
 var localizationOptions = app.Services.GetRequiredService<IOptions<RequestLocalizationOptions>>().Value;

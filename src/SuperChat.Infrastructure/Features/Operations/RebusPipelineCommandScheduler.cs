@@ -119,7 +119,8 @@ internal sealed class NonTransactionalRebusPipelineCommandScheduler(
     }
 }
 
-internal sealed class NoOpPipelineCommandScheduler : IPipelineCommandScheduler
+internal sealed class NoOpPipelineCommandScheduler(
+    ILogger<NoOpPipelineCommandScheduler> logger) : IPipelineCommandScheduler
 {
     public bool RequiresTransactionalDispatch => false;
 
@@ -133,6 +134,13 @@ internal sealed class NoOpPipelineCommandScheduler : IPipelineCommandScheduler
         DateTimeOffset sentAt,
         CancellationToken cancellationToken)
     {
+        logger.LogWarning(
+            "Skipping pipeline dispatch because scheduling is disabled. UserId={UserId}, MatrixRoomId={MatrixRoomId}, MatrixEventId={MatrixEventId}, Source={Source}.",
+            userId,
+            matrixRoomId,
+            matrixEventId,
+            source);
+        SuperChatMetrics.PipelineDispatchSkippedTotal.WithLabels("no_op", "scheduling_disabled").Inc();
         return Task.CompletedTask;
     }
 }

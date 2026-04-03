@@ -3,7 +3,6 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SuperChat.Contracts.Features.Intelligence.Extraction;
-using SuperChat.Infrastructure.Abstractions;
 
 namespace SuperChat.Infrastructure.Features.Intelligence.Extraction;
 

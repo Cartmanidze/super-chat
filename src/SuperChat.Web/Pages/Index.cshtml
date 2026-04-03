@@ -10,13 +10,17 @@
   {
     genericError = T["Chat.Error.Generic"].Value,
     thinking = T["Chat.Thinking"].Value,
-    answerPlaceholder = "Выберите рабочий шаблон и отправьте запрос. Ответ появится здесь вместе с объяснимыми опорными карточками.",
-    evidenceEmpty = "После ответа здесь появятся сигналы, связанные с конкретными чатами и сообщениями.",
-    contextTitle = "Откройте карточку справа",
-    contextBody = "Каждый AI-вывод в SuperChat должен быть привязан к конкретному чату, фрагменту переписки и времени.",
+    answerPlaceholder = T["Chat.Ui.AnswerPlaceholder"].Value,
+    answerFallback = T["Chat.Ui.AnswerFallback"].Value,
+    errorTitle = T["Chat.Ui.ErrorTitle"].Value,
+    evidenceEmptyTitle = T["Chat.Ui.EvidenceEmptyTitle"].Value,
+    evidenceEmpty = T["Chat.Ui.EvidenceEmpty"].Value,
+    contextTitle = T["Chat.Ui.ContextTitle"].Value,
+    contextBody = T["Chat.Ui.ContextBody"].Value,
     sourceLabel = T["Chat.Answer.Source"].Value,
-    openLabel = "Открыть контекст",
-    feedbackLabel = "Не полезно"
+    signalLabel = T["Chat.Ui.SignalLabel"].Value,
+    openLabel = T["Chat.Ui.OpenLabel"].Value,
+    feedbackLabel = T["Feedback.Useful.No"].Value
   });
 }
 
@@ -30,20 +34,20 @@
 
       <div class="landing-points">
         <article class="landing-point">
-          <strong>@T["Landing.Point.Today.Title"]</strong>
-          <span>@T["Landing.Point.Today.Copy"]</span>
+          <strong>@T["Landing.Point.Meetings.Title"]</strong>
+          <span>@T["Landing.Point.Meetings.Copy"]</span>
         </article>
         <article class="landing-point">
-          <strong>@T["Landing.Point.Waiting.Title"]</strong>
-          <span>@T["Landing.Point.Waiting.Copy"]</span>
+          <strong>@T["Landing.Point.AutoRefresh.Title"]</strong>
+          <span>@T["Landing.Point.AutoRefresh.Copy"]</span>
         </article>
         <article class="landing-point">
-          <strong>@T["Landing.Point.Commitment.Title"]</strong>
-          <span>@T["Landing.Point.Commitment.Copy"]</span>
+          <strong>@T["Landing.Point.Context.Title"]</strong>
+          <span>@T["Landing.Point.Context.Copy"]</span>
         </article>
         <article class="landing-point">
-          <strong>@T["Landing.Point.Search.Title"]</strong>
-          <span>@T["Landing.Point.Search.Copy"]</span>
+          <strong>@T["Landing.Point.Focus.Title"]</strong>
+          <span>@T["Landing.Point.Focus.Copy"]</span>
         </article>
       </div>
     </div>
@@ -88,16 +92,13 @@ else
     <div class="page-hero search-hero">
       <div class="page-hero-copy">
         <p class="section-kicker">@T["Search.Eyebrow"]</p>
-        <h1>Поиск по рабочей памяти</h1>
-        <p class="page-intro">
-          Это не чат-игрушка и не новый мессенджер. Здесь вы быстро достаёте рабочий смысл из Telegram:
-          важное на сегодня, ожидания ответа, встречи и конкретные места обсуждений.
-        </p>
+        <h1>@T["Search.Chat.Title"]</h1>
+        <p class="page-intro">@T["Search.Chat.Intro"]</p>
       </div>
 
       <div class="hero-action-stack">
-        <a class="app-button app-button-secondary" asp-page="/Today">Открыть Today</a>
-        <a class="app-button app-button-ghost" asp-page="/Search/Index">Где это обсуждали?</a>
+        <a class="app-button app-button-secondary" asp-page="/Today">@T["Search.Chat.MeetingsAction"]</a>
+        <a class="app-button app-button-ghost" asp-page="/Search/Index">@T["Search.Chat.SearchAction"]</a>
       </div>
     </div>
 
@@ -105,15 +106,12 @@ else
     {
       <section class="empty-shell">
         <div class="empty-card">
-          <span class="status-badge status-warning">Telegram ещё не подключён</span>
-          <h2>Подключите Telegram изнутри продукта</h2>
-          <p>
-            После подключения SuperChat начнёт поднимать обещания, follow-up'ы, встречи и важные сигналы
-            прямо из рабочих переписок.
-          </p>
+          <span class="status-badge status-warning">@T["Search.Connection.Warning"]</span>
+          <h2>@T["Search.Connection.Title"]</h2>
+          <p>@T["Search.Connection.Copy"]</p>
           <div class="inline-actions">
             <a class="app-button app-button-primary" asp-page="/Connect/Telegram">@T["Chat.ConnectTelegram"]</a>
-            <a class="app-button app-button-secondary" asp-page="/Settings/Connections">Открыть настройки</a>
+            <a class="app-button app-button-secondary" asp-page="/Settings/Connections">@T["Search.Connection.SettingsAction"]</a>
           </div>
         </div>
       </section>
@@ -125,10 +123,10 @@ else
           <div class="premium-card query-studio">
             <div class="query-header">
               <div>
-                <p class="section-kicker">Рабочие шаблоны</p>
-                <h2>Быстрые рабочие вопросы</h2>
+                <p class="section-kicker">@T["Search.Query.Kicker"]</p>
+                <h2>@T["Search.Query.Title"]</h2>
               </div>
-              <span class="status-badge status-success">Telegram подключён</span>
+              <span class="status-badge status-success">@T["Search.Query.Status"]</span>
             </div>
 
             <div class="chip-grid" role="radiogroup" aria-label="@T["Chat.Templates.Label"]">
@@ -173,48 +171,46 @@ else
           <div class="answer-layout">
             <section class="answer-column">
               <article id="answer-summary" class="premium-card answer-card is-empty">
-                <p class="section-kicker">Synthesized answer</p>
-                <h2>Ответ появится здесь</h2>
-                <p id="answer-copy">@Html.Raw("Выберите рабочий шаблон и отправьте запрос. Ответ появится здесь вместе с объяснимыми опорными карточками.")</p>
+                <p class="section-kicker">@T["Chat.Ui.AnswerKicker"]</p>
+                <h2>@T["Chat.Ui.AnswerTitle"]</h2>
+                <p id="answer-copy">@T["Chat.Ui.AnswerPlaceholder"]</p>
               </article>
 
               <section class="premium-card evidence-section">
                 <div class="section-headline">
                   <div>
-                    <p class="section-kicker">Evidence</p>
-                    <h2>Контекст из Telegram</h2>
+                    <p class="section-kicker">@T["Chat.Ui.EvidenceKicker"]</p>
+                    <h2>@T["Chat.Ui.EvidenceTitle"]</h2>
                   </div>
-                  <a class="inline-link" asp-page="/Search/Index">Открыть полный поиск</a>
+                  <a class="inline-link" asp-page="/Search/Index">@T["Search.Chat.SearchAction"]</a>
                 </div>
 
                 <div id="evidence-list" class="evidence-list">
                   <article class="evidence-card evidence-card-placeholder">
-                    <strong>Пока без результатов</strong>
-                    <p>После ответа здесь появятся карточки с чатом, фрагментом переписки и временем.</p>
+                    <strong>@T["Chat.Ui.EvidenceEmptyTitle"]</strong>
+                    <p>@T["Chat.Ui.EvidenceEmpty"]</p>
                   </article>
                 </div>
               </section>
             </section>
 
             <aside id="context-panel" class="premium-card context-panel">
-              <p class="section-kicker">Explainability</p>
-              <h2 id="context-title">Откройте карточку справа</h2>
-              <p id="context-copy">
-                Каждый AI-вывод в SuperChat должен быть привязан к конкретному чату, фрагменту переписки и времени.
-              </p>
+              <p class="section-kicker">@T["Chat.Ui.ContextKicker"]</p>
+              <h2 id="context-title">@T["Chat.Ui.ContextTitle"]</h2>
+              <p id="context-copy">@T["Chat.Ui.ContextBody"]</p>
               <dl class="context-meta">
                 <div>
                   <dt>@T["Chat.Answer.Source"]</dt>
-                  <dd id="context-source">—</dd>
+                  <dd id="context-source">-</dd>
                 </div>
                 <div>
-                  <dt>Время</dt>
-                  <dd id="context-time">—</dd>
+                  <dt>@T["Chat.Ui.TimeLabel"]</dt>
+                  <dd id="context-time">-</dd>
                 </div>
               </dl>
               <div class="context-actions">
-                <a id="context-open" class="app-button app-button-secondary" asp-page="/Search/Index">Открыть контекст</a>
-                <a class="app-button app-button-ghost" asp-page="/Feedback/Index">Не полезно</a>
+                <a id="context-open" class="app-button app-button-secondary" asp-page="/Search/Index">@T["Chat.Ui.OpenLabel"]</a>
+                <a class="app-button app-button-ghost" asp-page="/Feedback/Index">@T["Feedback.Useful.No"]</a>
               </div>
             </aside>
           </div>
@@ -275,8 +271,8 @@ else
         function resetContextPanel() {
           contextTitle.textContent = strings.contextTitle;
           contextCopy.textContent = strings.contextBody;
-          contextSource.textContent = "—";
-          contextTime.textContent = "—";
+          contextSource.textContent = "-";
+          contextTime.textContent = "-";
           contextOpen.setAttribute("href", "/search");
         }
 
@@ -287,8 +283,8 @@ else
 
           contextTitle.textContent = card.dataset.title || "";
           contextCopy.textContent = card.dataset.summary || "";
-          contextSource.textContent = card.dataset.source || "—";
-          contextTime.textContent = card.dataset.time || "—";
+          contextSource.textContent = card.dataset.source || "-";
+          contextTime.textContent = card.dataset.time || "-";
           contextOpen.setAttribute("href", card.dataset.href || "/search");
         }
 
@@ -298,7 +294,7 @@ else
           if (!items || items.length === 0) {
             var emptyCard = document.createElement("article");
             emptyCard.className = "evidence-card evidence-card-placeholder";
-            emptyCard.innerHTML = "<strong>Пока без результатов</strong><p>" + strings.evidenceEmpty + "</p>";
+            emptyCard.innerHTML = "<strong>" + strings.evidenceEmptyTitle + "</strong><p>" + strings.evidenceEmpty + "</p>";
             evidenceList.appendChild(emptyCard);
             resetContextPanel();
             return;
@@ -311,22 +307,22 @@ else
 
             var timestampLabel = item.timestamp
               ? new Date(item.timestamp).toLocaleString(document.documentElement.lang || undefined)
-              : "—";
+              : "-";
 
             var searchSeed = encodeURIComponent(item.title || item.summary || item.sourceRoom || "");
             card.dataset.title = item.title || "";
             card.dataset.summary = item.summary || "";
-            card.dataset.source = item.sourceRoom || "—";
+            card.dataset.source = item.sourceRoom || "-";
             card.dataset.time = timestampLabel;
             card.dataset.href = "/search?query=" + searchSeed;
 
             card.innerHTML =
               "<div class=\"evidence-head\">" +
-                "<strong>" + (item.title || "Signal") + "</strong>" +
+                "<strong>" + (item.title || strings.signalLabel) + "</strong>" +
                 "<span>" + timestampLabel + "</span>" +
               "</div>" +
               (item.summary ? "<p>" + item.summary + "</p>" : "") +
-              "<small>" + strings.sourceLabel + ": " + (item.sourceRoom || "—") + "</small>";
+              "<small>" + strings.sourceLabel + ": " + (item.sourceRoom || "-") + "</small>";
 
             card.addEventListener("click", function () { selectEvidence(card); });
             card.addEventListener("keypress", function (event) {
@@ -358,7 +354,7 @@ else
           answerSummary.classList.remove("is-empty", "is-loading");
           answerCopy.textContent = payload.assistantText && payload.assistantText.trim().length > 0
             ? payload.assistantText
-            : "Сигналы ниже — это ближайший объяснимый контекст по выбранному рабочему вопросу.";
+            : strings.answerFallback;
 
           renderEvidence(payload.items || []);
         }
@@ -390,7 +386,7 @@ else
               var errorPayload = await response.json().catch(function () { return null; });
               answerSummary.classList.remove("is-loading");
               answerCopy.textContent = errorPayload && errorPayload.error ? errorPayload.error : strings.genericError;
-              evidenceList.innerHTML = "<article class=\"evidence-card evidence-card-placeholder\"><strong>Ошибка</strong><p>" + strings.genericError + "</p></article>";
+              evidenceList.innerHTML = "<article class=\"evidence-card evidence-card-placeholder\"><strong>" + strings.errorTitle + "</strong><p>" + strings.genericError + "</p></article>";
               resetContextPanel();
               updateSubmitState();
               return;
@@ -401,7 +397,7 @@ else
           } catch (error) {
             answerSummary.classList.remove("is-loading");
             answerCopy.textContent = strings.genericError;
-            evidenceList.innerHTML = "<article class=\"evidence-card evidence-card-placeholder\"><strong>Ошибка</strong><p>" + strings.genericError + "</p></article>";
+            evidenceList.innerHTML = "<article class=\"evidence-card evidence-card-placeholder\"><strong>" + strings.errorTitle + "</strong><p>" + strings.genericError + "</p></article>";
             resetContextPanel();
           }
 

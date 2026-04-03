@@ -2,7 +2,6 @@ using SuperChat.Contracts.Features.Chat;
 using SuperChat.Contracts.Features.Search;
 using SuperChat.Contracts.Features.WorkItems;
 using SuperChat.Domain.Features.Messaging;
-using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Infrastructure.Shared.Presentation;
 
 namespace SuperChat.Infrastructure.Features.Chat;
@@ -17,12 +16,8 @@ internal static class ChatResultItemViewModelMappings
 
         return card switch
         {
-            RequestWorkItemCardViewModel requestCard => RequestChatResultItemViewModelMapper.Map(
-                projection with { Status = requestCard.RequestStatus.ToWorkItemStatus() }),
-            EventWorkItemCardViewModel eventCard => EventChatResultItemViewModelMapper.Map(
-                projection with { Status = eventCard.EventStatus.ToWorkItemStatus() }),
-            ActionItemWorkItemCardViewModel actionItemCard => ActionItemChatResultItemViewModelMapper.Map(
-                projection with { Status = actionItemCard.ActionItemStatus.ToWorkItemStatus() }),
+            MeetingWorkItemCardViewModel meetingCard => MeetingChatResultItemViewModelMapper.Map(
+                projection with { Status = meetingCard.MeetingStatus.ToWorkItemStatus() }),
             _ => MapProjection(projection)
         };
     }
@@ -62,8 +57,8 @@ internal static class ChatResultItemViewModelMappings
         {
             RequestChatResultItemViewModel requestItem => RequestChatResultItemViewModelMapper.Map(
                 projection with { Status = requestItem.RequestStatus.ToWorkItemStatus() }),
-            EventChatResultItemViewModel eventItem => EventChatResultItemViewModelMapper.Map(
-                projection with { Status = eventItem.EventStatus.ToWorkItemStatus() }),
+            MeetingChatResultItemViewModel meetingItem => MeetingChatResultItemViewModelMapper.Map(
+                projection with { Status = meetingItem.MeetingStatus.ToWorkItemStatus() }),
             ActionItemChatResultItemViewModel actionItemItem => ActionItemChatResultItemViewModelMapper.Map(
                 projection with { Status = actionItemItem.ActionItemStatus.ToWorkItemStatus() }),
             _ => GenericChatResultItemViewModelMapper.Map(projection)
@@ -76,7 +71,7 @@ internal static class ChatResultItemViewModelMappings
         return type switch
         {
             WorkItemType.Request => RequestChatResultItemViewModelMapper.Map(NormalizeRequestProjection(projection)),
-            WorkItemType.Event => EventChatResultItemViewModelMapper.Map(NormalizeEventProjection(projection)),
+            WorkItemType.Meeting => MeetingChatResultItemViewModelMapper.Map(NormalizeMeetingProjection(projection)),
             WorkItemType.ActionItem => ActionItemChatResultItemViewModelMapper.Map(NormalizeActionItemProjection(projection)),
             _ => GenericChatResultItemViewModelMapper.Map(projection)
         };
@@ -95,12 +90,12 @@ internal static class ChatResultItemViewModelMappings
         };
     }
 
-    private static ChatResultItemProjection NormalizeEventProjection(ChatResultItemProjection projection)
+    private static ChatResultItemProjection NormalizeMeetingProjection(ChatResultItemProjection projection)
     {
         return projection with
         {
-            Type = WorkItemType.Event,
-            Status = ResolveEventStatus(projection).ToWorkItemStatus(),
+            Type = WorkItemType.Meeting,
+            Status = ResolveMeetingStatus(projection).ToWorkItemStatus(),
             Priority = projection.Priority ?? WorkItemPriority.Normal,
             Owner = projection.Owner ?? WorkItemPresentationMetadata.ResolveOwner(projection.Kind),
             Origin = projection.Origin ?? WorkItemPresentationMetadata.ResolveOrigin(projection.Kind) ?? WorkItemOrigin.DetectedFromChat,
@@ -127,10 +122,10 @@ internal static class ChatResultItemViewModelMappings
                ?? RequestStatus.AwaitingResponse;
     }
 
-    private static EventStatus ResolveEventStatus(ChatResultItemProjection projection)
+    private static MeetingStatus ResolveMeetingStatus(ChatResultItemProjection projection)
     {
-        return (projection.Status ?? WorkItemPresentationMetadata.ResolveStatus(projection.Kind, projection.Summary)).ToEventStatus()
-               ?? EventStatus.PendingConfirmation;
+        return (projection.Status ?? WorkItemPresentationMetadata.ResolveStatus(projection.Kind, projection.Summary)).ToMeetingStatus()
+               ?? MeetingStatus.PendingConfirmation;
     }
 
     private static ActionItemStatus ResolveActionItemStatus(ChatResultItemProjection projection)

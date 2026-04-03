@@ -8,8 +8,6 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using SuperChat.Infrastructure.Shared.Persistence;
 
-using Xunit;
-
 namespace SuperChat.Web.Tests;
 
 [Collection("web-host")]

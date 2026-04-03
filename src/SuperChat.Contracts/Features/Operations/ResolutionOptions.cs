@@ -21,4 +21,8 @@ public sealed class ResolutionOptions
     public int DeferredConversationDelayMinutes { get; set; } = 15;
 
     public int MeetingGracePeriodMinutes { get; set; } = 30;
+
+    public bool EnableDueMeetingsSweep { get; set; } = true;
+
+    public int DueMeetingsSweepMinutes { get; set; } = 10;
 }

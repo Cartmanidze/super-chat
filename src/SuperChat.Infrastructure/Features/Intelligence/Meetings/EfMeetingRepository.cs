@@ -77,6 +77,7 @@ internal sealed class EfMeetingRepository(
                     ObservedAt = meeting.ObservedAt,
                     ScheduledFor = meeting.ScheduledFor,
                     Confidence = meeting.Confidence.Value,
+                    Status = meeting.Status,
                     MeetingProvider = meeting.MeetingProvider,
                     MeetingJoinUrl = meeting.MeetingJoinUrl?.AbsoluteUri,
                     CreatedAt = now,
@@ -93,6 +94,7 @@ internal sealed class EfMeetingRepository(
                 entity.ObservedAt = meeting.ObservedAt;
                 entity.ScheduledFor = meeting.ScheduledFor;
                 entity.Confidence = meeting.Confidence.Value;
+                entity.Status = meeting.Status;
                 entity.MeetingProvider = meeting.MeetingProvider;
                 entity.MeetingJoinUrl = meeting.MeetingJoinUrl?.AbsoluteUri;
                 entity.UpdatedAt = now;

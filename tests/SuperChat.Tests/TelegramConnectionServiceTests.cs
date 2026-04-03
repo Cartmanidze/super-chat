@@ -8,7 +8,6 @@ using SuperChat.Contracts.Features.Integrations.Telegram;
 using SuperChat.Domain.Features.Auth;
 using SuperChat.Domain.Features.Integrations.Matrix;
 using SuperChat.Domain.Features.Integrations.Telegram;
-using SuperChat.Infrastructure.Features.Integrations.Matrix;
 using SuperChat.Infrastructure.Features.Integrations.Telegram;
 using SuperChat.Infrastructure.Shared.Persistence;
 using MatrixApiClient = SuperChat.Infrastructure.Features.Integrations.Matrix.MatrixApiClient;
@@ -338,9 +337,13 @@ public sealed class TelegramConnectionServiceTests
         await service.SubmitLoginInputAsync(user, input, CancellationToken.None);
 
         // Code/password steps: membership check + send input (no login re-issue)
-        var sendRequests = handler.RequestBodies.Where(b => b != null && b.Contains("\"body\"")).ToList();
-        Assert.Contains($"\"body\":\"{input}\"", sendRequests[^1], StringComparison.Ordinal);
-        Assert.DoesNotContain(sendRequests[^1], "\"body\":\"login\"");
+        var sendRequests = handler.RequestBodies
+            .OfType<string>()
+            .Where(static body => body.Contains("\"body\"", StringComparison.Ordinal))
+            .ToList();
+        var lastSendRequest = sendRequests[^1];
+        Assert.Contains($"\"body\":\"{input}\"", lastSendRequest, StringComparison.Ordinal);
+        Assert.DoesNotContain(lastSendRequest, "\"body\":\"login\"");
     }
 
     [Theory]

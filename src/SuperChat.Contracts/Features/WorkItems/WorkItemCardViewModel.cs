@@ -3,14 +3,11 @@ using System.Text.Json.Serialization;
 namespace SuperChat.Contracts.Features.WorkItems;
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "modelType")]
-[JsonDerivedType(typeof(RequestWorkItemCardViewModel), "request")]
-[JsonDerivedType(typeof(EventWorkItemCardViewModel), "event")]
-[JsonDerivedType(typeof(ActionItemWorkItemCardViewModel), "actionItem")]
+[JsonDerivedType(typeof(MeetingWorkItemCardViewModel), "meeting")]
 public record WorkItemCardViewModel(
     Guid? Id,
     string Title,
     string Summary,
-    string Kind,
     DateTimeOffset ObservedAt,
     DateTimeOffset? DueAt,
     string SourceRoom,
@@ -31,7 +28,6 @@ public record WorkItemCardViewModel(
     public WorkItemCardViewModel(
         string Title,
         string Summary,
-        string Kind,
         DateTimeOffset ObservedAt,
         DateTimeOffset? DueAt,
         string SourceRoom,
@@ -52,7 +48,6 @@ public record WorkItemCardViewModel(
             null,
             Title,
             Summary,
-            Kind,
             ObservedAt,
             DueAt,
             SourceRoom,
@@ -73,51 +68,13 @@ public record WorkItemCardViewModel(
     }
 }
 
-public sealed record RequestWorkItemCardViewModel(
+public sealed record MeetingWorkItemCardViewModel(
     string Title,
     string Summary,
-    string Kind,
     DateTimeOffset ObservedAt,
     DateTimeOffset? DueAt,
     string SourceRoom,
-    RequestStatus RequestStatus = RequestStatus.AwaitingResponse,
-    double Confidence = 0d,
-    WorkItemPriority Priority = WorkItemPriority.Normal,
-    WorkItemOwner? Owner = null,
-    WorkItemOrigin Origin = WorkItemOrigin.Request,
-    AiReviewState ReviewState = AiReviewState.NeedsReview,
-    DateTimeOffset? PlannedAt = null,
-    WorkItemSource Source = WorkItemSource.Telegram,
-    DateTimeOffset? UpdatedAt = null,
-    bool IsOverdue = false)
-    : WorkItemCardViewModel(
-        null,
-        Title,
-        Summary,
-        Kind,
-        ObservedAt,
-        DueAt,
-        SourceRoom,
-        Confidence,
-        WorkItemType.Request,
-        RequestStatus.ToWorkItemStatus(),
-        Priority,
-        Owner,
-        Origin,
-        ReviewState,
-        PlannedAt,
-        Source,
-        UpdatedAt,
-        IsOverdue);
-
-public sealed record EventWorkItemCardViewModel(
-    string Title,
-    string Summary,
-    string Kind,
-    DateTimeOffset ObservedAt,
-    DateTimeOffset? DueAt,
-    string SourceRoom,
-    EventStatus EventStatus = EventStatus.PendingConfirmation,
+    MeetingStatus MeetingStatus = MeetingStatus.PendingConfirmation,
     double Confidence = 0d,
     WorkItemPriority Priority = WorkItemPriority.Normal,
     WorkItemOwner? Owner = null,
@@ -133,13 +90,12 @@ public sealed record EventWorkItemCardViewModel(
         null,
         Title,
         Summary,
-        Kind,
         ObservedAt,
         DueAt,
         SourceRoom,
         Confidence,
-        WorkItemType.Event,
-        EventStatus.ToWorkItemStatus(),
+        WorkItemType.Meeting,
+        MeetingStatus.ToWorkItemStatus(),
         Priority,
         Owner,
         Origin,
@@ -150,40 +106,3 @@ public sealed record EventWorkItemCardViewModel(
         IsOverdue,
         MeetingProvider,
         MeetingJoinUrl);
-
-public sealed record ActionItemWorkItemCardViewModel(
-    string Title,
-    string Summary,
-    string Kind,
-    DateTimeOffset ObservedAt,
-    DateTimeOffset? DueAt,
-    string SourceRoom,
-    ActionItemStatus ActionItemStatus = ActionItemStatus.ToDo,
-    double Confidence = 0d,
-    WorkItemPriority Priority = WorkItemPriority.Normal,
-    WorkItemOwner? Owner = null,
-    WorkItemOrigin Origin = WorkItemOrigin.DetectedFromChat,
-    AiReviewState ReviewState = AiReviewState.NeedsReview,
-    DateTimeOffset? PlannedAt = null,
-    WorkItemSource Source = WorkItemSource.Telegram,
-    DateTimeOffset? UpdatedAt = null,
-    bool IsOverdue = false)
-    : WorkItemCardViewModel(
-        null,
-        Title,
-        Summary,
-        Kind,
-        ObservedAt,
-        DueAt,
-        SourceRoom,
-        Confidence,
-        WorkItemType.ActionItem,
-        ActionItemStatus.ToWorkItemStatus(),
-        Priority,
-        Owner,
-        Origin,
-        ReviewState,
-        PlannedAt,
-        Source,
-        UpdatedAt,
-        IsOverdue);

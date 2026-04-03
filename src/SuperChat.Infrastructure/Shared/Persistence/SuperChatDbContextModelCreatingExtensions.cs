@@ -11,6 +11,7 @@ internal static class SuperChatDbContextModelCreatingExtensions
     {
         var telegramStateConverter = new EnumToStringConverter<TelegramConnectionState>();
         var extractedItemKindConverter = new EnumToStringConverter<ExtractedItemKind>();
+        var meetingStatusConverter = new EnumToStringConverter<MeetingStatus>();
 
         builder.Entity<PilotInviteEntity>(b =>
         {
@@ -104,7 +105,9 @@ internal static class SuperChatDbContextModelCreatingExtensions
             b.ToTable(SuperChatConsts.DbTablePrefix + "meetings", SuperChatConsts.DbSchema);
             b.HasKey(item => item.Id);
             b.ConfigureByConvention();
+            b.Property(item => item.Status).HasConversion(meetingStatusConverter);
             b.HasIndex(item => new { item.UserId, item.ScheduledFor });
+            b.HasIndex(item => new { item.UserId, item.Status, item.ScheduledFor });
             b.HasIndex(item => new { item.UserId, item.SourceEventId }).IsUnique();
         });
 

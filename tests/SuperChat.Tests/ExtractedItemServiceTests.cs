@@ -1,12 +1,15 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SuperChat.Contracts.Features.Auth;
 using SuperChat.Contracts.Features.Intelligence.Meetings;
+using SuperChat.Contracts.Features.Operations;
 using SuperChat.Domain.Features.Intelligence;
 using SuperChat.Application.Features.WorkItems;
 using SuperChat.Infrastructure.Features.Intelligence.Meetings;
 using SuperChat.Infrastructure.Features.Intelligence.WorkItems;
+using SuperChat.Infrastructure.Features.Operations;
 using SuperChat.Infrastructure.Shared.Persistence;
 using SuperChat.Infrastructure.Shared.Presentation;
 
@@ -122,11 +125,13 @@ public sealed class ExtractedItemServiceTests
         Assert.Equal("$evt-meeting", projectedMeeting.SourceEventId);
         Assert.Equal(dueAt.ToUniversalTime(), projectedMeeting.ScheduledFor);
         Assert.Equal(TimeSpan.Zero, projectedMeeting.ScheduledFor.Offset);
+        Assert.Equal(MeetingStatus.PendingConfirmation, projectedMeeting.Status);
         Assert.Equal("Мб заехать за тобой в 11?", projectedMeeting.Summary);
 
         var meetings = await CreateMeetingService(factory).GetUpcomingAsync(userId, dueAt.AddHours(-2), 10, CancellationToken.None);
         Assert.Single(meetings);
         Assert.Equal(dueAt.ToUniversalTime(), meetings[0].ScheduledFor);
+        Assert.Equal(MeetingStatus.PendingConfirmation, meetings[0].Status);
     }
 
     [Fact]
@@ -160,11 +165,13 @@ public sealed class ExtractedItemServiceTests
 
         Assert.Equal("GoogleMeet", projectedMeeting.MeetingProvider);
         Assert.Equal(joinUrl.ToString(), projectedMeeting.MeetingJoinUrl);
+        Assert.Equal(MeetingStatus.PendingConfirmation, projectedMeeting.Status);
 
         var meetings = await CreateMeetingService(factory).GetUpcomingAsync(userId, dueAt.AddHours(-2), 10, CancellationToken.None);
         var meeting = Assert.Single(meetings);
         Assert.Equal("GoogleMeet", meeting.MeetingProvider);
         Assert.Equal(joinUrl, meeting.MeetingJoinUrl);
+        Assert.Equal(MeetingStatus.PendingConfirmation, meeting.Status);
     }
 
     [Fact]
@@ -273,7 +280,7 @@ public sealed class ExtractedItemServiceTests
     }
 
     [Fact]
-    public async Task GetUpcomingAsync_AutoResolvesMeetingWhenLaterMessageConfirmsItFinished()
+    public async Task GetUpcomingAsync_DoesNotMutateMeetingStateOnRead()
     {
         var factory = await CreateFactoryAsync(CancellationToken.None);
         var userId = Guid.NewGuid();
@@ -320,17 +327,96 @@ public sealed class ExtractedItemServiceTests
             10,
             CancellationToken.None);
 
-        Assert.Empty(meetings);
+        var meeting = Assert.Single(meetings);
+        Assert.Equal(meetingId, meeting.Id);
 
         await using var verificationContext = await factory.CreateDbContextAsync(CancellationToken.None);
         var entity = await verificationContext.Meetings.SingleAsync(item => item.Id == meetingId, CancellationToken.None);
+        Assert.Null(entity.ResolvedAt);
+        Assert.Null(entity.ResolutionKind);
+        Assert.Null(entity.ResolutionSource);
+    }
+
+    [Fact]
+    public async Task ProjectConversationMeetingsCommandHandler_AutoResolvesProjectedMeetingsAfterProjection()
+    {
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        var userId = Guid.NewGuid();
+        var roomId = "!team:matrix.localhost";
+        var chunkObservedAt = new DateTimeOffset(2026, 03, 16, 10, 15, 00, TimeSpan.Zero);
+        var handlerNow = new DateTimeOffset(2026, 03, 16, 12, 30, 00, TimeSpan.Zero);
+
+        await using (var dbContext = await factory.CreateDbContextAsync(CancellationToken.None))
+        {
+            dbContext.MessageChunks.Add(new MessageChunkEntity
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                Source = "telegram",
+                Provider = "telegram",
+                Transport = "matrix_bridge",
+                ChatId = roomId,
+                Kind = "dialog_chunk",
+                Text = """
+                    Alex: let's confirm
+                    You: итого, встреча сегодня в 12:00, подтверждаю
+                    Alex: ok
+                    """,
+                MessageCount = 3,
+                TsFrom = chunkObservedAt.AddMinutes(-15),
+                TsTo = chunkObservedAt,
+                ContentHash = "chunk-hash-meeting-auto-resolve",
+                ChunkVersion = 1,
+                CreatedAt = chunkObservedAt,
+                UpdatedAt = chunkObservedAt
+            });
+
+            dbContext.NormalizedMessages.Add(new NormalizedMessageEntity
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                Source = "telegram",
+                MatrixRoomId = roomId,
+                MatrixEventId = "$evt-after-call",
+                SenderName = "Alex",
+                Text = "Thanks for the call, I will follow up with notes.",
+                SentAt = handlerNow.AddMinutes(-5),
+                IngestedAt = handlerNow.AddMinutes(-5),
+                Processed = true
+            });
+
+            await dbContext.SaveChangesAsync(CancellationToken.None);
+        }
+
+        var handler = new ProjectConversationMeetingsCommandHandler(
+            new MeetingProjectionService(
+                factory,
+                Options.Create(new MeetingProjectionOptions
+                {
+                    Enabled = true
+                }),
+                CreatePilotOptions(),
+                new FixedTimeProvider(handlerNow)),
+            new MeetingAutoResolutionService(factory, NullLogger<MeetingAutoResolutionService>.Instance),
+            Options.Create(new MeetingProjectionOptions
+            {
+                Enabled = true
+            }),
+            new FixedTimeProvider(handlerNow),
+            new TestHostApplicationLifetime(),
+            NullLogger<ProjectConversationMeetingsCommandHandler>.Instance);
+
+        await handler.Handle(new ProjectConversationMeetingsCommand(userId, roomId));
+
+        await using var verificationContext = await factory.CreateDbContextAsync(CancellationToken.None);
+        var entity = await verificationContext.Meetings.SingleAsync(CancellationToken.None);
         Assert.NotNull(entity.ResolvedAt);
         Assert.Equal(WorkItemResolutionState.Completed, entity.ResolutionKind);
         Assert.Equal(WorkItemResolutionState.AutoMeetingCompletion, entity.ResolutionSource);
     }
 
     [Fact]
-    public async Task EventWorkItemCommandService_DismissAsync_ResolvesMeetingById()
+    public async Task MeetingWorkItemCommandService_DismissAsync_ResolvesMeetingById()
     {
         var factory = await CreateFactoryAsync(CancellationToken.None);
         var userId = Guid.NewGuid();
@@ -358,7 +444,7 @@ public sealed class ExtractedItemServiceTests
             await dbContext.SaveChangesAsync(CancellationToken.None);
         }
 
-        var commandService = CreateEventCommandService(factory);
+        var commandService = CreateMeetingCommandService(factory);
         var result = await commandService.DismissAsync(
             userId,
             meetingId,
@@ -430,6 +516,7 @@ public sealed class ExtractedItemServiceTests
         Assert.Equal("итого, у нас будет встреча в 20:00 по мск времени сегодня, подтверждаю это", meeting.Summary);
         Assert.Equal(new DateTimeOffset(2026, 03, 13, 17, 00, 00, TimeSpan.Zero), meeting.ScheduledFor);
         Assert.StartsWith("chunk:", meeting.SourceEventId, StringComparison.Ordinal);
+        Assert.Equal(MeetingStatus.Confirmed, meeting.Status);
     }
 
     [Fact]
@@ -511,13 +598,13 @@ public sealed class ExtractedItemServiceTests
     {
         return new MeetingService(
             new MeetingUpsertService(factory),
-            new MeetingUpcomingQueryService(factory, new MeetingAutoResolutionService(factory, NullLogger<MeetingAutoResolutionService>.Instance)),
+            new MeetingUpcomingQueryService(factory),
             new MeetingManualResolutionService(factory));
     }
 
-    private static EventWorkItemCommandAppService CreateEventCommandService(IDbContextFactory<SuperChatDbContext> factory)
+    private static MeetingWorkItemCommandAppService CreateMeetingCommandService(IDbContextFactory<SuperChatDbContext> factory)
     {
-        return new EventWorkItemCommandAppService(
+        return new MeetingWorkItemCommandAppService(
             new EfMeetingRepository(factory),
             TimeProvider.System);
     }
@@ -540,6 +627,27 @@ public sealed class ExtractedItemServiceTests
         public Task<SuperChatDbContext> CreateDbContextAsync(CancellationToken cancellationToken = default)
         {
             return Task.FromResult(new SuperChatDbContext(options));
+        }
+    }
+
+    private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow()
+        {
+            return utcNow;
+        }
+    }
+
+    private sealed class TestHostApplicationLifetime : IHostApplicationLifetime
+    {
+        public CancellationToken ApplicationStarted => CancellationToken.None;
+
+        public CancellationToken ApplicationStopping => CancellationToken.None;
+
+        public CancellationToken ApplicationStopped => CancellationToken.None;
+
+        public void StopApplication()
+        {
         }
     }
 }

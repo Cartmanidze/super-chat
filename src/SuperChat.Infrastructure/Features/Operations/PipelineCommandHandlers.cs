@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Hosting;
 using Rebus.Bus;
 using Rebus.Handlers;
 using SuperChat.Contracts.Features.Intelligence.Extraction;
@@ -9,8 +10,8 @@ using SuperChat.Contracts.Features.Messaging;
 using SuperChat.Contracts.Features.Operations;
 using SuperChat.Contracts.Features.WorkItems;
 using SuperChat.Domain.Features.Intelligence;
-using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Infrastructure.Diagnostics;
+using SuperChat.Infrastructure.Features.Intelligence.Meetings;
 using System.Diagnostics;
 
 namespace SuperChat.Infrastructure.Features.Operations;
@@ -22,6 +23,7 @@ internal sealed class ProcessConversationAfterSettleCommandHandler(
     IBus bus,
     IOptions<ResolutionOptions> resolutionOptions,
     TimeProvider timeProvider,
+    IHostApplicationLifetime applicationLifetime,
     ILogger<ProcessConversationAfterSettleCommandHandler> logger) : IHandleMessages<ProcessConversationAfterSettleCommand>
 {
     private const string CommandName = "process_conversation_after_settle";
@@ -49,7 +51,7 @@ internal sealed class ProcessConversationAfterSettleCommandHandler(
                 message.UserId,
                 message.Source,
                 message.MatrixRoomId,
-                CancellationToken.None);
+                applicationLifetime.ApplicationStopping);
             if (pendingMessages.Count == 0)
             {
                 logger.LogInformation(
@@ -89,14 +91,14 @@ internal sealed class ProcessConversationAfterSettleCommandHandler(
                     window.TsFrom,
                     window.TsTo);
 
-                var items = await extractionService.ExtractAsync(window, CancellationToken.None);
+                var items = await extractionService.ExtractAsync(window, applicationLifetime.ApplicationStopping);
                 logger.LogInformation(
                     "Structured extraction completed for window. ExtractedItemCount={ExtractedItemCount}, ItemKinds={ItemKinds}.",
                     items.Count,
                     MessagePipelineTrace.SummarizeKinds(items));
 
-                await workItemService.IngestRangeAsync(items, CancellationToken.None);
-                var resolutionDispatch = await DispatchResolutionCommandsAsync(message, items, CancellationToken.None);
+                await workItemService.IngestRangeAsync(items, applicationLifetime.ApplicationStopping);
+                var resolutionDispatch = await DispatchResolutionCommandsAsync(message, items, applicationLifetime.ApplicationStopping);
                 logger.LogInformation(
                     "Scheduled downstream resolution commands. ImmediateConversationResolves={ImmediateConversationResolves}, DeferredConversationResolves={DeferredConversationResolves}, DueMeetingResolves={DueMeetingResolves}.",
                     resolutionDispatch.ImmediateConversationResolves,
@@ -106,7 +108,7 @@ internal sealed class ProcessConversationAfterSettleCommandHandler(
                 processedIds.AddRange(window.Messages.Select(item => item.Id));
             }
 
-            await normalizationService.MarkProcessedAsync(processedIds, CancellationToken.None);
+            await normalizationService.MarkProcessedAsync(processedIds, applicationLifetime.ApplicationStopping);
             logger.LogInformation(
                 "Marked normalized messages as processed. ProcessedCount={ProcessedCount}, ProcessedMessageIds={ProcessedMessageIds}.",
                 processedIds.Count,
@@ -115,7 +117,7 @@ internal sealed class ProcessConversationAfterSettleCommandHandler(
         catch (Exception exception)
         {
             result = "failed";
-            logger.LogWarning(exception, "Deferred extraction failed for room {RoomId}.", message.MatrixRoomId);
+            logger.LogError(exception, "Deferred extraction failed for room {RoomId}.", message.MatrixRoomId);
             throw;
         }
         finally
@@ -216,6 +218,7 @@ internal sealed class RebuildConversationChunksCommandHandler(
     IChunkBuilderService chunkBuilderService,
     IBus bus,
     IOptions<ChunkingOptions> chunkingOptions,
+    IHostApplicationLifetime applicationLifetime,
     ILogger<RebuildConversationChunksCommandHandler> logger) : IHandleMessages<RebuildConversationChunksCommand>
 {
     private const string CommandName = "rebuild_conversation_chunks";
@@ -251,7 +254,7 @@ internal sealed class RebuildConversationChunksCommandHandler(
                 message.UserId,
                 message.MatrixRoomId,
                 message.RebuildFrom,
-                CancellationToken.None);
+                applicationLifetime.ApplicationStopping);
             logger.LogInformation(
                 "Chunk rebuild completed. UsersProcessed={UsersProcessed}, RoomsRebuilt={RoomsRebuilt}, ChunksWritten={ChunksWritten}, MessagesConsidered={MessagesConsidered}.",
                 buildResult.UsersProcessed,
@@ -277,7 +280,7 @@ internal sealed class RebuildConversationChunksCommandHandler(
         catch (Exception exception)
         {
             result = "failed";
-            logger.LogWarning(exception, "Chunk rebuild failed for room {RoomId}.", message.MatrixRoomId);
+            logger.LogError(exception, "Chunk rebuild failed for room {RoomId}.", message.MatrixRoomId);
             throw;
         }
         finally
@@ -297,6 +300,7 @@ internal sealed class RebuildConversationChunksCommandHandler(
 internal sealed class IndexConversationChunksCommandHandler(
     IChunkIndexingService chunkIndexingService,
     IOptions<ChunkIndexingOptions> chunkIndexingOptions,
+    IHostApplicationLifetime applicationLifetime,
     ILogger<IndexConversationChunksCommandHandler> logger) : IHandleMessages<IndexConversationChunksCommand>
 {
     private const string CommandName = "index_conversation_chunks";
@@ -327,7 +331,7 @@ internal sealed class IndexConversationChunksCommandHandler(
             var resultSummary = await chunkIndexingService.IndexConversationChunksAsync(
                 message.UserId,
                 message.MatrixRoomId,
-                CancellationToken.None);
+                applicationLifetime.ApplicationStopping);
             logger.LogInformation(
                 "Chunk indexing completed. ChunksSelected={ChunksSelected}, ChunksIndexed={ChunksIndexed}.",
                 resultSummary.ChunksSelected,
@@ -336,7 +340,7 @@ internal sealed class IndexConversationChunksCommandHandler(
         catch (Exception exception)
         {
             result = "failed";
-            logger.LogWarning(exception, "Chunk indexing failed for room {RoomId}.", message.MatrixRoomId);
+            logger.LogError(exception, "Chunk indexing failed for room {RoomId}.", message.MatrixRoomId);
             throw;
         }
         finally
@@ -355,7 +359,10 @@ internal sealed class IndexConversationChunksCommandHandler(
 
 internal sealed class ProjectConversationMeetingsCommandHandler(
     IMeetingProjectionService meetingProjectionService,
+    MeetingAutoResolutionService meetingAutoResolutionService,
     IOptions<MeetingProjectionOptions> meetingProjectionOptions,
+    TimeProvider timeProvider,
+    IHostApplicationLifetime applicationLifetime,
     ILogger<ProjectConversationMeetingsCommandHandler> logger) : IHandleMessages<ProjectConversationMeetingsCommand>
 {
     private const string CommandName = "project_conversation_meetings";
@@ -386,17 +393,29 @@ internal sealed class ProjectConversationMeetingsCommandHandler(
             var resultSummary = await meetingProjectionService.ProjectConversationMeetingsAsync(
                 message.UserId,
                 message.MatrixRoomId,
-                CancellationToken.None);
+                applicationLifetime.ApplicationStopping);
             logger.LogInformation(
                 "Meeting projection completed. UsersProcessed={UsersProcessed}, RoomsRebuilt={RoomsRebuilt}, MeetingsProjected={MeetingsProjected}.",
                 resultSummary.UsersProcessed,
                 resultSummary.RoomsRebuilt,
                 resultSummary.MeetingsProjected);
+
+            if (resultSummary.RoomsRebuilt > 0)
+            {
+                await meetingAutoResolutionService.ResolveConversationAsync(
+                    message.UserId,
+                    message.MatrixRoomId,
+                    timeProvider.GetUtcNow(),
+                    applicationLifetime.ApplicationStopping);
+                logger.LogInformation(
+                    "Completed post-projection meeting auto-resolution. RoomId={RoomId}.",
+                    message.MatrixRoomId);
+            }
         }
         catch (Exception exception)
         {
             result = "failed";
-            logger.LogWarning(exception, "Meeting projection failed for room {RoomId}.", message.MatrixRoomId);
+            logger.LogError(exception, "Meeting projection failed for room {RoomId}.", message.MatrixRoomId);
             throw;
         }
         finally

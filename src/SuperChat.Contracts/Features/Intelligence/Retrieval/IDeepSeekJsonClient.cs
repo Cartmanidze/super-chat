@@ -1,5 +1,3 @@
-using SuperChat.Contracts;
-
 namespace SuperChat.Contracts.Features.Intelligence.Retrieval;
 
 public interface IDeepSeekJsonClient

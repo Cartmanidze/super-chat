@@ -2,7 +2,6 @@ using System.Net.Mail;
 using Microsoft.EntityFrameworkCore;
 using SuperChat.Contracts.Features.Admin;
 using SuperChat.Domain.Features.Auth;
-using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Infrastructure.Shared.Persistence;
 
 namespace SuperChat.Infrastructure.Features.Auth;

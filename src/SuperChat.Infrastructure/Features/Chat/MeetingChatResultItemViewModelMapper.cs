@@ -3,16 +3,16 @@ using SuperChat.Contracts.Features.WorkItems;
 
 namespace SuperChat.Infrastructure.Features.Chat;
 
-internal static class EventChatResultItemViewModelMapper
+internal static class MeetingChatResultItemViewModelMapper
 {
-    public static EventChatResultItemViewModel Map(ChatResultItemProjection projection)
+    public static MeetingChatResultItemViewModel Map(ChatResultItemProjection projection)
     {
-        var item = new EventChatResultItemViewModel(
+        var item = new MeetingChatResultItemViewModel(
             Title: projection.Title,
             Summary: projection.Summary,
             SourceRoom: projection.SourceRoom,
             Timestamp: projection.Timestamp,
-            EventStatus: projection.Status.ToEventStatus() ?? EventStatus.PendingConfirmation,
+            MeetingStatus: projection.Status.ToMeetingStatus() ?? MeetingStatus.PendingConfirmation,
             PriorityValue: projection.Priority ?? WorkItemPriority.Normal,
             Owner: projection.Owner,
             OriginValue: projection.Origin ?? WorkItemOrigin.DetectedFromChat,

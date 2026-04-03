@@ -9,14 +9,6 @@ internal sealed class MeetingAutoResolutionService(
     IDbContextFactory<SuperChatDbContext> dbContextFactory,
     ILogger<MeetingAutoResolutionService> logger)
 {
-    public async Task ResolveAsync(
-        Guid userId,
-        DateTimeOffset fromInclusive,
-        CancellationToken cancellationToken)
-    {
-        await ResolveCoreAsync(userId, matrixRoomId: null, fromInclusive, dueBeforeInclusive: null, cancellationToken);
-    }
-
     public async Task ResolveConversationAsync(
         Guid userId,
         string matrixRoomId,
@@ -33,6 +25,31 @@ internal sealed class MeetingAutoResolutionService(
         CancellationToken cancellationToken)
     {
         await ResolveCoreAsync(userId, matrixRoomId, dueBeforeInclusive, dueBeforeInclusive, cancellationToken);
+    }
+
+    public async Task ResolveDueMeetingsAsync(
+        DateTimeOffset dueBeforeInclusive,
+        CancellationToken cancellationToken)
+    {
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var staleScopes = await dbContext.Meetings
+            .AsNoTracking()
+            .Where(item => item.ResolvedAt == null &&
+                           item.ScheduledFor <= dueBeforeInclusive)
+            .Select(item => new { item.UserId, item.SourceRoom })
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        logger.LogInformation(
+            "Loaded stale due-meeting scopes for background sweep. ScopeCount={ScopeCount}, DueBeforeInclusive={DueBeforeInclusive}.",
+            staleScopes.Count,
+            dueBeforeInclusive);
+
+        foreach (var scope in staleScopes)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await ResolveCoreAsync(scope.UserId, scope.SourceRoom, dueBeforeInclusive, dueBeforeInclusive, cancellationToken);
+        }
     }
 
     private async Task ResolveCoreAsync(

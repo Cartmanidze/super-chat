@@ -67,6 +67,8 @@ services:
         condition: service_started
       superchat-api:
         condition: service_started
+      superchat-worker:
+        condition: service_started
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
@@ -172,6 +174,8 @@ services:
       PipelineMessaging__TransportTableName: ${PIPELINE_MESSAGING_TRANSPORT_TABLE_NAME:-rebus_messages}
       PipelineMessaging__Workers: ${PIPELINE_MESSAGING_WORKERS:-1}
       PipelineMessaging__MaxParallelism: ${PIPELINE_MESSAGING_MAX_PARALLELISM:-1}
+      Resolution__EnableDueMeetingsSweep: ${RESOLUTION_ENABLE_DUE_MEETINGS_SWEEP:-true}
+      Resolution__DueMeetingsSweepMinutes: ${RESOLUTION_DUE_MEETINGS_SWEEP_MINUTES:-10}
       Retrieval__Enabled: ${RETRIEVAL_ENABLED:-true}
       Retrieval__PrefetchLimit: ${RETRIEVAL_PREFETCH_LIMIT:-24}
       Retrieval__ResultLimit: ${RETRIEVAL_RESULT_LIMIT:-8}
@@ -251,6 +255,8 @@ services:
       ChunkIndexing__BatchSize: ${CHUNK_INDEXING_BATCH_SIZE:-20}
       MeetingProjection__Enabled: ${MEETING_PROJECTION_ENABLED:-true}
       MeetingProjection__PollSeconds: ${MEETING_PROJECTION_POLL_SECONDS:-15}
+      Resolution__EnableDueMeetingsSweep: ${RESOLUTION_ENABLE_DUE_MEETINGS_SWEEP:-true}
+      Resolution__DueMeetingsSweepMinutes: ${RESOLUTION_DUE_MEETINGS_SWEEP_MINUTES:-10}
       Retrieval__Enabled: ${RETRIEVAL_ENABLED:-true}
       Retrieval__PrefetchLimit: ${RETRIEVAL_PREFETCH_LIMIT:-24}
       Retrieval__ResultLimit: ${RETRIEVAL_RESULT_LIMIT:-8}
@@ -305,6 +311,97 @@ services:
       Embedding__YandexQueryModelUri: ${EMBEDDING_YANDEX_QUERY_MODEL_URI}
       Embedding__YandexDocModelName: ${EMBEDDING_YANDEX_DOC_MODEL_NAME:-text-search-doc}
       Embedding__YandexQueryModelName: ${EMBEDDING_YANDEX_QUERY_MODEL_NAME:-text-search-query}
+
+  superchat-worker:
+    image: ${SUPERCHAT_WORKER_IMAGE:-ghcr.io/cartmanidze/superchat-worker:main}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__SuperChatDb: ${SUPERCHAT_PERSISTENCE_CONNECTION}
+      Persistence__Provider: Postgres
+      Persistence__ConnectionString: ${SUPERCHAT_PERSISTENCE_CONNECTION}
+      Chunking__Enabled: ${CHUNKING_ENABLED:-true}
+      Chunking__PollSeconds: ${CHUNKING_POLL_SECONDS:-5}
+      Chunking__MaxGapMinutes: ${CHUNKING_MAX_GAP_MINUTES:-15}
+      Chunking__MaxMessagesPerChunk: ${CHUNKING_MAX_MESSAGES_PER_CHUNK:-8}
+      Chunking__MaxChunkCharacters: ${CHUNKING_MAX_CHUNK_CHARACTERS:-1600}
+      ChunkIndexing__Enabled: ${CHUNK_INDEXING_ENABLED:-true}
+      ChunkIndexing__PollSeconds: ${CHUNK_INDEXING_POLL_SECONDS:-10}
+      ChunkIndexing__BatchSize: ${CHUNK_INDEXING_BATCH_SIZE:-20}
+      MeetingProjection__Enabled: ${MEETING_PROJECTION_ENABLED:-true}
+      MeetingProjection__PollSeconds: ${MEETING_PROJECTION_POLL_SECONDS:-15}
+      PipelineMessaging__Enabled: ${PIPELINE_MESSAGING_ENABLED:-true}
+      PipelineMessaging__InputQueueName: ${PIPELINE_MESSAGING_INPUT_QUEUE_NAME:-superchat-pipeline}
+      PipelineMessaging__TransportTableName: ${PIPELINE_MESSAGING_TRANSPORT_TABLE_NAME:-rebus_messages}
+      PipelineMessaging__Workers: ${PIPELINE_MESSAGING_WORKERS:-1}
+      PipelineMessaging__MaxParallelism: ${PIPELINE_MESSAGING_MAX_PARALLELISM:-1}
+      Resolution__EnableDueMeetingsSweep: ${RESOLUTION_ENABLE_DUE_MEETINGS_SWEEP:-true}
+      Resolution__DueMeetingsSweepMinutes: ${RESOLUTION_DUE_MEETINGS_SWEEP_MINUTES:-10}
+      Retrieval__Enabled: ${RETRIEVAL_ENABLED:-true}
+      Retrieval__PrefetchLimit: ${RETRIEVAL_PREFETCH_LIMIT:-24}
+      Retrieval__ResultLimit: ${RETRIEVAL_RESULT_LIMIT:-8}
+      ChatAnswering__Enabled: ${CHAT_ANSWERING_ENABLED:-true}
+      ChatAnswering__MaxContextChunks: ${CHAT_ANSWERING_MAX_CONTEXT_CHUNKS:-5}
+      ChatAnswering__MaxEvidenceItems: ${CHAT_ANSWERING_MAX_EVIDENCE_ITEMS:-3}
+      ChatAnswering__MaxContextCharacters: ${CHAT_ANSWERING_MAX_CONTEXT_CHARACTERS:-4800}
+      ChatAnswering__MaxOutputTokens: ${CHAT_ANSWERING_MAX_OUTPUT_TOKENS:-500}
+      SuperChat__BaseUrl: ${SUPERCHAT_BASE_URL}
+      SuperChat__AdminEmails__0: ${SUPERCHAT_ADMIN_EMAILS__0:-}
+      SuperChat__AdminPasswordHash: ${SUPERCHAT_ADMIN_PASSWORD_HASH:-}
+      SuperChat__VerificationCodeMinutes: ${SUPERCHAT_VERIFICATION_CODE_MINUTES:-10}
+      SuperChat__MaxVerificationAttempts: ${SUPERCHAT_MAX_VERIFICATION_ATTEMPTS:-5}
+      SuperChat__ApiSessionDays: ${SUPERCHAT_API_SESSION_DAYS}
+      SuperChat__DevSeedSampleData: ${SUPERCHAT_DEV_SEED_SAMPLE_DATA}
+      SuperChat__EnableGroupIngestion: ${SUPERCHAT_ENABLE_GROUP_INGESTION:-false}
+      SuperChat__MaxIngestedGroupMembers: ${SUPERCHAT_MAX_INGESTED_GROUP_MEMBERS:-30}
+      SuperChat__TodayTimeZoneId: ${SUPERCHAT_TODAY_TIME_ZONE_ID:-Europe/Moscow}
+      Matrix__HomeserverUrl: ${MATRIX_PUBLIC_BASEURL}
+      Matrix__AdminAccessToken: ${MATRIX_ADMIN_ACCESS_TOKEN}
+      Matrix__UserIdPrefix: ${MATRIX_USER_ID_PREFIX}
+      TelegramBridge__BotUserId: ${TELEGRAM_BRIDGE_BOT_USER_ID}
+      TelegramBridge__WebLoginBaseUrl: ${TELEGRAM_BRIDGE_WEB_LOGIN_BASE_URL}
+      TelegramBridge__ParticipantCountBaseUrl: ${TELEGRAM_BRIDGE_PARTICIPANT_COUNT_BASE_URL:-http://mautrix-telegram-helper:29318}
+      Email__FromSender: ${EMAIL_FROM}
+      Email__SmtpHost: ${EMAIL_SMTP_HOST}
+      Email__SmtpPort: ${EMAIL_SMTP_PORT}
+      Email__SmtpUsername: ${EMAIL_SMTP_USERNAME:-}
+      Email__SmtpPassword: ${EMAIL_SMTP_PASSWORD:-}
+      Email__EnableSsl: ${EMAIL_ENABLE_SSL:-false}
+      DeepSeek__ApiKey: ${DEEPSEEK_API_KEY}
+      DeepSeek__Model: ${DEEPSEEK_MODEL}
+      TextEnrichment__Enabled: ${TEXT_ENRICHMENT_ENABLED:-false}
+      TextEnrichment__BaseUrl: ${TEXT_ENRICHMENT_BASE_URL:-http://text-enrichment-service:7391}
+      TextEnrichment__TimeoutSeconds: ${TEXT_ENRICHMENT_TIMEOUT_SECONDS:-20}
+      Qdrant__BaseUrl: ${QDRANT_BASE_URL:-http://qdrant:6333}
+      Qdrant__GrpcPort: ${QDRANT_GRPC_PORT:-6334}
+      Qdrant__ApiKey: ${QDRANT_API_KEY}
+      Qdrant__MemoryCollectionName: ${QDRANT_MEMORY_COLLECTION_NAME:-memory_bgem3_v1}
+      Qdrant__DenseVectorName: ${QDRANT_DENSE_VECTOR_NAME:-text-dense}
+      Qdrant__SparseVectorName: ${QDRANT_SPARSE_VECTOR_NAME:-text-sparse}
+      Qdrant__DenseVectorSize: ${QDRANT_DENSE_VECTOR_SIZE:-1024}
+      Embedding__Enabled: ${EMBEDDING_ENABLED:-true}
+      Embedding__Backend: ${EMBEDDING_BACKEND:-LocalService}
+      Embedding__BaseUrl: ${EMBEDDING_BASE_URL:-http://embedding-service:7291}
+      Embedding__TimeoutSeconds: ${EMBEDDING_TIMEOUT_SECONDS:-60}
+      Embedding__DenseVectorSize: ${EMBEDDING_DENSE_VECTOR_SIZE:-1024}
+      Embedding__YandexBaseUrl: ${EMBEDDING_YANDEX_BASE_URL:-https://ai.api.cloud.yandex.net}
+      Embedding__YandexApiKey: ${EMBEDDING_YANDEX_API_KEY}
+      Embedding__YandexFolderId: ${EMBEDDING_YANDEX_FOLDER_ID}
+      Embedding__YandexDocModelUri: ${EMBEDDING_YANDEX_DOC_MODEL_URI}
+      Embedding__YandexQueryModelUri: ${EMBEDDING_YANDEX_QUERY_MODEL_URI}
+      Embedding__YandexDocModelName: ${EMBEDDING_YANDEX_DOC_MODEL_NAME:-text-search-doc}
+      Embedding__YandexQueryModelName: ${EMBEDDING_YANDEX_QUERY_MODEL_NAME:-text-search-query}
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://127.0.0.1:8080/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
 
   caddy:
     image: caddy:2.8

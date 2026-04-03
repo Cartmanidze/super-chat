@@ -6,7 +6,7 @@ namespace SuperChat.Contracts.Features.WorkItems;
 public enum WorkItemType
 {
     Request,
-    Event,
+    Meeting,
     ActionItem
 }
 
@@ -87,14 +87,15 @@ public enum RequestStatus
     Missed
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<EventStatus>))]
-public enum EventStatus
+[JsonConverter(typeof(JsonStringEnumConverter<MeetingStatus>))]
+public enum MeetingStatus
 {
-    PendingConfirmation,
-    Confirmed,
-    Rescheduled,
-    Cancelled,
-    Completed
+    PendingConfirmation = 0,
+    Confirmed = 1,
+    Rescheduled = 2,
+    Cancelled = 3,
+    // Contracts expose completed meetings too, because UI/API present resolved items as a terminal status.
+    Completed = 4
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<ActionItemStatus>))]
@@ -119,15 +120,15 @@ public static class WorkItemStatusConversions
         };
     }
 
-    public static WorkItemStatus ToWorkItemStatus(this EventStatus status)
+    public static WorkItemStatus ToWorkItemStatus(this MeetingStatus status)
     {
         return status switch
         {
-            EventStatus.PendingConfirmation => WorkItemStatus.PendingConfirmation,
-            EventStatus.Confirmed => WorkItemStatus.Confirmed,
-            EventStatus.Rescheduled => WorkItemStatus.Rescheduled,
-            EventStatus.Cancelled => WorkItemStatus.Cancelled,
-            EventStatus.Completed => WorkItemStatus.Completed,
+            MeetingStatus.PendingConfirmation => WorkItemStatus.PendingConfirmation,
+            MeetingStatus.Confirmed => WorkItemStatus.Confirmed,
+            MeetingStatus.Rescheduled => WorkItemStatus.Rescheduled,
+            MeetingStatus.Cancelled => WorkItemStatus.Cancelled,
+            MeetingStatus.Completed => WorkItemStatus.Completed,
             _ => WorkItemStatus.PendingConfirmation
         };
     }
@@ -155,15 +156,15 @@ public static class WorkItemStatusConversions
         };
     }
 
-    public static EventStatus? ToEventStatus(this WorkItemStatus? status)
+    public static MeetingStatus? ToMeetingStatus(this WorkItemStatus? status)
     {
         return status switch
         {
-            WorkItemStatus.PendingConfirmation => EventStatus.PendingConfirmation,
-            WorkItemStatus.Confirmed => EventStatus.Confirmed,
-            WorkItemStatus.Rescheduled => EventStatus.Rescheduled,
-            WorkItemStatus.Cancelled => EventStatus.Cancelled,
-            WorkItemStatus.Completed => EventStatus.Completed,
+            WorkItemStatus.PendingConfirmation => MeetingStatus.PendingConfirmation,
+            WorkItemStatus.Confirmed => MeetingStatus.Confirmed,
+            WorkItemStatus.Rescheduled => MeetingStatus.Rescheduled,
+            WorkItemStatus.Cancelled => MeetingStatus.Cancelled,
+            WorkItemStatus.Completed => MeetingStatus.Completed,
             _ => null
         };
     }

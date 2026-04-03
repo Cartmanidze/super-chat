@@ -1,5 +1,6 @@
 using SuperChat.Contracts.Features.WorkItems;
 using SuperChat.Domain.Features.Intelligence;
+using DomainMeetingStatus = SuperChat.Domain.Features.Intelligence.MeetingStatus;
 
 namespace SuperChat.Infrastructure.Shared.Presentation;
 
@@ -44,7 +45,6 @@ internal static class WorkItemPresentationMetadata
         double confidence,
         DateTimeOffset now)
     {
-        var kind = kindValue.ToString();
         var joinLink = kindValue == ExtractedItemKind.Meeting
             ? MeetingJoinLinkParser.TryParse(summary)
             : null;
@@ -52,13 +52,13 @@ internal static class WorkItemPresentationMetadata
             ? dueAt
             : null;
 
-        var status = ResolveStatus(kind, summary);
+        var status = ResolveStatus(kindValue, summary);
         return new WorkItemMetadata(
-            Type: ResolveType(kind),
+            Type: ResolveType(kindValue),
             Status: status,
             Priority: ResolvePriority(title, summary, dueAt, now),
-            Owner: ResolveOwner(kind),
-            Origin: ResolveOrigin(kind),
+            Owner: ResolveOwner(kindValue),
+            Origin: ResolveOrigin(kindValue),
             ReviewState: ResolveReviewState(confidence),
             PlannedAt: plannedAt,
             DueAt: dueAt,
@@ -71,9 +71,9 @@ internal static class WorkItemPresentationMetadata
 
     public static WorkItemMetadata FromMeeting(MeetingRecord meeting, DateTimeOffset now)
     {
-        var status = ResolveStatus(nameof(ExtractedItemKind.Meeting), meeting.Summary);
+        var status = ToWorkItemStatus(meeting.Status);
         return new WorkItemMetadata(
-            Type: WorkItemType.Event,
+            Type: WorkItemType.Meeting,
             Status: status,
             Priority: ResolvePriority(meeting.Title, meeting.Summary, meeting.ScheduledFor, now),
             Owner: WorkItemOwner.Both,
@@ -88,58 +88,104 @@ internal static class WorkItemPresentationMetadata
             MeetingJoinUrl: meeting.MeetingJoinUrl);
     }
 
+    public static WorkItemType? ResolveType(ExtractedItemKind kind)
+    {
+        return kind switch
+        {
+            ExtractedItemKind.WaitingOn => WorkItemType.Request,
+            ExtractedItemKind.Meeting => WorkItemType.Meeting,
+            ExtractedItemKind.Task => WorkItemType.ActionItem,
+            ExtractedItemKind.Commitment => WorkItemType.ActionItem,
+            _ => null
+        };
+    }
+
     public static WorkItemType? ResolveType(string? legacyKind)
     {
-        return NormalizeKind(legacyKind) switch
+        return TryParseKind(legacyKind, out var kind)
+            ? ResolveType(kind)
+            : null;
+    }
+
+    public static WorkItemStatus? ResolveStatus(ExtractedItemKind kind, string summary)
+    {
+        return kind switch
         {
-            nameof(ExtractedItemKind.WaitingOn) => WorkItemType.Request,
-            nameof(ExtractedItemKind.Meeting) => WorkItemType.Event,
-            nameof(ExtractedItemKind.Task) => WorkItemType.ActionItem,
-            nameof(ExtractedItemKind.Commitment) => WorkItemType.ActionItem,
+            ExtractedItemKind.WaitingOn => WorkItemStatus.AwaitingResponse,
+            ExtractedItemKind.Task => WorkItemStatus.ToDo,
+            ExtractedItemKind.Commitment => WorkItemStatus.ToDo,
+            ExtractedItemKind.Meeting => ToWorkItemStatus(ResolveMeetingStatus(summary)),
             _ => null
+        };
+    }
+
+    public static DomainMeetingStatus ResolveMeetingStatus(string summary)
+    {
+        var loweredSummary = summary.Trim().ToLowerInvariant();
+
+        return loweredSummary switch
+        {
+            _ when ContainsAny(loweredSummary, MeetingCancellationKeywords) => DomainMeetingStatus.Cancelled,
+            _ when ContainsAny(loweredSummary, MeetingRescheduleKeywords) => DomainMeetingStatus.Rescheduled,
+            _ when ContainsAny(loweredSummary, MeetingConfirmationKeywords) => DomainMeetingStatus.Confirmed,
+            _ => DomainMeetingStatus.PendingConfirmation
+        };
+    }
+
+    public static WorkItemStatus ToWorkItemStatus(DomainMeetingStatus status)
+    {
+        return status switch
+        {
+            DomainMeetingStatus.Confirmed => WorkItemStatus.Confirmed,
+            DomainMeetingStatus.Cancelled => WorkItemStatus.Cancelled,
+            DomainMeetingStatus.Rescheduled => WorkItemStatus.Rescheduled,
+            _ => WorkItemStatus.PendingConfirmation
         };
     }
 
     public static WorkItemStatus? ResolveStatus(string? legacyKind, string summary)
     {
-        var normalizedKind = NormalizeKind(legacyKind);
-        var loweredSummary = summary.Trim().ToLowerInvariant();
+        return TryParseKind(legacyKind, out var kind)
+            ? ResolveStatus(kind, summary)
+            : null;
+    }
 
-        return normalizedKind switch
+    public static WorkItemOwner? ResolveOwner(ExtractedItemKind kind)
+    {
+        return kind switch
         {
-            nameof(ExtractedItemKind.WaitingOn) => WorkItemStatus.AwaitingResponse,
-            nameof(ExtractedItemKind.Task) => WorkItemStatus.ToDo,
-            nameof(ExtractedItemKind.Commitment) => WorkItemStatus.ToDo,
-            nameof(ExtractedItemKind.Meeting) when ContainsAny(loweredSummary, MeetingCancellationKeywords) => WorkItemStatus.Cancelled,
-            nameof(ExtractedItemKind.Meeting) when ContainsAny(loweredSummary, MeetingRescheduleKeywords) => WorkItemStatus.Rescheduled,
-            nameof(ExtractedItemKind.Meeting) when ContainsAny(loweredSummary, MeetingConfirmationKeywords) => WorkItemStatus.Confirmed,
-            nameof(ExtractedItemKind.Meeting) => WorkItemStatus.PendingConfirmation,
+            ExtractedItemKind.WaitingOn => WorkItemOwner.Contact,
+            ExtractedItemKind.Meeting => WorkItemOwner.Both,
+            ExtractedItemKind.Task => WorkItemOwner.Me,
+            ExtractedItemKind.Commitment => WorkItemOwner.Me,
             _ => null
         };
     }
 
     public static WorkItemOwner? ResolveOwner(string? legacyKind)
     {
-        return NormalizeKind(legacyKind) switch
+        return TryParseKind(legacyKind, out var kind)
+            ? ResolveOwner(kind)
+            : null;
+    }
+
+    public static WorkItemOrigin? ResolveOrigin(ExtractedItemKind kind)
+    {
+        return kind switch
         {
-            nameof(ExtractedItemKind.WaitingOn) => WorkItemOwner.Contact,
-            nameof(ExtractedItemKind.Meeting) => WorkItemOwner.Both,
-            nameof(ExtractedItemKind.Task) => WorkItemOwner.Me,
-            nameof(ExtractedItemKind.Commitment) => WorkItemOwner.Me,
+            ExtractedItemKind.WaitingOn => WorkItemOrigin.Request,
+            ExtractedItemKind.Commitment => WorkItemOrigin.Promise,
+            ExtractedItemKind.Task => WorkItemOrigin.DetectedFromChat,
+            ExtractedItemKind.Meeting => WorkItemOrigin.DetectedFromChat,
             _ => null
         };
     }
 
     public static WorkItemOrigin? ResolveOrigin(string? legacyKind)
     {
-        return NormalizeKind(legacyKind) switch
-        {
-            nameof(ExtractedItemKind.WaitingOn) => WorkItemOrigin.Request,
-            nameof(ExtractedItemKind.Commitment) => WorkItemOrigin.Promise,
-            nameof(ExtractedItemKind.Task) => WorkItemOrigin.DetectedFromChat,
-            nameof(ExtractedItemKind.Meeting) => WorkItemOrigin.DetectedFromChat,
-            _ => null
-        };
+        return TryParseKind(legacyKind, out var kind)
+            ? ResolveOrigin(kind)
+            : null;
     }
 
     public static AiReviewState ResolveReviewState(double confidence)
@@ -193,6 +239,11 @@ internal static class WorkItemPresentationMetadata
     private static string NormalizeKind(string? legacyKind)
     {
         return legacyKind?.Trim() ?? string.Empty;
+    }
+
+    private static bool TryParseKind(string? legacyKind, out ExtractedItemKind kind)
+    {
+        return Enum.TryParse(NormalizeKind(legacyKind), ignoreCase: false, out kind);
     }
 
     private static bool ContainsAny(string text, IEnumerable<string> values)

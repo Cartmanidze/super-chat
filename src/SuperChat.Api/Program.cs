@@ -25,7 +25,11 @@ builder.Services
 builder.Services.AddAuthorization();
 builder.Services.AddValidatorsFromAssemblyContaining<SuperChat.Api.Program>();
 builder.Services.AddApiDocumentation();
-builder.Services.AddSuperChatBootstrap(builder.Configuration, enableBackgroundWorkers: false);
+builder.Services.AddSuperChatBootstrap(
+    builder.Configuration,
+    enableMatrixSyncWorker: false,
+    enablePipelineScheduling: false,
+    enablePipelineConsumers: false);
 
 var app = builder.Build();
 

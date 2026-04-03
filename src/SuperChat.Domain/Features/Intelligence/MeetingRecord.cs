@@ -18,7 +18,8 @@ public sealed record MeetingRecord(
     ResolutionTrace? ResolutionTrace = null,
     DateTimeOffset? ResolvedAt = null,
     string? MeetingProvider = null,
-    Uri? MeetingJoinUrl = null)
+    Uri? MeetingJoinUrl = null,
+    MeetingStatus Status = MeetingStatus.PendingConfirmation)
 {
     private readonly bool _validated = Validate(Id, UserId, Title, Summary);
 

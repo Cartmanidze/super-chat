@@ -1,9 +1,7 @@
 using SuperChat.Contracts.Features.Chat;
 using SuperChat.Contracts.Features.Search;
 using SuperChat.Contracts.Features.WorkItems;
-using SuperChat.Domain.Features.Intelligence;
 using SuperChat.Domain.Features.Messaging;
-using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Infrastructure.Features.Messaging;
 using SuperChat.Infrastructure.Shared.Presentation;
 
@@ -15,7 +13,7 @@ internal static class ChatResultItemProjectionFactory
         WorkItemCardViewModel card,
         string? genericTitle = null)
     {
-        var timestamp = string.Equals(card.Kind, ExtractedItemKind.Meeting.ToString(), StringComparison.Ordinal)
+        var timestamp = card.Type == WorkItemType.Meeting
             ? card.PlannedAt ?? card.DueAt ?? card.ObservedAt
             : card.ObservedAt;
         var titleMatchesGenericTitle = !string.IsNullOrWhiteSpace(genericTitle) &&
@@ -28,26 +26,25 @@ internal static class ChatResultItemProjectionFactory
             titleMatchesGenericTitle ? string.Empty : card.Summary,
             card.SourceRoom,
             timestamp,
-            card.Kind,
-            card.Type,
-            card.Status,
-            card.Priority,
-            card.Owner,
-            card.Origin,
-            card.ReviewState,
-            card.PlannedAt,
-            card.DueAt,
-            card.Source,
-            card.UpdatedAt ?? card.ObservedAt,
-            card.IsOverdue,
-            card.MeetingProvider,
-            card.MeetingJoinUrl);
+            Type: card.Type,
+            Status: card.Status,
+            Priority: card.Priority,
+            Owner: card.Owner,
+            Origin: card.Origin,
+            ReviewState: card.ReviewState,
+            PlannedAt: card.PlannedAt,
+            DueAt: card.DueAt,
+            Source: card.Source,
+            UpdatedAt: card.UpdatedAt ?? card.ObservedAt,
+            IsOverdue: card.IsOverdue,
+            MeetingProvider: card.MeetingProvider,
+            MeetingJoinUrl: card.MeetingJoinUrl);
     }
 
     public static ChatResultItemProjection FromSearchResult(SearchResultViewModel result)
     {
         var type = WorkItemPresentationMetadata.ResolveType(result.Kind);
-        var joinLink = type == WorkItemType.Event
+        var joinLink = type == WorkItemType.Meeting
             ? MeetingJoinLinkParser.TryParse(result.Summary)
             : null;
 

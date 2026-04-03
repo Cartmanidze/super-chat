@@ -316,6 +316,11 @@ namespace SuperChat.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("source_room");
 
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("status");
+
                     b.Property<string>("Summary")
                         .IsRequired()
                         .HasColumnType("text")
@@ -340,6 +345,8 @@ namespace SuperChat.Infrastructure.Migrations
 
                     b.HasIndex("UserId", "SourceEventId")
                         .IsUnique();
+
+                    b.HasIndex("UserId", "Status", "ScheduledFor");
 
                     b.ToTable("meetings", (string)null);
                 });

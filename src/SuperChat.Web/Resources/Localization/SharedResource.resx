@@ -624,4 +624,142 @@
   <data name="Landing.InviteOnly" xml:space="preserve">
     <value>Сервис работает поверх Telegram и не заменяет сам мессенджер. В центре — ясность, доверие и объяснимый контекст.</value>
   </data>
+  <data name="Today.Meetings.Title" xml:space="preserve">
+    <value>Ближайшие встречи</value>
+  </data>
+  <data name="Today.Meetings.Intro" xml:space="preserve">
+    <value>Здесь остаются только ближайшие и будущие встречи из рабочих переписок.</value>
+  </data>
+  <data name="Today.Meetings.Metric.Label" xml:space="preserve">
+    <value>Скоро начнётся</value>
+  </data>
+  <data name="Today.Meetings.Metric.Copy" xml:space="preserve">
+    <value>будущих встреч в ленте</value>
+  </data>
+  <data name="Today.Connection.Warning" xml:space="preserve">
+    <value>Telegram не подключён</value>
+  </data>
+  <data name="Today.Connection.Title" xml:space="preserve">
+    <value>Сначала подключите Telegram</value>
+  </data>
+  <data name="Today.Connection.Copy" xml:space="preserve">
+    <value>После подключения SuperChat начнёт показывать встречи и договорённости из рабочих переписок.</value>
+  </data>
+  <data name="Today.Connection.SearchAction" xml:space="preserve">
+    <value>Открыть поиск</value>
+  </data>
+  <data name="Today.Actions.Open" xml:space="preserve">
+    <value>Открыть</value>
+  </data>
+  <data name="Today.Actions.Complete" xml:space="preserve">
+    <value>Готово</value>
+  </data>
+  <data name="Today.Actions.Dismiss" xml:space="preserve">
+    <value>Скрыть</value>
+  </data>
+  <data name="Landing.Point.Meetings.Title" xml:space="preserve">
+    <value>Ближайшие встречи</value>
+  </data>
+  <data name="Landing.Point.Meetings.Copy" xml:space="preserve">
+    <value>Видно только то, что реально приближается и не должно потеряться.</value>
+  </data>
+  <data name="Landing.Point.AutoRefresh.Title" xml:space="preserve">
+    <value>Автообновление</value>
+  </data>
+  <data name="Landing.Point.AutoRefresh.Copy" xml:space="preserve">
+    <value>Лента встреч собирается сама из рабочих переписок, без ручного календаря.</value>
+  </data>
+  <data name="Landing.Point.Context.Title" xml:space="preserve">
+    <value>Понятный контекст</value>
+  </data>
+  <data name="Landing.Point.Context.Copy" xml:space="preserve">
+    <value>У каждой встречи остаётся ссылка на исходный чат и формулировку.</value>
+  </data>
+  <data name="Landing.Point.Focus.Title" xml:space="preserve">
+    <value>Без шумных списков</value>
+  </data>
+  <data name="Landing.Point.Focus.Copy" xml:space="preserve">
+    <value>Фокус только на ближайшем будущем, без старых рабочих корзин.</value>
+  </data>
+  <data name="Search.Chat.Title" xml:space="preserve">
+    <value>Поиск по рабочей памяти</value>
+  </data>
+  <data name="Search.Chat.Intro" xml:space="preserve">
+    <value>Здесь можно быстро проверить ближайшие встречи и понять, в каком чате они были зафиксированы.</value>
+  </data>
+  <data name="Search.Chat.MeetingsAction" xml:space="preserve">
+    <value>Открыть встречи</value>
+  </data>
+  <data name="Search.Chat.SearchAction" xml:space="preserve">
+    <value>Открыть полный поиск</value>
+  </data>
+  <data name="Search.Connection.Warning" xml:space="preserve">
+    <value>Telegram ещё не подключён</value>
+  </data>
+  <data name="Search.Connection.Title" xml:space="preserve">
+    <value>Подключите Telegram внутри продукта</value>
+  </data>
+  <data name="Search.Connection.Copy" xml:space="preserve">
+    <value>После подключения SuperChat начнёт поднимать встречи и договорённости прямо из рабочих переписок.</value>
+  </data>
+  <data name="Search.Connection.SettingsAction" xml:space="preserve">
+    <value>Открыть настройки</value>
+  </data>
+  <data name="Search.Query.Kicker" xml:space="preserve">
+    <value>Шаблон встречи</value>
+  </data>
+  <data name="Search.Query.Title" xml:space="preserve">
+    <value>Ближайшие будущие события</value>
+  </data>
+  <data name="Search.Query.Status" xml:space="preserve">
+    <value>Telegram подключён</value>
+  </data>
+  <data name="Chat.Ui.AnswerKicker" xml:space="preserve">
+    <value>Короткий ответ</value>
+  </data>
+  <data name="Chat.Ui.AnswerTitle" xml:space="preserve">
+    <value>Ответ появится здесь</value>
+  </data>
+  <data name="Chat.Ui.AnswerPlaceholder" xml:space="preserve">
+    <value>Выберите шаблон и отправьте запрос. Ответ появится здесь вместе с опорными карточками.</value>
+  </data>
+  <data name="Chat.Ui.AnswerFallback" xml:space="preserve">
+    <value>Сигналы ниже — это ближайший объяснимый контекст по выбранному вопросу.</value>
+  </data>
+  <data name="Chat.Ui.EvidenceKicker" xml:space="preserve">
+    <value>Контекст</value>
+  </data>
+  <data name="Chat.Ui.EvidenceTitle" xml:space="preserve">
+    <value>Контекст из Telegram</value>
+  </data>
+  <data name="Chat.Ui.EvidenceEmptyTitle" xml:space="preserve">
+    <value>Пока без результатов</value>
+  </data>
+  <data name="Chat.Ui.EvidenceEmpty" xml:space="preserve">
+    <value>После ответа здесь появятся карточки с чатом, фрагментом переписки и временем.</value>
+  </data>
+  <data name="Chat.Ui.ContextKicker" xml:space="preserve">
+    <value>Почему так</value>
+  </data>
+  <data name="Chat.Ui.ContextTitle" xml:space="preserve">
+    <value>Откройте карточку справа</value>
+  </data>
+  <data name="Chat.Ui.ContextBody" xml:space="preserve">
+    <value>Каждый вывод привязан к конкретному чату, фрагменту переписки и времени.</value>
+  </data>
+  <data name="Chat.Ui.TimeLabel" xml:space="preserve">
+    <value>Время</value>
+  </data>
+  <data name="Chat.Ui.OpenLabel" xml:space="preserve">
+    <value>Открыть контекст</value>
+  </data>
+  <data name="Chat.Ui.SignalLabel" xml:space="preserve">
+    <value>Сигнал</value>
+  </data>
+  <data name="Chat.Ui.ErrorTitle" xml:space="preserve">
+    <value>Ошибка</value>
+  </data>
+  <data name="Search.Connection.RequiredError" xml:space="preserve">
+    <value>Сначала подключите Telegram, потом чат станет доступен.</value>
+  </data>
 </root>

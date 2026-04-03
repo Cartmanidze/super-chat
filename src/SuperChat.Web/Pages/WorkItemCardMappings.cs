@@ -1,5 +1,4 @@
 using SuperChat.Contracts.Features.WorkItems;
-using SuperChat.Domain.Features.Intelligence;
 
 namespace SuperChat.Web.Pages;
 
@@ -12,7 +11,6 @@ internal static class WorkItemCardMappings
 
         return new TodayModel.TodayCard(
             card.Id,
-            card.Type,
             card.Title,
             card.Summary,
             card.SourceRoom,
@@ -20,26 +18,6 @@ internal static class WorkItemCardMappings
             hint,
             searchQuery,
             card.Confidence);
-    }
-
-    public static TodayModel.TodayCard ToCommitmentWorkItemCard(this WorkItemRecord item)
-    {
-        var hint = item.Confidence >= 0.9
-            ? "Высокая уверенность"
-            : item.Confidence >= 0.75
-                ? "Похоже на обещание"
-                : "Нужна проверка";
-
-        return new TodayModel.TodayCard(
-            item.Id,
-            WorkItemType.ActionItem,
-            item.Title,
-            item.Summary,
-            item.Person ?? item.SourceRoom,
-            item.DueAt ?? item.ObservedAt,
-            hint,
-            BuildSearchQuery(item.Title, item.Summary, item.SourceRoom),
-            item.Confidence);
     }
 
     private static string BuildSearchQuery(string title, string summary, string sourceRoom)
