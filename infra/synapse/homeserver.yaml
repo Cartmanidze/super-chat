@@ -14,6 +14,7 @@ listeners:
 
 database:
   name: psycopg2
+  allow_unsafe_locale: true
   args:
     user: postgres
     password: postgres

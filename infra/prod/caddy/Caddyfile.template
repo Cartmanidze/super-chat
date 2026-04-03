@@ -3,9 +3,12 @@
 }
 
 ${SUPERCHAT_WEB_HOST} {
+  @api path /api/*
+  reverse_proxy @api superchat-api:8080
+
   @metrics path /metrics
   respond @metrics 404
-  reverse_proxy superchat-web:8080
+  reverse_proxy superchat-web:80
 }
 
 ${SUPERCHAT_API_HOST} {

@@ -137,6 +137,11 @@ public sealed class TelegramConnectionService(
 
     public async Task<TelegramConnection> SubmitLoginInputAsync(AppUser user, string input, CancellationToken cancellationToken)
     {
+        if (pilotOptions.Value.DevSeedSampleData)
+        {
+            return await SubmitDevelopmentLoginInputAsync(user, input, cancellationToken);
+        }
+
         var identity = await matrixProvisioningService.EnsureIdentityAsync(user, cancellationToken);
         if (!IsLiveAccessToken(identity.AccessToken))
         {
@@ -288,15 +293,56 @@ public sealed class TelegramConnectionService(
 
     private async Task<TelegramConnection> StartDevelopmentAsync(AppUser user, CancellationToken cancellationToken)
     {
-        var loginUrl = new Uri(bridgeOptions.Value.WebLoginBaseUrl.TrimEnd('/'));
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         var existing = await FindOrCreateConnectionAsync(dbContext, user.Id, cancellationToken);
-        existing.State = TelegramConnectionState.BridgePending;
-        existing.WebLoginUrl = loginUrl.ToString();
+        existing.State = TelegramConnectionState.LoginAwaitingPhone;
+        existing.WebLoginUrl = null;
         existing.UpdatedAt = timeProvider.GetUtcNow();
 
         await dbContext.SaveChangesAsync(cancellationToken);
-        return await CompleteDevelopmentConnectionAsync(user, cancellationToken);
+        return existing.ToDomain();
+    }
+
+    private async Task<TelegramConnection> SubmitDevelopmentLoginInputAsync(
+        AppUser user,
+        string input,
+        CancellationToken cancellationToken)
+    {
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var existing = await FindOrCreateConnectionAsync(dbContext, user.Id, cancellationToken);
+
+        switch (existing.State)
+        {
+            case TelegramConnectionState.LoginAwaitingCode:
+            case TelegramConnectionState.LoginAwaitingPassword:
+            {
+                if (string.IsNullOrWhiteSpace(input))
+                {
+                    return existing.ToDomain();
+                }
+
+                existing.State = TelegramConnectionState.Connected;
+                existing.WebLoginUrl = null;
+                existing.UpdatedAt = timeProvider.GetUtcNow();
+                await dbContext.SaveChangesAsync(cancellationToken);
+                return existing.ToDomain();
+            }
+
+            default:
+            {
+                var normalizedPhone = NormalizePhoneNumber(input);
+                if (string.IsNullOrWhiteSpace(normalizedPhone))
+                {
+                    return existing.ToDomain();
+                }
+
+                existing.State = TelegramConnectionState.LoginAwaitingCode;
+                existing.WebLoginUrl = null;
+                existing.UpdatedAt = timeProvider.GetUtcNow();
+                await dbContext.SaveChangesAsync(cancellationToken);
+                return existing.ToDomain();
+            }
+        }
     }
 
     private async Task<TelegramConnection> SetStateAsync(

@@ -52,19 +52,19 @@
 | Caddy data | 18 KB (сертификаты пересоздадутся) |
 | PostgreSQL | ~49 MB (отдельно от docker volumes) |
 
-### Домены (все → 37.46.135.36)
+### Домены staging-контура (все → 37.46.135.36)
 
-- `app.tranify.ru` — Web UI
-- `api.tranify.ru` — JSON API
-- `matrix.tranify.ru` — Synapse homeserver
-- `bridge.tranify.ru` — mautrix-telegram web login
+- `app.tranify.ru` — staging Web UI
+- `api.tranify.ru` — staging JSON API
+- `matrix.tranify.ru` — staging Synapse homeserver
+- `bridge.tranify.ru` — staging mautrix-telegram web login
 
 ### CI/CD (GitHub Actions)
 
 - Bare repo: `/opt/super-chat-origin.git`
 - Worktree: `/opt/super-chat`
-- SSH доступ через `PROD_SSH_PRIVATE_KEY` / `PROD_SSH_HOST` в GitHub Secrets/Variables
-- Deploy: push → build images → push to GHCR → ssh pull + deploy-app.sh
+- SSH доступ через `STAGING_SSH_PRIVATE_KEY` / `STAGING_SSH_HOST` в GitHub Secrets/Variables
+- Deploy: push → build images → push to GHCR → ssh pull + deploy-app.sh в staging
 
 ---
 
@@ -232,12 +232,12 @@ curl --retry 10 --retry-delay 5 https://NEW_IP:443/api/v1/health --resolve 'api.
 ### Фаза 5: Обновление CI/CD (10 мин)
 
 ```
-20. GitHub → Repository Settings → Variables (environment: production):
-    PROD_SSH_HOST     → НОВЫЙ_IP
+20. GitHub → Repository Settings → Variables (environment: staging):
+    STAGING_SSH_HOST     → НОВЫЙ_IP
 
 21. GitHub → Repository Settings → Secrets:
-    PROD_SSH_PRIVATE_KEY  → новый приватный ключ
-    PROD_SSH_KNOWN_HOSTS  → ssh-keyscan НОВЫЙ_IP
+    STAGING_SSH_PRIVATE_KEY  → новый приватный ключ
+    STAGING_SSH_KNOWN_HOSTS  → ssh-keyscan НОВЫЙ_IP
 
 22. Тестовый deploy:
     GitHub → Actions → ci → Run workflow

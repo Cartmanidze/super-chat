@@ -1,6 +1,6 @@
 # super-chat
 
-`super-chat` is a bootstrap for an AI layer over Telegram via Matrix. This repo now ships two hosts on top of the same domain/infrastructure core: `SuperChat.Web` for the product UI and `SuperChat.Api` for mobile-facing and machine-facing JSON integration.
+`super-chat` is a bootstrap for an AI layer over Telegram via Matrix. This repo now ships a React frontend under `src/SuperChat.Frontend`, a JSON API under `src/SuperChat.Api`, and background workers under `src/SuperChat.Worker`.
 
 ## What is included
 
@@ -23,12 +23,27 @@
 
 ## Quick start
 
-1. Copy `.env.example` to `.env` and fill the secrets you already have.
-2. Start the infra stack from `infra/`.
-3. Run `dotnet test SuperChat.sln -m:1`.
-4. Run `dotnet run --project src/SuperChat.Web`.
-5. Run `dotnet run --project src/SuperChat.Api`.
-6. Open the web app or call the API with one of the emails from `SuperChat__AllowedEmails`.
+1. Copy `.env.example` to `.env` if you want a separate local env file. For the checked-in local defaults, `.env.example` is enough.
+2. Start the local stack:
+
+   ```powershell
+   docker compose --env-file .env.example -f infra/docker-compose.yml up -d --build
+   ```
+
+3. Check the main endpoints:
+
+   ```powershell
+   curl http://localhost:15050/api/v1/health
+   curl http://localhost:15051/health
+   curl http://localhost:8008/health
+   ```
+
+4. Open:
+   - `https://app.localhost`
+   - `http://localhost:15050`
+   - `http://localhost:15051`
+   - `http://localhost:18025`
+5. Run `dotnet test SuperChat.sln -m:1`.
 
 Key API routes in bootstrap mode:
 
@@ -37,13 +52,12 @@ Key API routes in bootstrap mode:
 - `POST /api/v1/auth/refresh`
 - `GET /api/v1/me`
 - `GET|POST|DELETE /api/v1/integrations/telegram`
-- `GET /api/v1/work-items/today`
-- `GET /api/v1/work-items/waiting`
+- `GET /api/v1/work-items/meetings`
 - `GET /api/v1/search?q=...`
 - `POST /api/v1/feedback`
 - `GET /api/v1/health`
 
-In development, the requested magic link is returned directly in responses and the Telegram connect flow can seed demo messages so the `Today`, `Waiting`, and `Search` surfaces show product value before the real bridge is wired. By default the app can still fall back to EF Core in-memory storage, but the provided `.env.example` now points local bootstrap at PostgreSQL so `SuperChat.Web` and `SuperChat.Api` share the same state.
+In development, the requested magic link is returned directly in responses and the Telegram connect flow can seed demo messages so the meetings and search surfaces show product value before the real bridge is wired. The checked-in local Docker stack now starts the React frontend, API, worker, Postgres, Qdrant, Synapse, mautrix-telegram, Mailpit, and the helper Python services together.
 
 Three pilot-specific knobs now live under `SuperChat` config as well:
 

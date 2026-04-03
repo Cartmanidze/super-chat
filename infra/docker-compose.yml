@@ -63,7 +63,11 @@
 
   synapse:
     image: ${SYNAPSE_IMAGE:-matrixdotorg/synapse:v1.128.0}
+    user: "0:0"
     restart: unless-stopped
+    entrypoint:
+      - /bin/sh
+      - /data/start-with-registration.sh
     depends_on:
       postgres:
         condition: service_healthy
@@ -85,11 +89,132 @@
     volumes:
       - ./mautrix:/data
 
+  superchat-db-migrator:
+    build:
+      context: ..
+      dockerfile: src/SuperChat.DbMigrator/Dockerfile
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__SuperChatDb: Host=postgres;Port=5432;Database=superchat_app;Username=postgres;Password=postgres
+      Persistence__Provider: Postgres
+      Persistence__ConnectionString: Host=postgres;Port=5432;Database=superchat_app;Username=postgres;Password=postgres
+      Qdrant__BaseUrl: http://qdrant:6333
+      Qdrant__AutoInitialize: "true"
+      Qdrant__MemoryCollectionName: memory_bgem3_v1
+      Qdrant__DenseVectorName: text-dense
+      Qdrant__SparseVectorName: text-sparse
+      Qdrant__DenseVectorSize: 1024
+
+  superchat-web:
+    build:
+      context: ..
+      dockerfile: src/SuperChat.Frontend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      superchat-api:
+        condition: service_started
+
+  superchat-api:
+    build:
+      context: ..
+      dockerfile: src/SuperChat.Api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      mailpit:
+        condition: service_started
+      superchat-db-migrator:
+        condition: service_completed_successfully
+    ports:
+      - "${SUPERCHAT_API_PORT:-5050}:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+      ConnectionStrings__SuperChatDb: Host=postgres;Port=5432;Database=superchat_app;Username=postgres;Password=postgres
+      Persistence__Provider: Postgres
+      Persistence__ConnectionString: Host=postgres;Port=5432;Database=superchat_app;Username=postgres;Password=postgres
+      Persistence__AutoInitialize: "true"
+      Qdrant__BaseUrl: http://qdrant:6333
+      Qdrant__AutoInitialize: "true"
+      Embedding__BaseUrl: http://embedding-service:7291
+      TextEnrichment__BaseUrl: http://text-enrichment-service:7391
+      SuperChat__BaseUrl: http://app.localhost
+      SuperChat__ApiSessionDays: 30
+      SuperChat__VerificationCodeMinutes: 10
+      SuperChat__MaxVerificationAttempts: 5
+      SuperChat__DevSeedSampleData: "true"
+      SuperChat__AdminEmails__0: pilot@example.com
+      Matrix__HomeserverUrl: http://synapse:8008
+      Matrix__UserIdPrefix: superchat
+      TelegramBridge__BotUserId: "@telegrambot:matrix.localhost"
+      TelegramBridge__WebLoginBaseUrl: http://bridge.localhost/public
+      Email__FromSender: Super Chat <hello@superchat.local>
+      Email__SmtpHost: mailpit
+      Email__SmtpPort: 1025
+      DeepSeek__ApiKey: ""
+      DeepSeek__BaseUrl: https://api.deepseek.com
+
+  superchat-worker:
+    build:
+      context: ..
+      dockerfile: src/SuperChat.Worker/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      mailpit:
+        condition: service_started
+      superchat-db-migrator:
+        condition: service_completed_successfully
+    ports:
+      - "${SUPERCHAT_WORKER_PORT:-5051}:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__SuperChatDb: Host=postgres;Port=5432;Database=superchat_app;Username=postgres;Password=postgres
+      Persistence__Provider: Postgres
+      Persistence__ConnectionString: Host=postgres;Port=5432;Database=superchat_app;Username=postgres;Password=postgres
+      Persistence__AutoInitialize: "true"
+      Qdrant__BaseUrl: http://qdrant:6333
+      Qdrant__AutoInitialize: "true"
+      Embedding__BaseUrl: http://embedding-service:7291
+      TextEnrichment__BaseUrl: http://text-enrichment-service:7391
+      SuperChat__BaseUrl: http://app.localhost
+      SuperChat__ApiSessionDays: 30
+      SuperChat__VerificationCodeMinutes: 10
+      SuperChat__MaxVerificationAttempts: 5
+      SuperChat__DevSeedSampleData: "true"
+      SuperChat__AdminEmails__0: pilot@example.com
+      Matrix__HomeserverUrl: http://synapse:8008
+      Matrix__UserIdPrefix: superchat
+      TelegramBridge__BotUserId: "@telegrambot:matrix.localhost"
+      TelegramBridge__WebLoginBaseUrl: http://bridge.localhost/public
+      Email__FromSender: Super Chat <hello@superchat.local>
+      Email__SmtpHost: mailpit
+      Email__SmtpPort: 1025
+      DeepSeek__ApiKey: ""
+      DeepSeek__BaseUrl: https://api.deepseek.com
+
   caddy:
     image: caddy:2.8
     restart: unless-stopped
     depends_on:
       synapse:
+        condition: service_started
+      superchat-web:
+        condition: service_started
+      superchat-api:
         condition: service_started
     ports:
       - "${CADDY_HTTP_PORT:-80}:80"

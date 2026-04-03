@@ -7,10 +7,31 @@ This folder now has two tracks:
 
 ## Local bootstrap
 
-1. Copy root `.env.example` to `.env`.
-2. Start infra with `docker compose -f infra/docker-compose.yml up -d`.
-3. Run `dotnet run --project src/SuperChat.Web`.
-4. Run `dotnet run --project src/SuperChat.Api`.
+1. Copy root `.env.example` to `.env` if you want your own local overrides.
+2. Start the full local stack:
+
+   ```powershell
+   docker compose --env-file .env.example -f infra/docker-compose.yml up -d --build
+   ```
+
+3. Check the main endpoints:
+
+   ```powershell
+   curl http://localhost:15050/api/v1/health
+   curl http://localhost:15051/health
+   curl http://localhost:8008/health
+   ```
+
+4. Open:
+   - `https://app.localhost`
+   - `http://localhost:15050`
+   - `http://localhost:15051`
+   - `http://localhost:18025`
+5. Stop the stack when needed:
+
+   ```powershell
+   docker compose --env-file .env.example -f infra/docker-compose.yml down
+   ```
 
 The local stack initializes three PostgreSQL databases through `infra/postgres/init/01-create-databases.sh`:
 
@@ -22,6 +43,12 @@ The local Compose stack now also includes:
 
 - `qdrant`, which is used as the stage-1 retrieval index
 - `embedding-service`, an optional Python sidecar for stage-3 text embeddings
+- `superchat-web`, which serves the built React frontend
+- `superchat-api`
+- `superchat-worker`
+- `synapse`
+- `mautrix-telegram`
+- `mailpit`
 
 PostgreSQL stays the source of truth for chunks and logs.
 
@@ -41,7 +68,7 @@ PostgreSQL stays the source of truth for chunks and logs.
 
 ## GitHub Actions deploy
 
-The CI workflow can deploy the app layer automatically after a successful `main` build. The deploy job pushes the checked-out commit into the server bare repository, runs `bash infra/prod/scripts/migrate-db.sh`, and then runs `bash infra/prod/scripts/deploy-app.sh` on the VPS.
+The CI workflow now treats `tranify` as staging and `super-chat` as production. Staging can deploy from `main` automatically. Production deploy is a separate manual run.
 
 The app workflow now skips its production deploy step when the pushed change requires a full-stack rollout. This avoids double-deploying the same commit when `deploy-full-stack.yml` is already responsible for the change.
 
@@ -55,15 +82,34 @@ There is now also a separate GitHub workflow for full-stack deploys:
 - it runs `bash infra/prod/scripts/deploy.sh`, so the whole production compose stack is recreated
 - use this path for changes under `infra/prod/**`, `infra/embedding-service/**`, and other changes that add or reshape compose services
 
+Required GitHub `staging` environment secrets:
+
+- `STAGING_SSH_PRIVATE_KEY`: private key allowed in `authorized_keys` on the staging host
+- `STAGING_SSH_KNOWN_HOSTS`: pinned `known_hosts` entry for the staging host, for example from `ssh-keyscan -H <host>`
+
 Required GitHub `production` environment secrets:
 
 - `PROD_SSH_PRIVATE_KEY`: private key allowed in `authorized_keys` on the production host
 - `PROD_SSH_KNOWN_HOSTS`: pinned `known_hosts` entry for the production host, for example from `ssh-keyscan -H <host>`
 
+Recommended GitHub `staging` environment variables:
+
+- `STAGING_DEPLOY_ENABLED`: set to `true` when staging app deploy is ready
+- `STAGING_FULL_STACK_DEPLOY_ENABLED`: set to `true` when infra changes on `main` may auto-deploy to staging
+- `STAGING_SSH_HOST`: SSH host or IP for the staging server
+- `STAGING_SSH_PORT`: SSH port, defaults to `22`
+- `STAGING_SSH_USER`: SSH user, defaults to `root`
+- `STAGING_BARE_REPO_PATH`: bare repo path, defaults to `/opt/super-chat-origin.git`
+- `STAGING_WORKTREE_PATH`: working tree path, defaults to `/opt/super-chat`
+- `STAGING_ENV_FILE`: env file path, defaults to `/opt/super-chat/infra/prod/.env`
+- `STAGING_WEB_URL`: optional environment URL shown in GitHub Actions
+- `STAGING_WEB_HEALTHCHECK_URL`: web smoke-check URL, defaults to `https://app.tranify.ru/health`
+- `STAGING_API_HEALTHCHECK_URL`: API smoke-check URL, defaults to `https://api.tranify.ru/api/v1/health`
+
 Recommended GitHub `production` environment variables:
 
-- `PROD_DEPLOY_ENABLED`: set to `true` when the production environment is fully configured and ready for auto-deploy
-- `PROD_FULL_STACK_DEPLOY_ENABLED`: set to `true` when infra changes on `main` are allowed to trigger the full-stack workflow automatically
+- `PROD_DEPLOY_ENABLED`: set to `true` when manual production deploy is allowed
+- `PROD_FULL_STACK_DEPLOY_ENABLED`: set to `true` when manual full-stack production deploy is allowed
 - `PROD_SSH_HOST`: SSH host or IP for the production server
 - `PROD_SSH_PORT`: SSH port, defaults to `22`
 - `PROD_SSH_USER`: SSH user, defaults to `root`
@@ -71,24 +117,24 @@ Recommended GitHub `production` environment variables:
 - `PROD_WORKTREE_PATH`: working tree path, defaults to `/opt/super-chat`
 - `PROD_ENV_FILE`: prod env file path, defaults to `/opt/super-chat/infra/prod/.env`
 - `PROD_WEB_URL`: optional environment URL shown in GitHub Actions
-- `PROD_WEB_HEALTHCHECK_URL`: web smoke-check URL, defaults to `https://app.tranify.ru/health`
-- `PROD_API_HEALTHCHECK_URL`: API smoke-check URL, defaults to `https://api.tranify.ru/api/v1/health`
+- `PROD_WEB_HEALTHCHECK_URL`: web smoke-check URL, defaults to `https://app.super-chat.org/health`
+- `PROD_API_HEALTHCHECK_URL`: API smoke-check URL, defaults to `https://api.super-chat.org/api/v1/health`
 
 Important:
 
-- `PROD_DEPLOY_ENABLED` and `PROD_FULL_STACK_DEPLOY_ENABLED` should be repository-level GitHub variables, not only environment-level variables
-- secrets such as `PROD_SSH_PRIVATE_KEY` and `PROD_SSH_KNOWN_HOSTS` still belong in the `production` environment
+- `STAGING_DEPLOY_ENABLED`, `STAGING_FULL_STACK_DEPLOY_ENABLED`, `PROD_DEPLOY_ENABLED`, and `PROD_FULL_STACK_DEPLOY_ENABLED` should be repository-level GitHub variables, not only environment-level variables
+- secrets should stay inside their matching GitHub environments: `staging` and `production`
 - if GitHub Actions ever starts failing with `kex_exchange_identification` or `Connection reset by peer`, check the VPS `sshd` logs for `MaxStartups throttling`
 
 ## Notes
 
-- `infra/prod/` assumes `SuperChat.Web` and `SuperChat.Api` run as separate containers.
+- `infra/prod/` assumes a static frontend container, a separate API container, and a separate worker container.
 - `infra/prod/` expects a dedicated bridge host such as `bridge.example.com` for mautrix public login pages.
 - `infra/prod/caddy/Caddyfile.template` is the only source for Caddy config; runtime `Caddyfile` is generated.
 - `infra/prod/prometheus/prometheus.yml` configures scraping for the web host, API host, Prometheus itself, and Qdrant.
 - `infra/prod/grafana/provisioning/**` and `infra/prod/grafana/dashboards/**` provision Grafana automatically on container start.
 - `infra/prod/synapse/homeserver.yaml.template`, `infra/prod/synapse/telegram-registration.yaml.template`, and `infra/prod/mautrix/config.yaml.template` are the source templates; runtime `.yaml` files are generated artifacts.
 - `infra/prod/synapse/telegram-doublepuppet-registration.yaml.template` enables mautrix double-puppeting for the homeserver domain, which is required if you want the bridge to mirror the logged-in user's own Telegram messages reliably.
-- The automated GitHub deploy updates `superchat-web`, `superchat-api`, and the one-off `superchat-db-migrator` image only; Qdrant, the optional `embedding-service`, Synapse, mautrix-telegram, Postgres, and Caddy stay on the manual/full-stack deploy path, although `migrate-db.sh` now also reuses the running Qdrant service to ensure the target collection exists and stops the deploy when that bootstrap fails.
+- The automated GitHub deploy updates the React frontend image behind `superchat-web`, `superchat-api`, `superchat-worker`, and the one-off `superchat-db-migrator` image only; Qdrant, the optional `embedding-service`, Synapse, mautrix-telegram, Postgres, and Caddy stay on the manual/full-stack deploy path, although `migrate-db.sh` now also reuses the running Qdrant service to ensure the target collection exists and stops the deploy when that bootstrap fails.
 - This gets the VPS stack running, but the app-side Telegram connect flow is still bootstrap logic until the real management-room and `/sync` integration lands.
 - The VPS stack now includes Prometheus and Grafana with provisioned dashboards, but backups and secret rotation are still out of scope.

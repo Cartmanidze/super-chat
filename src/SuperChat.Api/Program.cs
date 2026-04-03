@@ -2,6 +2,7 @@ using FluentValidation;
 using Microsoft.AspNetCore.Authentication;
 using Prometheus;
 using SuperChat.Api.Features.Auth;
+using SuperChat.Api.Features.Admin;
 using SuperChat.Api.Features.Chat;
 using SuperChat.Api.Features.Documentation;
 using SuperChat.Api.Features.Feedback;
@@ -56,6 +57,7 @@ api.MapChatEndpoints();
 api.MapWorkItemEndpoints();
 api.MapSearchEndpoints();
 api.MapFeedbackEndpoints();
+api.MapAdminEndpoints();
 
 app.MapMetrics().ExcludeFromDescription();
 app.Run();

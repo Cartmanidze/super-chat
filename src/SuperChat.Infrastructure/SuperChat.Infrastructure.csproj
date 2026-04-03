@@ -38,7 +38,6 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="SuperChat.Tests" />
-    <InternalsVisibleTo Include="SuperChat.Web.Tests" />
     <InternalsVisibleTo Include="SuperChat.Api.Tests" />
   </ItemGroup>
 

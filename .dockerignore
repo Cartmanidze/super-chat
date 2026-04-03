@@ -5,3 +5,7 @@
 infra/postgres-data/
 infra/**/.env
 infra/**/data/
+src/SuperChat.Frontend/node_modules/
+src/SuperChat.Frontend/dist/
+.tmp-chrome-profile/
+.tmp-edge-profile/

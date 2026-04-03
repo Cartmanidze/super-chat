@@ -6,6 +6,15 @@ on:
       - main
   pull_request:
   workflow_dispatch:
+    inputs:
+      deploy_environment:
+        description: "Куда деплоить вручную"
+        required: false
+        default: staging
+        type: choice
+        options:
+          - staging
+          - production
 
 permissions:
   contents: read
@@ -54,6 +63,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/SuperChat.Frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: src/SuperChat.Frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: src/SuperChat.Frontend
+        run: npm run build
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -69,7 +93,7 @@ jobs:
         run: dotnet test SuperChat.sln --configuration Release --no-build
 
   build-and-push-images:
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.PROD_DEPLOY_ENABLED == 'true' && needs.detect-full-stack-changes.outputs.requires_full_stack != 'true'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && (vars.STAGING_DEPLOY_ENABLED == 'true' || vars.PROD_DEPLOY_ENABLED == 'true') && needs.detect-full-stack-changes.outputs.requires_full_stack != 'true'
     needs:
       - detect-full-stack-changes
       - build-test
@@ -83,14 +107,13 @@ jobs:
         include:
           - image_name: superchat-web
             context: .
-            dockerfile: src/SuperChat.Web/Dockerfile
+            dockerfile: src/SuperChat.Frontend/Dockerfile
           - image_name: superchat-api
             context: .
             dockerfile: src/SuperChat.Api/Dockerfile
           - image_name: superchat-worker
             context: .
             dockerfile: src/SuperChat.Worker/Dockerfile
-          # mautrix-telegram-helper is built on the server only (requires local base image)
           - image_name: superchat-db-migrator
             context: .
             dockerfile: src/SuperChat.DbMigrator/Dockerfile
@@ -131,8 +154,102 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.image_name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image_name }}
 
+  deploy-staging:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && needs.detect-full-stack-changes.outputs.requires_full_stack != 'true' && ((github.event_name == 'push' && vars.STAGING_DEPLOY_ENABLED == 'true') || (github.event_name == 'workflow_dispatch' && inputs.deploy_environment == 'staging' && vars.STAGING_DEPLOY_ENABLED == 'true'))
+    needs:
+      - detect-full-stack-changes
+      - build-test
+      - build-and-push-images
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    concurrency:
+      group: staging-deploy
+      cancel-in-progress: false
+    environment:
+      name: staging
+      url: ${{ vars.STAGING_WEB_URL || vars.STAGING_WEB_HEALTHCHECK_URL }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate deploy configuration
+        shell: bash
+        env:
+          STAGING_SSH_HOST: ${{ vars.STAGING_SSH_HOST }}
+          STAGING_SSH_PRIVATE_KEY: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
+          STAGING_SSH_KNOWN_HOSTS: ${{ secrets.STAGING_SSH_KNOWN_HOSTS }}
+        run: |
+          test -n "$STAGING_SSH_HOST"
+          test -n "$STAGING_SSH_PRIVATE_KEY"
+          test -n "$STAGING_SSH_KNOWN_HOSTS"
+
+      - name: Configure SSH
+        shell: bash
+        env:
+          STAGING_SSH_PRIVATE_KEY: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
+          STAGING_SSH_KNOWN_HOSTS: ${{ secrets.STAGING_SSH_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$STAGING_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$STAGING_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Push commit to staging bare repository
+        shell: bash
+        env:
+          STAGING_SSH_HOST: ${{ vars.STAGING_SSH_HOST }}
+          STAGING_SSH_PORT: ${{ vars.STAGING_SSH_PORT || '22' }}
+          STAGING_SSH_USER: ${{ vars.STAGING_SSH_USER || 'root' }}
+          STAGING_BARE_REPO_PATH: ${{ vars.STAGING_BARE_REPO_PATH || '/opt/super-chat-origin.git' }}
+        run: |
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/id_ed25519 -p ${STAGING_SSH_PORT} -o BatchMode=yes -o PreferredAuthentications=publickey -o PubkeyAuthentication=yes -o PasswordAuthentication=no -o KbdInteractiveAuthentication=no -o ConnectionAttempts=1 -o ConnectTimeout=20 -o StrictHostKeyChecking=yes"
+          chmod +x .github/scripts/retry.sh
+          ./.github/scripts/retry.sh git push "ssh://${STAGING_SSH_USER}@${STAGING_SSH_HOST}:${STAGING_SSH_PORT}${STAGING_BARE_REPO_PATH}" "HEAD:main"
+
+      - name: Pull and deploy on staging host
+        shell: bash
+        env:
+          STAGING_SSH_HOST: ${{ vars.STAGING_SSH_HOST }}
+          STAGING_SSH_PORT: ${{ vars.STAGING_SSH_PORT || '22' }}
+          STAGING_SSH_USER: ${{ vars.STAGING_SSH_USER || 'root' }}
+          STAGING_WORKTREE_PATH: ${{ vars.STAGING_WORKTREE_PATH || '/opt/super-chat' }}
+          STAGING_ENV_FILE: ${{ vars.STAGING_ENV_FILE || '/opt/super-chat/infra/prod/.env' }}
+          GHCR_USERNAME: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          OWNER_LC="${GITHUB_REPOSITORY_OWNER,,}"
+          IMAGE_TAG="sha-${GITHUB_SHA::7}"
+          chmod +x .github/scripts/retry.sh
+          ./.github/scripts/retry.sh \
+            ssh -i ~/.ssh/id_ed25519 -p "${STAGING_SSH_PORT}" -o BatchMode=yes -o PreferredAuthentications=publickey -o PubkeyAuthentication=yes -o PasswordAuthentication=no -o KbdInteractiveAuthentication=no -o ConnectionAttempts=1 -o ConnectTimeout=20 -o StrictHostKeyChecking=yes "${STAGING_SSH_USER}@${STAGING_SSH_HOST}" \
+            "cd '${STAGING_WORKTREE_PATH}' && git stash --include-untracked 2>/dev/null; git pull --ff-only && git stash drop 2>/dev/null; export GHCR_REGISTRY='ghcr.io' GHCR_USERNAME='${GHCR_USERNAME}' GHCR_TOKEN='${GHCR_TOKEN}' SUPERCHAT_WEB_IMAGE='ghcr.io/${OWNER_LC}/superchat-web:${IMAGE_TAG}' SUPERCHAT_API_IMAGE='ghcr.io/${OWNER_LC}/superchat-api:${IMAGE_TAG}' SUPERCHAT_WORKER_IMAGE='ghcr.io/${OWNER_LC}/superchat-worker:${IMAGE_TAG}' SUPERCHAT_DB_MIGRATOR_IMAGE='ghcr.io/${OWNER_LC}/superchat-db-migrator:${IMAGE_TAG}' && bash infra/prod/scripts/migrate-db.sh '${STAGING_ENV_FILE}' && bash infra/prod/scripts/deploy-app.sh '${STAGING_ENV_FILE}'"
+
+      - name: Smoke check staging endpoints
+        shell: bash
+        env:
+          STAGING_WEB_HEALTHCHECK_URL: ${{ vars.STAGING_WEB_HEALTHCHECK_URL || 'https://app.tranify.ru/health' }}
+          STAGING_API_HEALTHCHECK_URL: ${{ vars.STAGING_API_HEALTHCHECK_URL || 'https://api.tranify.ru/api/v1/health' }}
+        run: |
+          curl --fail --silent --show-error --retry 12 --retry-delay 5 --retry-connrefused "${STAGING_WEB_HEALTHCHECK_URL}"
+          curl --fail --silent --show-error --retry 12 --retry-delay 5 --retry-connrefused "${STAGING_API_HEALTHCHECK_URL}"
+
+      - name: Smoke check staging worker health
+        shell: bash
+        env:
+          STAGING_SSH_HOST: ${{ vars.STAGING_SSH_HOST }}
+          STAGING_SSH_PORT: ${{ vars.STAGING_SSH_PORT || '22' }}
+          STAGING_SSH_USER: ${{ vars.STAGING_SSH_USER || 'root' }}
+          STAGING_WORKTREE_PATH: ${{ vars.STAGING_WORKTREE_PATH || '/opt/super-chat' }}
+          STAGING_ENV_FILE: ${{ vars.STAGING_ENV_FILE || '/opt/super-chat/infra/prod/.env' }}
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -p "${STAGING_SSH_PORT}" -o BatchMode=yes -o PreferredAuthentications=publickey -o PubkeyAuthentication=yes -o PasswordAuthentication=no -o KbdInteractiveAuthentication=no -o ConnectionAttempts=1 -o ConnectTimeout=20 -o StrictHostKeyChecking=yes "${STAGING_SSH_USER}@${STAGING_SSH_HOST}" \
+            "cd '${STAGING_WORKTREE_PATH}' && docker compose --env-file '${STAGING_ENV_FILE}' -f infra/prod/docker-compose.yml exec -T superchat-worker curl --fail --silent --show-error http://127.0.0.1:8080/health"
+
   deploy-production:
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.PROD_DEPLOY_ENABLED == 'true' && needs.detect-full-stack-changes.outputs.requires_full_stack != 'true'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.deploy_environment == 'production' && vars.PROD_DEPLOY_ENABLED == 'true' && needs.detect-full-stack-changes.outputs.requires_full_stack != 'true'
     needs:
       - detect-full-stack-changes
       - build-test
@@ -174,7 +291,7 @@ jobs:
           printf '%s\n' "$PROD_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
-      - name: Push commit to server bare repository
+      - name: Push commit to production bare repository
         shell: bash
         env:
           PROD_SSH_HOST: ${{ vars.PROD_SSH_HOST }}
@@ -207,8 +324,8 @@ jobs:
       - name: Smoke check production endpoints
         shell: bash
         env:
-          PROD_WEB_HEALTHCHECK_URL: ${{ vars.PROD_WEB_HEALTHCHECK_URL || 'https://app.tranify.ru/health' }}
-          PROD_API_HEALTHCHECK_URL: ${{ vars.PROD_API_HEALTHCHECK_URL || 'https://api.tranify.ru/api/v1/health' }}
+          PROD_WEB_HEALTHCHECK_URL: ${{ vars.PROD_WEB_HEALTHCHECK_URL || 'https://app.super-chat.org/health' }}
+          PROD_API_HEALTHCHECK_URL: ${{ vars.PROD_API_HEALTHCHECK_URL || 'https://api.super-chat.org/api/v1/health' }}
         run: |
           curl --fail --silent --show-error --retry 12 --retry-delay 5 --retry-connrefused "${PROD_WEB_HEALTHCHECK_URL}"
           curl --fail --silent --show-error --retry 12 --retry-delay 5 --retry-connrefused "${PROD_API_HEALTHCHECK_URL}"

@@ -5,8 +5,9 @@
 - Fill root `.env`.
 - Start `docker compose -f infra/docker-compose.yml up -d`.
 - Run `dotnet test SuperChat.sln -m:1`.
-- Run `dotnet run --project src/SuperChat.Web`.
+- Run `npm ci && npm run dev` in `src/SuperChat.Frontend`.
 - Run `dotnet run --project src/SuperChat.Api`.
+- Run `dotnet run --project src/SuperChat.Worker`.
 - Verify `/health`.
 - Verify `/api/v1/health`.
 - Request a magic link with an invited email.
@@ -34,9 +35,9 @@
 
 - Invite-only access is enforced.
 - Hidden Matrix identity is created on first successful login.
-- Web and API use the same PostgreSQL persistence.
+- Frontend, API, and worker use the same PostgreSQL-backed state.
 - Telegram connection status is visible in UI and API.
-- `Today`, `Waiting`, and `Search` render non-empty output.
+- Meetings and search render non-empty output.
 - Synapse retention is configured before real chat data lands.
 - GitHub CI passes on `main`.
 

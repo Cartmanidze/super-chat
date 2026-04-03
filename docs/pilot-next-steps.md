@@ -2,7 +2,7 @@
 
 ## Current state
 
-- App, API, Synapse, Postgres, and Caddy are healthy in production.
+- App, API, Synapse, Postgres, and Caddy are healthy on the current staging host `tranify`.
 - Invite-only access is working and `glebon84@gmail.com` is present in `pilot_invites`.
 - The real Matrix orchestration flow is working up to Telegram bridge login:
   - hidden Matrix user is created
@@ -23,7 +23,7 @@
 2. Update `MAUTRIX_TELEGRAM_API_ID` and `MAUTRIX_TELEGRAM_API_HASH` in `infra/prod/.env` on the server.
 3. Re-render configs with `bash infra/prod/scripts/render-configs.sh infra/prod/.env`.
 4. Restart the bridge with `docker compose restart mautrix-telegram` in `infra/prod`.
-5. Retry the Telegram login flow from `https://app.tranify.ru/connect/telegram` and confirm that phone code delivery succeeds.
+5. Retry the Telegram login flow from the staging host `https://app.tranify.ru/connect/telegram` and confirm that phone code delivery succeeds.
 6. Verify that the bridge stores the authorized session and that Telegram sync resumes without new bridge exceptions.
 7. Commit and push the local production infra changes so the hotfix is not left only on the server.
 8. Convert `/opt/super-chat` on the server into a normal git checkout, otherwise future `git pull` deploys will keep being manual.

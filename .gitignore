@@ -18,3 +18,9 @@ __pycache__/
 !.env.example
 infra/data/
 infra/config/generated/
+.tmp-chrome-profile/
+.tmp-edge-profile/
+infra/mautrix/logs/
+infra/mautrix/registration.yaml
+infra/synapse/*.signing.key
+infra/synapse/telegram-registration.yaml

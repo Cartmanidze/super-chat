@@ -1,13 +1,15 @@
-﻿{
-  email {$CADDY_ACME_EMAIL}
-}
-
 app.localhost {
-  reverse_proxy host.docker.internal:8080
+  @api path /api/*
+  reverse_proxy @api superchat-api:8080
+  reverse_proxy superchat-web:80
 }
 
 api.localhost {
-  reverse_proxy host.docker.internal:5050
+  reverse_proxy superchat-api:8080
+}
+
+worker.localhost {
+  reverse_proxy superchat-worker:8080
 }
 
 matrix.localhost {

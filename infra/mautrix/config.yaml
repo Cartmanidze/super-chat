@@ -1,4 +1,4 @@
-﻿homeserver:
+homeserver:
   address: http://synapse:8008
   domain: matrix.localhost
   software: standard
@@ -11,8 +11,8 @@ appservice:
   bot:
     username: telegrambot
     displayname: Telegram Bridge
-  as_token: replace-me
-  hs_token: replace-me
+  as_token: dev-mautrix-as-token
+  hs_token: dev-mautrix-hs-token
   database: postgres://postgres:postgres@postgres/mautrix_telegram?sslmode=disable
 
 telegram:

@@ -26,6 +26,7 @@ using SuperChat.Domain.Features.Messaging;
 using SuperChat.Application.Composition;
 using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Infrastructure.Diagnostics;
+using SuperChat.Infrastructure.Features.Admin;
 using SuperChat.Infrastructure.Features.Auth;
 using SuperChat.Infrastructure.Features.Chat;
 using SuperChat.Infrastructure.Features.Feedback;
@@ -183,6 +184,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IVerificationCodeSender, SmtpVerificationCodeSender>();
         services.AddSingleton<IAuthFlowService, AuthFlowService>();
         services.AddSingleton<IApiSessionService, ApiSessionService>();
+        services.AddSingleton<IAdminPasswordService, AdminPasswordService>();
         services.AddSingleton<IPilotInviteAdminService, PilotInviteAdminService>();
         services.AddSingleton<IMatrixProvisioningService, MatrixProvisioningService>();
         services.AddSingleton<ITelegramConnectionService, TelegramConnectionService>();

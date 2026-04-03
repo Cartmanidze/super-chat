@@ -17,6 +17,44 @@ namespace SuperChat.Tests;
 public sealed class TelegramConnectionServiceTests
 {
     [Fact]
+    public async Task StartAsync_DevMode_StartsChatLoginWithoutBridgeUrl()
+    {
+        var user = CreateUser();
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+        var service = CreateService(factory, handler, CreateIdentity(user.Id), devSeedSampleData: true);
+
+        var connection = await service.StartAsync(user, CancellationToken.None);
+
+        Assert.Equal(TelegramConnectionState.LoginAwaitingPhone, connection.State);
+        Assert.Null(connection.WebLoginUrl);
+
+        await using var dbContext = await factory.CreateDbContextAsync(CancellationToken.None);
+        var entity = await dbContext.TelegramConnections.SingleAsync(item => item.UserId == user.Id, CancellationToken.None);
+        Assert.Equal(TelegramConnectionState.LoginAwaitingPhone, entity.State);
+        Assert.Null(entity.WebLoginUrl);
+    }
+
+    [Fact]
+    public async Task SubmitLoginInputAsync_DevMode_AdvancesChatLoginInsideService()
+    {
+        var user = CreateUser();
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+        var service = CreateService(factory, handler, CreateIdentity(user.Id), devSeedSampleData: true);
+
+        var phoneStep = await service.StartAsync(user, CancellationToken.None);
+        var codeStep = await service.SubmitLoginInputAsync(user, "+7 (913) 640-78-94", CancellationToken.None);
+        var connected = await service.SubmitLoginInputAsync(user, "12345", CancellationToken.None);
+
+        Assert.Equal(TelegramConnectionState.LoginAwaitingPhone, phoneStep.State);
+        Assert.Equal(TelegramConnectionState.LoginAwaitingCode, codeStep.State);
+        Assert.Equal(TelegramConnectionState.Connected, connected.State);
+        Assert.Null(codeStep.WebLoginUrl);
+        Assert.Null(connected.WebLoginUrl);
+    }
+
+    [Fact]
     public async Task StartAsync_ConnectedSession_SendsLogoutThenLogin()
     {
         var user = CreateUser();
@@ -466,7 +504,8 @@ public sealed class TelegramConnectionServiceTests
         IDbContextFactory<SuperChatDbContext> factory,
         RecordingHandler handler,
         MatrixIdentity identity,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        bool devSeedSampleData = false)
     {
         var httpClient = new HttpClient(handler)
         {
@@ -488,7 +527,7 @@ public sealed class TelegramConnectionServiceTests
             }),
             Options.Create(new PilotOptions
             {
-                DevSeedSampleData = false
+                DevSeedSampleData = devSeedSampleData
             }),
             timeProvider ?? TimeProvider.System,
             NullLogger<TelegramConnectionService>.Instance);
