@@ -759,4 +759,7 @@
   <data name="Chat.Ui.ErrorTitle" xml:space="preserve">
     <value>Error</value>
   </data>
+  <data name="Search.Connection.RequiredError" xml:space="preserve">
+    <value>Connect Telegram first, then chat will become available.</value>
+  </data>
 </root>

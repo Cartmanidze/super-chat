@@ -235,10 +235,11 @@ public static class ServiceCollectionExtensions
 
         var pipelineMessagingOptions = configuration.GetSection(PipelineMessagingOptions.SectionName).Get<PipelineMessagingOptions>() ?? new PipelineMessagingOptions();
         var persistenceOptions = configuration.GetSection(PersistenceOptions.SectionName).Get<PersistenceOptions>() ?? new PersistenceOptions();
-        var canUseRebusPipeline = pipelineMessagingOptions.Enabled && (enablePipelineScheduling || enablePipelineConsumers);
+        var usePostgresTransport = string.Equals(persistenceOptions.Provider, "Postgres", StringComparison.OrdinalIgnoreCase);
+        var effectivePipelineConsumers = enablePipelineConsumers || (!usePostgresTransport && enablePipelineScheduling);
+        var canUseRebusPipeline = pipelineMessagingOptions.Enabled && (enablePipelineScheduling || effectivePipelineConsumers);
         if (canUseRebusPipeline)
         {
-            var usePostgresTransport = string.Equals(persistenceOptions.Provider, "Postgres", StringComparison.OrdinalIgnoreCase);
             if (!usePostgresTransport)
             {
                 services.AddSingleton<InMemNetwork>();
@@ -247,7 +248,7 @@ public static class ServiceCollectionExtensions
             services.AddRebus(
                 (configurer, serviceProvider) =>
                 {
-                    if (enablePipelineConsumers)
+                    if (effectivePipelineConsumers)
                     {
                         if (usePostgresTransport)
                         {
@@ -288,14 +289,14 @@ public static class ServiceCollectionExtensions
                     return configurer;
                 },
                 isDefaultBus: true);
-            if (enablePipelineConsumers)
+            if (effectivePipelineConsumers)
             {
                 services.AutoRegisterHandlersFromAssemblyOf<ProcessConversationAfterSettleCommandHandler>();
             }
 
             if (enablePipelineScheduling)
             {
-                if (enablePipelineConsumers)
+                if (effectivePipelineConsumers)
                 {
                     if (usePostgresTransport)
                     {

@@ -42,14 +42,20 @@ public sealed class IndexModel(
 
     public ChatTemplateDefinition DefaultTemplate => Templates.First();
 
-    public IActionResult OnGet()
+    public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
         if (!IsSignedIn)
         {
             return Page();
         }
 
-        return RedirectToPage("/Today");
+        var connection = await integrationConnectionService.GetStatusAsync(
+            User.GetUserId(),
+            IntegrationProvider.Telegram,
+            cancellationToken);
+
+        CanAskQuestions = connection.State == IntegrationConnectionState.Connected;
+        return Page();
     }
 
     public async Task<IActionResult> OnPostRequestLinkAsync(CancellationToken cancellationToken)
@@ -92,7 +98,7 @@ public sealed class IndexModel(
 
         if (connection.State != IntegrationConnectionState.Connected)
         {
-            return StatusCode(StatusCodes.Status409Conflict, new { error = "Telegram connection is required before chat is available." });
+            return StatusCode(StatusCodes.Status409Conflict, new { error = localizer["Search.Connection.RequiredError"].Value });
         }
 
         try

@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using SuperChat.Domain.Features.Integrations.Telegram;
 using SuperChat.Domain.Features.Intelligence;
 using SuperChat.Infrastructure.Shared.Persistence;
 
@@ -17,6 +18,44 @@ public sealed class SearchHostTests : IClassFixture<WebTestApplicationFactory>
     public SearchHostTests(WebTestApplicationFactory factory)
     {
         _factory = factory;
+    }
+
+    [Fact]
+    public async Task HomePage_LoadsChatWorkspace_ForAuthenticatedUser()
+    {
+        var userId = Guid.NewGuid();
+        const string email = "home-auth@example.com";
+        const string token = "home-auth-token";
+
+        await SeedSearchDataAsync(userId, email, token);
+
+        using var client = _factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+
+        var verifyPage = await client.GetAsync($"/auth/verify?email={Uri.EscapeDataString(email)}");
+        var verifyContent = await verifyPage.Content.ReadAsStringAsync();
+        var antiforgeryToken = ExtractAntiforgeryToken(verifyContent);
+        var verifyCookies = verifyPage.Headers.GetValues("Set-Cookie");
+
+        var verifyRequest = new HttpRequestMessage(HttpMethod.Post, "/auth/verify");
+        verifyRequest.Headers.Add("Cookie", verifyCookies);
+        verifyRequest.Content = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["Email"] = email,
+            ["Code"] = "123456",
+            ["__RequestVerificationToken"] = antiforgeryToken
+        });
+        var verifyResponse = await client.SendAsync(verifyRequest);
+        Assert.Equal(HttpStatusCode.Redirect, verifyResponse.StatusCode);
+
+        var response = await client.GetAsync("/");
+        var content = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("class=\"ask-layout\"", content, StringComparison.Ordinal);
+        Assert.Contains("class=\"premium-card query-studio\"", content, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -92,6 +131,13 @@ public sealed class SearchHostTests : IClassFixture<WebTestApplicationFactory>
             ExpiresAt = now.AddMinutes(10),
             Consumed = false,
             FailedAttempts = 0
+        });
+
+        dbContext.TelegramConnections.Add(new TelegramConnectionEntity
+        {
+            UserId = userId,
+            State = TelegramConnectionState.Connected,
+            UpdatedAt = now
         });
 
         dbContext.WorkItems.Add(new WorkItemEntity

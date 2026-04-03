@@ -18,7 +18,7 @@ public sealed class DigestService(
     public async Task<IReadOnlyList<WorkItemCardViewModel>> GetMeetingsAsync(Guid userId, CancellationToken cancellationToken)
     {
         var now = TimeZoneInfo.ConvertTime(timeProvider.GetUtcNow(), WorkItemTimeZoneResolver.Resolve(logger, pilotOptions.TodayTimeZoneId));
-        var meetings = await meetingService.GetUpcomingAsync(userId, now.AddHours(-1), 20, cancellationToken);
+        var meetings = await meetingService.GetUpcomingAsync(userId, now, 20, cancellationToken);
         var cards = DigestComposer.BuildMeetings(meetings, now)
             .Select(item => item.ToWorkItemCardViewModel(now))
             .ToList();

@@ -759,4 +759,7 @@
   <data name="Chat.Ui.ErrorTitle" xml:space="preserve">
     <value>Ошибка</value>
   </data>
+  <data name="Search.Connection.RequiredError" xml:space="preserve">
+    <value>Сначала подключите Telegram, потом чат станет доступен.</value>
+  </data>
 </root>
