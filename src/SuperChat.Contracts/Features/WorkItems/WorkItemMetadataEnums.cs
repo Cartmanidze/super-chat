@@ -90,12 +90,12 @@ public enum RequestStatus
 [JsonConverter(typeof(JsonStringEnumConverter<MeetingStatus>))]
 public enum MeetingStatus
 {
-    PendingConfirmation,
-    Confirmed,
-    Rescheduled,
-    Cancelled,
+    PendingConfirmation = 0,
+    Confirmed = 1,
+    Rescheduled = 2,
+    Cancelled = 3,
     // Contracts expose completed meetings too, because UI/API present resolved items as a terminal status.
-    Completed
+    Completed = 4
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<ActionItemStatus>))]

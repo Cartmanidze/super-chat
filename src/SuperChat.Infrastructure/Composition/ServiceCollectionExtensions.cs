@@ -292,6 +292,10 @@ public static class ServiceCollectionExtensions
             if (effectivePipelineConsumers)
             {
                 services.AutoRegisterHandlersFromAssemblyOf<ProcessConversationAfterSettleCommandHandler>();
+                if (usePostgresTransport)
+                {
+                    services.AddHostedService<DueMeetingsSweepBackgroundService>();
+                }
             }
 
             if (enablePipelineScheduling)

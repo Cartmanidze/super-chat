@@ -6,6 +6,6 @@ public enum MeetingStatus
 {
     PendingConfirmation = 0,
     Confirmed = 1,
-    Cancelled = 2,
-    Rescheduled = 3
+    Rescheduled = 2,
+    Cancelled = 3
 }

@@ -68,12 +68,12 @@ internal sealed class OneWayClientPipelineCommandScheduler(
 
             using var rebusTransactionScope = new RebusTransactionScope();
             rebusTransactionScope.UseOutbox(npgsqlConnection, npgsqlTransaction);
-            await DispatchAsync(queueName, userId, source, matrixRoomId, normalizedMessageId, matrixEventId, sentAt, rebuildFrom);
+            await DispatchAsync(queueName, userId, source, matrixRoomId, normalizedMessageId, matrixEventId, sentAt, rebuildFrom, cancellationToken);
             await rebusTransactionScope.CompleteAsync();
             return;
         }
 
-        await DispatchAsync(queueName, userId, source, matrixRoomId, normalizedMessageId, matrixEventId, sentAt, rebuildFrom);
+        await DispatchAsync(queueName, userId, source, matrixRoomId, normalizedMessageId, matrixEventId, sentAt, rebuildFrom, cancellationToken);
     }
 
     private async Task DispatchAsync(
@@ -84,7 +84,8 @@ internal sealed class OneWayClientPipelineCommandScheduler(
         Guid normalizedMessageId,
         string matrixEventId,
         DateTimeOffset sentAt,
-        DateTimeOffset rebuildFrom)
+        DateTimeOffset rebuildFrom,
+        CancellationToken cancellationToken)
     {
         await bus.Advanced.Routing.Defer(
             queueName,

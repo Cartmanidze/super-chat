@@ -1,9 +1,13 @@
-<Project Sdk="Microsoft.NET.Sdk.Worker">
+<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
     <ProjectReference Include="..\SuperChat.Domain\SuperChat.Domain.csproj" />
     <ProjectReference Include="..\SuperChat.Infrastructure\SuperChat.Infrastructure.csproj" />
     <ProjectReference Include="..\SuperChat.Contracts\SuperChat.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="prometheus-net.AspNetCore" Version="8.2.1" />
   </ItemGroup>
 
   <PropertyGroup>

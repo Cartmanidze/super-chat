@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Hosting;
 using Rebus.Handlers;
 using SuperChat.Contracts.Features.Operations;
 using SuperChat.Infrastructure.Diagnostics;
@@ -10,6 +11,7 @@ namespace SuperChat.Infrastructure.Features.Operations;
 internal sealed class ResolveConversationItemsCommandHandler(
     ConversationResolutionService conversationResolutionService,
     TimeProvider timeProvider,
+    IHostApplicationLifetime applicationLifetime,
     ILogger<ResolveConversationItemsCommandHandler> logger) : IHandleMessages<ResolveConversationItemsCommand>
 {
     private const string CommandName = "resolve_conversation_items";
@@ -33,12 +35,12 @@ internal sealed class ResolveConversationItemsCommandHandler(
                 message.UserId,
                 message.MatrixRoomId,
                 timeProvider.GetUtcNow(),
-                CancellationToken.None);
+                applicationLifetime.ApplicationStopping);
         }
         catch (Exception exception)
         {
             result = "failed";
-            logger.LogWarning(exception, "Conversation resolution failed for room {RoomId}.", message.MatrixRoomId);
+            logger.LogError(exception, "Conversation resolution failed for room {RoomId}.", message.MatrixRoomId);
             throw;
         }
         finally
@@ -57,6 +59,7 @@ internal sealed class ResolveConversationItemsCommandHandler(
 
 internal sealed class ResolveDueMeetingsCommandHandler(
     ConversationResolutionService conversationResolutionService,
+    IHostApplicationLifetime applicationLifetime,
     ILogger<ResolveDueMeetingsCommandHandler> logger) : IHandleMessages<ResolveDueMeetingsCommand>
 {
     private const string CommandName = "resolve_due_meetings";
@@ -83,12 +86,12 @@ internal sealed class ResolveDueMeetingsCommandHandler(
                 message.UserId,
                 message.MatrixRoomId,
                 message.ResolveAfter,
-                CancellationToken.None);
+                applicationLifetime.ApplicationStopping);
         }
         catch (Exception exception)
         {
             result = "failed";
-            logger.LogWarning(exception, "Due meeting resolution failed for room {RoomId}.", message.MatrixRoomId);
+            logger.LogError(exception, "Due meeting resolution failed for room {RoomId}.", message.MatrixRoomId);
             throw;
         }
         finally

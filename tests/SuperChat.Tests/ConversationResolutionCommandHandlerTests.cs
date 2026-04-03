@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SuperChat.Contracts.Features.Operations;
@@ -69,6 +70,7 @@ public sealed class ConversationResolutionCommandHandlerTests
                 }),
                 NullLogger<ConversationResolutionService>.Instance),
             new FixedTimeProvider(observedAt.AddMinutes(10)),
+            new TestHostApplicationLifetime(),
             NullLogger<ResolveConversationItemsCommandHandler>.Instance);
 
         await handler.Handle(new ResolveConversationItemsCommand(userId, roomId));
@@ -145,6 +147,7 @@ public sealed class ConversationResolutionCommandHandlerTests
                 }),
                 NullLogger<ConversationResolutionService>.Instance),
             new FixedTimeProvider(observedAt.AddMinutes(10)),
+            new TestHostApplicationLifetime(),
             NullLogger<ResolveConversationItemsCommandHandler>.Instance);
 
         await handler.Handle(new ResolveConversationItemsCommand(userId, roomId));
@@ -187,6 +190,19 @@ public sealed class ConversationResolutionCommandHandlerTests
         public override DateTimeOffset GetUtcNow()
         {
             return utcNow;
+        }
+    }
+
+    private sealed class TestHostApplicationLifetime : IHostApplicationLifetime
+    {
+        public CancellationToken ApplicationStarted => CancellationToken.None;
+
+        public CancellationToken ApplicationStopping => CancellationToken.None;
+
+        public CancellationToken ApplicationStopped => CancellationToken.None;
+
+        public void StopApplication()
+        {
         }
     }
 

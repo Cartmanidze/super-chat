@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Hosting;
 using Rebus.Bus;
 using Rebus.Bus.Advanced;
 using SuperChat.Contracts.Features.Intelligence.Extraction;
@@ -57,6 +58,7 @@ public sealed class ProcessConversationAfterSettleCommandHandlerTests
             bus,
             Options.Create(new ResolutionOptions()),
             new FixedTimeProvider(message.IngestedAt.AddMinutes(5)),
+            new TestHostApplicationLifetime(),
             NullLogger<ProcessConversationAfterSettleCommandHandler>.Instance);
 
         await handler.Handle(new ProcessConversationAfterSettleCommand(userId, "telegram", roomId));
@@ -242,6 +244,19 @@ public sealed class ProcessConversationAfterSettleCommandHandlerTests
         }
 
         public void Dispose()
+        {
+        }
+    }
+
+    private sealed class TestHostApplicationLifetime : IHostApplicationLifetime
+    {
+        public CancellationToken ApplicationStarted => CancellationToken.None;
+
+        public CancellationToken ApplicationStopping => CancellationToken.None;
+
+        public CancellationToken ApplicationStopped => CancellationToken.None;
+
+        public void StopApplication()
         {
         }
     }

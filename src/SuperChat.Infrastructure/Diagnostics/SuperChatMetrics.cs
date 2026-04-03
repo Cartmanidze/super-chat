@@ -53,6 +53,14 @@ public static class SuperChatMetrics
             LabelNames = ["scheduler", "command"]
         });
 
+    public static readonly Counter PipelineDispatchSkippedTotal = Metrics.CreateCounter(
+        "superchat_pipeline_dispatch_skipped_total",
+        "Total number of pipeline commands skipped or dropped.",
+        new CounterConfiguration
+        {
+            LabelNames = ["scheduler", "reason"]
+        });
+
     public static readonly Counter PipelineCommandsTotal = Metrics.CreateCounter(
         "superchat_pipeline_commands_total",
         "Total number of pipeline commands handled.",
@@ -86,6 +94,7 @@ public static class SuperChatMetrics
         _ = MatrixSyncTickDurationSeconds;
         _ = MatrixSyncMessagesIngestedTotal;
         _ = PipelineDispatchTotal;
+        _ = PipelineDispatchSkippedTotal;
         _ = PipelineCommandsTotal;
         _ = PipelineCommandsInProgress;
         _ = PipelineCommandDurationSeconds;

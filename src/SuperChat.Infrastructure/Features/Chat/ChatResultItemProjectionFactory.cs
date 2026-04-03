@@ -1,7 +1,6 @@
 using SuperChat.Contracts.Features.Chat;
 using SuperChat.Contracts.Features.Search;
 using SuperChat.Contracts.Features.WorkItems;
-using SuperChat.Domain.Features.Intelligence;
 using SuperChat.Domain.Features.Messaging;
 using SuperChat.Infrastructure.Features.Messaging;
 using SuperChat.Infrastructure.Shared.Presentation;

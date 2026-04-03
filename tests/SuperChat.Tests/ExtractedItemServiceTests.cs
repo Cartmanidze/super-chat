@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SuperChat.Contracts.Features.Auth;
@@ -402,6 +403,7 @@ public sealed class ExtractedItemServiceTests
                 Enabled = true
             }),
             new FixedTimeProvider(handlerNow),
+            new TestHostApplicationLifetime(),
             NullLogger<ProjectConversationMeetingsCommandHandler>.Instance);
 
         await handler.Handle(new ProjectConversationMeetingsCommand(userId, roomId));
@@ -633,6 +635,19 @@ public sealed class ExtractedItemServiceTests
         public override DateTimeOffset GetUtcNow()
         {
             return utcNow;
+        }
+    }
+
+    private sealed class TestHostApplicationLifetime : IHostApplicationLifetime
+    {
+        public CancellationToken ApplicationStarted => CancellationToken.None;
+
+        public CancellationToken ApplicationStopping => CancellationToken.None;
+
+        public CancellationToken ApplicationStopped => CancellationToken.None;
+
+        public void StopApplication()
+        {
         }
     }
 }
