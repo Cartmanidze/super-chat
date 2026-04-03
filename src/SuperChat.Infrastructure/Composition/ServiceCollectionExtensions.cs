@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Rebus.Config;
 using Rebus.Transport.InMem;
+using Rebus.Timeouts;
 using SuperChat.Contracts.Features.Admin;
 using SuperChat.Contracts.Features.Auth;
 using SuperChat.Contracts.Features.Chat;
@@ -281,6 +282,8 @@ public static class ServiceCollectionExtensions
                         configurer.Transport(transport => transport.UsePostgreSqlAsOneWayClient(
                             connectionString,
                             pipelineMessagingOptions.TransportTableName));
+                        configurer.Timeouts(timeouts => timeouts.UseExternalTimeoutManager(
+                            pipelineMessagingOptions.InputQueueName));
                     }
                     else
                     {

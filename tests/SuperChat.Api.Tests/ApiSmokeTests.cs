@@ -133,14 +133,18 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
 
         Assert.Equal(HttpStatusCode.OK, connectResponse.StatusCode);
         Assert.NotNull(connect);
-        Assert.Equal("Connected", connect!.State);
+        Assert.Equal("Pending", connect!.State);
+        Assert.Equal("phone", connect.ChatLoginStep);
+        Assert.True(connect.RequiresAction);
 
         var reconnectResponse = await client.PostAsync("/api/v1/integrations/telegram/reconnect", content: null);
         var reconnect = await reconnectResponse.Content.ReadFromJsonAsync<TelegramConnectionEnvelope>(JsonOptions);
 
         Assert.Equal(HttpStatusCode.OK, reconnectResponse.StatusCode);
         Assert.NotNull(reconnect);
-        Assert.Equal("Connected", reconnect!.State);
+        Assert.Equal("Pending", reconnect!.State);
+        Assert.Equal("phone", reconnect.ChatLoginStep);
+        Assert.True(reconnect.RequiresAction);
 
         var disconnectResponse = await client.DeleteAsync("/api/v1/integrations/telegram");
         var disconnect = await disconnectResponse.Content.ReadFromJsonAsync<TelegramConnectionEnvelope>(JsonOptions);
@@ -367,7 +371,13 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
 
     private sealed record MeEnvelope(Guid Id, string Email, string? MatrixUserId, string TelegramState);
 
-    private sealed record TelegramConnectionEnvelope(string State, string? MatrixUserId, Uri? WebLoginUrl, DateTimeOffset? LastSyncedAt, bool RequiresAction);
+    private sealed record TelegramConnectionEnvelope(
+        string State,
+        string? MatrixUserId,
+        Uri? WebLoginUrl,
+        string? ChatLoginStep,
+        DateTimeOffset? LastSyncedAt,
+        bool RequiresAction);
 
     private sealed record IntegrationConnectionEnvelope(
         string Provider,
