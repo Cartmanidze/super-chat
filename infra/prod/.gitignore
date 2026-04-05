@@ -5,6 +5,7 @@ mautrix/config.yaml
 mautrix/registration.yaml
 synapse/homeserver.yaml
 synapse/telegram-registration.yaml
+synapse/telegram-doublepuppet-registration.yaml
 synapse/*.signing.key
 synapse/media_store/
 synapse/*.log
