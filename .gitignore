@@ -20,6 +20,7 @@ infra/data/
 infra/config/generated/
 .tmp-chrome-profile/
 .tmp-edge-profile/
+infra/mautrix/config.yaml
 infra/mautrix/logs/
 infra/mautrix/registration.yaml
 infra/synapse/*.signing.key

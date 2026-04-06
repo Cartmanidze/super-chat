@@ -8,13 +8,21 @@ This folder now has two tracks:
 ## Local bootstrap
 
 1. Copy root `.env.example` to `.env` if you want your own local overrides.
-2. Start the full local stack:
+2. Create the local mautrix config from the template if it does not exist yet:
+
+   ```powershell
+   if (-not (Test-Path infra/mautrix/config.yaml)) {
+     Copy-Item infra/mautrix/config.yaml.template infra/mautrix/config.yaml
+   }
+   ```
+
+3. Start the full local stack:
 
    ```powershell
    docker compose --env-file .env.example -f infra/docker-compose.yml up -d --build
    ```
 
-3. Check the main endpoints:
+4. Check the main endpoints:
 
    ```powershell
    curl http://localhost:15050/api/v1/health
@@ -22,12 +30,12 @@ This folder now has two tracks:
    curl http://localhost:8008/health
    ```
 
-4. Open:
+5. Open:
    - `https://app.localhost`
    - `http://localhost:15050`
    - `http://localhost:15051`
    - `http://localhost:18025`
-5. Stop the stack when needed:
+6. Stop the stack when needed:
 
    ```powershell
    docker compose --env-file .env.example -f infra/docker-compose.yml down
@@ -131,6 +139,7 @@ Important:
 - `infra/prod/` assumes a static frontend container, a separate API container, and a separate worker container.
 - `infra/prod/` expects a dedicated bridge host such as `bridge.example.com` for mautrix public login pages.
 - `infra/prod/caddy/Caddyfile.template` is the only source for Caddy config; runtime `Caddyfile` is generated.
+- `infra/mautrix/config.yaml.template` is the source for the local mautrix config; keep `infra/mautrix/config.yaml` local-only because the bridge may rewrite secrets into it on startup.
 - `infra/prod/prometheus/prometheus.yml` configures scraping for the web host, API host, Prometheus itself, and Qdrant.
 - `infra/prod/grafana/provisioning/**` and `infra/prod/grafana/dashboards/**` provision Grafana automatically on container start.
 - `infra/prod/synapse/homeserver.yaml.template`, `infra/prod/synapse/telegram-registration.yaml.template`, and `infra/prod/mautrix/config.yaml.template` are the source templates; runtime `.yaml` files are generated artifacts.
