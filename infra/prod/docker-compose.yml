@@ -1,12 +1,27 @@
+x-superchat-log-env: &superchat-log-env
+  SUPERCHAT_LOG_ENVIRONMENT: ${SUPERCHAT_LOG_ENVIRONMENT:-prod}
+
+x-superchat-json-logging: &superchat-json-logging
+  driver: json-file
+  options:
+    max-size: ${DOCKER_LOG_MAX_SIZE:-20m}
+    max-file: ${DOCKER_LOG_MAX_FILE:-5}
+    env: SUPERCHAT_LOG_ENVIRONMENT
+    labels: com.superchat.service
+
 services:
   postgres:
     image: postgres:16
     restart: unless-stopped
+    labels:
+      com.superchat.service: postgres
     environment:
+      <<: *superchat-log-env
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_MULTIPLE_DATABASES: ${POSTGRES_MULTIPLE_DATABASES}
+    logging: *superchat-json-logging
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./postgres/init:/docker-entrypoint-initdb.d:ro
@@ -19,11 +34,15 @@ services:
   synapse:
     image: matrixdotorg/synapse:v1.128.0
     restart: unless-stopped
+    labels:
+      com.superchat.service: synapse
     depends_on:
       postgres:
         condition: service_healthy
     environment:
+      <<: *superchat-log-env
       SYNAPSE_CONFIG_PATH: /data/homeserver.yaml
+    logging: *superchat-json-logging
     volumes:
       - ./synapse:/data
 
@@ -32,11 +51,16 @@ services:
       context: ./mautrix-image
     image: prod-mautrix-telegram:hotfix
     restart: unless-stopped
+    labels:
+      com.superchat.service: mautrix-telegram
     depends_on:
       postgres:
         condition: service_healthy
       synapse:
         condition: service_started
+    environment:
+      <<: *superchat-log-env
+    logging: *superchat-json-logging
     volumes:
       - ./mautrix:/data
 
@@ -45,22 +69,50 @@ services:
       context: ./mautrix-helper-image
     image: prod-mautrix-telegram-helper:hotfix
     restart: unless-stopped
+    labels:
+      com.superchat.service: mautrix-telegram-helper
     depends_on:
       postgres:
         condition: service_healthy
+    environment:
+      <<: *superchat-log-env
+    logging: *superchat-json-logging
     volumes:
       - ./mautrix:/data
 
   qdrant:
     image: qdrant/qdrant:v1.15.4
     restart: unless-stopped
+    labels:
+      com.superchat.service: qdrant
+    environment:
+      <<: *superchat-log-env
+    logging: *superchat-json-logging
     volumes:
       - qdrant-data:/qdrant/storage
+
+  loki:
+    image: grafana/loki:3.6.3
+    restart: unless-stopped
+    labels:
+      com.superchat.service: loki
+    command:
+      - -config.file=/etc/loki/loki-config.yml
+    environment:
+      <<: *superchat-log-env
+    logging: *superchat-json-logging
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki-data:/loki
 
   prometheus:
     image: prom/prometheus:v3.10.0
     restart: unless-stopped
+    labels:
+      com.superchat.service: prometheus
     depends_on:
+      loki:
+        condition: service_started
       qdrant:
         condition: service_started
       superchat-web:
@@ -69,10 +121,15 @@ services:
         condition: service_started
       superchat-worker:
         condition: service_started
+      fluent-bit:
+        condition: service_started
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
       - --storage.tsdb.retention.time=15d
+    environment:
+      <<: *superchat-log-env
+    logging: *superchat-json-logging
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
@@ -80,20 +137,44 @@ services:
   grafana:
     image: grafana/grafana:12.4.1
     restart: unless-stopped
+    labels:
+      com.superchat.service: grafana
     depends_on:
+      loki:
+        condition: service_started
       prometheus:
         condition: service_started
     environment:
+      <<: *superchat-log-env
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_AUTH_ANONYMOUS_ENABLED: "false"
       GF_SERVER_DOMAIN: ${GRAFANA_HOST}
       GF_SERVER_ROOT_URL: https://${GRAFANA_HOST}
+      LOG_ALERT_WEBHOOK_URL: ${LOG_ALERT_WEBHOOK_URL:-https://example.invalid/superchat-log-alerts}
+    logging: *superchat-json-logging
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana-data:/var/lib/grafana
+
+  fluent-bit:
+    image: cr.fluentbit.io/fluent/fluent-bit:4.2.3
+    restart: unless-stopped
+    labels:
+      com.superchat.service: fluent-bit
+    depends_on:
+      loki:
+        condition: service_started
+    environment:
+      <<: *superchat-log-env
+    logging: *superchat-json-logging
+    volumes:
+      - ./fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
+      - ./fluent-bit/parsers.conf:/fluent-bit/etc/parsers.conf:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - fluent-bit-state:/fluent-bit/state
 
   embedding-service:
     build:
@@ -102,12 +183,16 @@ services:
         INSTALL_BGE: ${EMBEDDING_INSTALL_BGE:-0}
     image: prod-superchat-embedding:hotfix
     restart: unless-stopped
+    labels:
+      com.superchat.service: embedding-service
     environment:
+      <<: *superchat-log-env
       EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-mock}
       EMBEDDING_MODEL_NAME: ${EMBEDDING_MODEL_NAME:-BAAI/bge-m3}
       EMBEDDING_PORT: ${EMBEDDING_PORT:-7291}
       EMBEDDING_DEVICE: ${EMBEDDING_DEVICE:-cpu}
       EMBEDDING_DENSE_VECTOR_SIZE: ${EMBEDDING_DENSE_VECTOR_SIZE:-1024}
+    logging: *superchat-json-logging
     volumes:
       - embedding-cache:/root/.cache/huggingface
 
@@ -115,23 +200,30 @@ services:
     build:
       context: ../text-enrichment-service
     restart: unless-stopped
+    labels:
+      com.superchat.service: text-enrichment-service
     environment:
+      <<: *superchat-log-env
       TEXT_ENRICHMENT_PORT: ${TEXT_ENRICHMENT_PORT:-7391}
       TEXT_ENRICHMENT_HEIDELTIME_LANGUAGE: ${TEXT_ENRICHMENT_HEIDELTIME_LANGUAGE:-Russian}
       TEXT_ENRICHMENT_HEIDELTIME_DOCUMENT_TYPE: ${TEXT_ENRICHMENT_HEIDELTIME_DOCUMENT_TYPE:-colloquial}
       TEXT_ENRICHMENT_LOG_LEVEL: ${TEXT_ENRICHMENT_LOG_LEVEL:-INFO}
+    logging: *superchat-json-logging
 
   superchat-db-migrator:
     image: ${SUPERCHAT_DB_MIGRATOR_IMAGE:-ghcr.io/cartmanidze/superchat-db-migrator:main}
     profiles:
       - ops
     restart: "no"
+    labels:
+      com.superchat.service: superchat-db-migrator
     depends_on:
       postgres:
         condition: service_healthy
       qdrant:
         condition: service_started
     environment:
+      <<: *superchat-log-env
       ASPNETCORE_ENVIRONMENT: Production
       ConnectionStrings__SuperChatDb: ${SUPERCHAT_PERSISTENCE_CONNECTION}
       Persistence__Provider: Postgres
@@ -144,10 +236,16 @@ services:
       Qdrant__DenseVectorName: ${QDRANT_DENSE_VECTOR_NAME:-text-dense}
       Qdrant__SparseVectorName: ${QDRANT_SPARSE_VECTOR_NAME:-text-sparse}
       Qdrant__DenseVectorSize: ${QDRANT_DENSE_VECTOR_SIZE:-1024}
+    logging: *superchat-json-logging
 
   superchat-web:
     image: ${SUPERCHAT_WEB_IMAGE:-ghcr.io/cartmanidze/superchat-web:main}
     restart: unless-stopped
+    labels:
+      com.superchat.service: superchat-web
+    environment:
+      <<: *superchat-log-env
+    logging: *superchat-json-logging
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/health | grep -q ok"]
       interval: 15s
@@ -157,12 +255,15 @@ services:
   superchat-api:
     image: ${SUPERCHAT_API_IMAGE:-ghcr.io/cartmanidze/superchat-api:main}
     restart: unless-stopped
+    labels:
+      com.superchat.service: superchat-api
     depends_on:
       postgres:
         condition: service_healthy
       qdrant:
         condition: service_started
     environment:
+      <<: *superchat-log-env
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
       ConnectionStrings__SuperChatDb: ${SUPERCHAT_PERSISTENCE_CONNECTION}
@@ -234,16 +335,20 @@ services:
       Embedding__YandexQueryModelUri: ${EMBEDDING_YANDEX_QUERY_MODEL_URI}
       Embedding__YandexDocModelName: ${EMBEDDING_YANDEX_DOC_MODEL_NAME:-text-search-doc}
       Embedding__YandexQueryModelName: ${EMBEDDING_YANDEX_QUERY_MODEL_NAME:-text-search-query}
+    logging: *superchat-json-logging
 
   superchat-worker:
     image: ${SUPERCHAT_WORKER_IMAGE:-ghcr.io/cartmanidze/superchat-worker:main}
     restart: unless-stopped
+    labels:
+      com.superchat.service: superchat-worker
     depends_on:
       postgres:
         condition: service_healthy
       qdrant:
         condition: service_started
     environment:
+      <<: *superchat-log-env
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__SuperChatDb: ${SUPERCHAT_PERSISTENCE_CONNECTION}
@@ -320,6 +425,7 @@ services:
       Embedding__YandexQueryModelUri: ${EMBEDDING_YANDEX_QUERY_MODEL_URI}
       Embedding__YandexDocModelName: ${EMBEDDING_YANDEX_DOC_MODEL_NAME:-text-search-doc}
       Embedding__YandexQueryModelName: ${EMBEDDING_YANDEX_QUERY_MODEL_NAME:-text-search-query}
+    logging: *superchat-json-logging
     healthcheck:
       test: ["CMD-SHELL", "curl --fail --silent http://127.0.0.1:8080/health || exit 1"]
       interval: 15s
@@ -329,6 +435,8 @@ services:
   caddy:
     image: caddy:2.8
     restart: unless-stopped
+    labels:
+      com.superchat.service: caddy
     depends_on:
       grafana:
         condition: service_started
@@ -340,6 +448,9 @@ services:
         condition: service_started
       mautrix-telegram:
         condition: service_started
+    environment:
+      <<: *superchat-log-env
+    logging: *superchat-json-logging
     ports:
       - "80:80"
       - "443:443"
@@ -351,8 +462,10 @@ services:
 volumes:
   postgres-data:
   qdrant-data:
+  loki-data:
   prometheus-data:
   grafana-data:
+  fluent-bit-state:
   embedding-cache:
   caddy-data:
   caddy-config:

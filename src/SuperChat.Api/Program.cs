@@ -13,8 +13,10 @@ using SuperChat.Api.Features.Me;
 using SuperChat.Api.Features.Search;
 using SuperChat.Api.Features.WorkItems;
 using SuperChat.Infrastructure.Composition;
+using SuperChat.Infrastructure.Diagnostics;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.AddSuperChatStructuredLogging("superchat-api");
 
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<SuperChat.Api.Security.InvalidSessionExceptionHandler>();
@@ -35,6 +37,7 @@ builder.Services.AddSuperChatBootstrap(
 var app = builder.Build();
 
 app.UseExceptionHandler();
+app.UseSuperChatRequestLogging();
 
 if (!app.Environment.IsDevelopment())
 {

@@ -7,14 +7,11 @@ using SuperChat.Contracts.Features.Intelligence.Retrieval;
 using SuperChat.Contracts.Features.Operations;
 using SuperChat.DbMigrator;
 using SuperChat.Infrastructure.Composition;
+using SuperChat.Infrastructure.Diagnostics;
 using SuperChat.Infrastructure.Shared.Persistence;
 
 var builder = Host.CreateApplicationBuilder(args);
-builder.Logging.AddSimpleConsole(options =>
-{
-    options.SingleLine = true;
-    options.TimestampFormat = "HH:mm:ss ";
-});
+builder.AddSuperChatStructuredLogging("superchat-db-migrator");
 builder.Services
     .AddOptions<PersistenceOptions>()
     .Bind(builder.Configuration.GetSection(PersistenceOptions.SectionName));
