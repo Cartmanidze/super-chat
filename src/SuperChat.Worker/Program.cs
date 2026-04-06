@@ -2,8 +2,10 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Prometheus;
 using SuperChat.Infrastructure.Composition;
+using SuperChat.Infrastructure.Diagnostics;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.AddSuperChatStructuredLogging("superchat-worker");
 
 builder.Services.AddSuperChatBootstrap(
     builder.Configuration,
@@ -13,6 +15,7 @@ builder.Services.AddSuperChatBootstrap(
 
 var app = builder.Build();
 
+app.UseSuperChatRequestLogging();
 app.UseHttpMetrics();
 app.MapHealthChecks("/health", new HealthCheckOptions
 {

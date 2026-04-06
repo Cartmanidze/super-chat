@@ -1,0 +1,17 @@
+apiVersion: 1
+
+policies:
+  - orgId: 1
+    receiver: superchat-log-webhook
+    group_by:
+      - grafana_folder
+      - alertname
+      - environment
+      - service
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h
+    routes:
+      - receiver: superchat-log-webhook
+        object_matchers:
+          - ["source", "=", "logs"]

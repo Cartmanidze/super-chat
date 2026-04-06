@@ -38,6 +38,31 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
     }
 
     [Fact]
+    public async Task HealthEndpoint_ReturnsGeneratedCorrelationIdHeader_WhenMissing()
+    {
+        using var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/api/v1/health");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(response.Headers.TryGetValues("X-Correlation-ID", out var values));
+        Assert.False(string.IsNullOrWhiteSpace(values!.Single()));
+    }
+
+    [Fact]
+    public async Task HealthEndpoint_PreservesIncomingCorrelationIdHeader()
+    {
+        using var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Correlation-ID", "test-correlation-id");
+
+        var response = await client.GetAsync("/api/v1/health");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(response.Headers.TryGetValues("X-Correlation-ID", out var values));
+        Assert.Equal("test-correlation-id", values!.Single());
+    }
+
+    [Fact]
     public async Task MetricsEndpoint_ExposesApplicationMetrics()
     {
         using var client = _factory.CreateClient();

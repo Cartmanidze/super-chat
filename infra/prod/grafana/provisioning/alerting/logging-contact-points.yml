@@ -1,0 +1,11 @@
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: superchat-log-webhook
+    receivers:
+      - uid: superchat-log-webhook
+        type: webhook
+        disableResolveMessage: false
+        settings:
+          url: $LOG_ALERT_WEBHOOK_URL
