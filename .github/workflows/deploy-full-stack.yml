@@ -3,7 +3,7 @@ name: deploy-full-stack
 on:
   push:
     branches:
-      - main
+      - staging
     paths:
       - .github/workflows/deploy-full-stack.yml
       - infra/prod/**
@@ -25,7 +25,7 @@ permissions:
 
 jobs:
   build-test-and-deploy-staging:
-    if: github.ref == 'refs/heads/main' && ((github.event_name == 'push' && vars.STAGING_FULL_STACK_DEPLOY_ENABLED == 'true') || (github.event_name == 'workflow_dispatch' && inputs.deploy_environment == 'staging' && vars.STAGING_FULL_STACK_DEPLOY_ENABLED == 'true'))
+    if: github.ref == 'refs/heads/staging' && ((github.event_name == 'push' && vars.STAGING_FULL_STACK_DEPLOY_ENABLED == 'true') || (github.event_name == 'workflow_dispatch' && inputs.deploy_environment == 'staging' && vars.STAGING_FULL_STACK_DEPLOY_ENABLED == 'true'))
     runs-on: ubuntu-latest
     timeout-minutes: 60
     concurrency:
@@ -203,7 +203,7 @@ jobs:
           curl --fail --silent --show-error --retry 12 --retry-delay 5 --retry-connrefused "${STAGING_API_HEALTHCHECK_URL}"
 
   build-test-and-deploy-production:
-    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.deploy_environment == 'production' && vars.PROD_FULL_STACK_DEPLOY_ENABLED == 'true'
+    if: github.ref == 'refs/heads/production' && github.event_name == 'workflow_dispatch' && inputs.deploy_environment == 'production' && vars.PROD_FULL_STACK_DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     concurrency:
