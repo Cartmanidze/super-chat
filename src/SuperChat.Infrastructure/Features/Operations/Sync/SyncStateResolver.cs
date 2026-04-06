@@ -6,11 +6,12 @@ internal static class SyncStateResolver
 {
     internal static TelegramConnectionState ResolveConnectionStateAfterSuccessfulSync(
         TelegramConnectionState currentState,
-        bool connected,
+        bool managementConnected,
+        bool chatConnected = false,
         bool lostConnection = false,
         TelegramConnectionState? detectedLoginStep = null)
     {
-        if (connected)
+        if (managementConnected)
         {
             return TelegramConnectionState.Connected;
         }
@@ -21,12 +22,25 @@ internal static class SyncStateResolver
             return TelegramConnectionState.BridgePending;
         }
 
-        // Only apply login step transitions for connections already in chat-login flow
-        if (detectedLoginStep is not null &&
+        var isLoginFlow =
             currentState >= TelegramConnectionState.LoginAwaitingPhone &&
-            detectedLoginStep.Value > currentState)
+            currentState <= TelegramConnectionState.LoginAwaitingPassword;
+
+        // While login is still waiting for phone/code/password, ordinary chat messages
+        // must not flip the connection to Connected before the management room confirms it.
+        if (isLoginFlow)
         {
-            return detectedLoginStep.Value;
+            if (detectedLoginStep is not null && detectedLoginStep.Value > currentState)
+            {
+                return detectedLoginStep.Value;
+            }
+
+            return currentState;
+        }
+
+        if (chatConnected)
+        {
+            return TelegramConnectionState.Connected;
         }
 
         return currentState switch

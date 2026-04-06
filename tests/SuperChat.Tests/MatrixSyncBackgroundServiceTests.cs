@@ -277,17 +277,17 @@ public sealed class MatrixSyncBackgroundServiceTests
     {
         var result = SyncStateResolver.ResolveConnectionStateAfterSuccessfulSync(
             TelegramConnectionState.Error,
-            connected: false);
+            managementConnected: false);
 
         Assert.Equal(TelegramConnectionState.BridgePending, result);
     }
 
     [Fact]
-    public void ResolveConnectionStateAfterSuccessfulSync_ReturnsConnected_WhenConnectionIsLive()
+    public void ResolveConnectionStateAfterSuccessfulSync_ReturnsConnected_WhenManagementRoomConfirmsLogin()
     {
         var result = SyncStateResolver.ResolveConnectionStateAfterSuccessfulSync(
             TelegramConnectionState.Error,
-            connected: true);
+            managementConnected: true);
 
         Assert.Equal(TelegramConnectionState.Connected, result);
     }
@@ -354,14 +354,15 @@ public sealed class MatrixSyncBackgroundServiceTests
     // --- ResolveConnectionStateAfterSuccessfulSync with detectedLoginStep ---
 
     [Fact]
-    public void ResolveConnectionStateAfterSuccessfulSync_ConnectedOverridesLoginStep()
+    public void ResolveConnectionStateAfterSuccessfulSync_DoesNotMarkConnected_WhileLoginStillAwaitsCode()
     {
         var result = SyncStateResolver.ResolveConnectionStateAfterSuccessfulSync(
             TelegramConnectionState.LoginAwaitingCode,
-            connected: true,
-            detectedLoginStep: TelegramConnectionState.LoginAwaitingPassword);
+            managementConnected: false,
+            chatConnected: true,
+            detectedLoginStep: TelegramConnectionState.LoginAwaitingCode);
 
-        Assert.Equal(TelegramConnectionState.Connected, result);
+        Assert.Equal(TelegramConnectionState.LoginAwaitingCode, result);
     }
 
     [Fact]
@@ -369,7 +370,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     {
         var result = SyncStateResolver.ResolveConnectionStateAfterSuccessfulSync(
             TelegramConnectionState.LoginAwaitingPhone,
-            connected: false,
+            managementConnected: false,
             detectedLoginStep: TelegramConnectionState.LoginAwaitingCode);
 
         Assert.Equal(TelegramConnectionState.LoginAwaitingCode, result);
@@ -380,7 +381,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     {
         var result = SyncStateResolver.ResolveConnectionStateAfterSuccessfulSync(
             TelegramConnectionState.LoginAwaitingCode,
-            connected: false,
+            managementConnected: false,
             detectedLoginStep: TelegramConnectionState.LoginAwaitingPhone);
 
         Assert.Equal(TelegramConnectionState.LoginAwaitingCode, result);
@@ -391,7 +392,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     {
         var result = SyncStateResolver.ResolveConnectionStateAfterSuccessfulSync(
             TelegramConnectionState.BridgePending,
-            connected: false,
+            managementConnected: false,
             detectedLoginStep: TelegramConnectionState.LoginAwaitingPhone);
 
         Assert.Equal(TelegramConnectionState.BridgePending, result);
@@ -402,7 +403,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     {
         var result = SyncStateResolver.ResolveConnectionStateAfterSuccessfulSync(
             TelegramConnectionState.LoginAwaitingPhone,
-            connected: false,
+            managementConnected: false,
             detectedLoginStep: null);
 
         Assert.Equal(TelegramConnectionState.LoginAwaitingPhone, result);
@@ -459,7 +460,7 @@ public sealed class MatrixSyncBackgroundServiceTests
     {
         var result = SyncStateResolver.ResolveConnectionStateAfterSuccessfulSync(
             TelegramConnectionState.Connected,
-            connected: false,
+            managementConnected: false,
             lostConnection: true);
 
         Assert.Equal(TelegramConnectionState.BridgePending, result);

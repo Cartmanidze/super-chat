@@ -155,6 +155,8 @@ public sealed class MatrixSyncBackgroundService(
         }
 
         var connected = target.State == TelegramConnectionState.Connected;
+        var managementConnected = false;
+        var chatConnected = false;
         var ingestedMessages = 0;
         var joinedInvitedRooms = 0;
         var invitedRoomsToJoin = SyncStateResolver.GetInvitedRoomsToJoin(result.InvitedRoomIds, target.ManagementRoomId);
@@ -188,6 +190,7 @@ public sealed class MatrixSyncBackgroundService(
                 if (managementResult.Connected)
                 {
                     connected = true;
+                    managementConnected = true;
                 }
                 else if (managementResult.LostConnection)
                 {
@@ -257,7 +260,7 @@ public sealed class MatrixSyncBackgroundService(
             ingestedMessages += chatResult.IngestedMessages;
             if (chatResult.Connected)
             {
-                connected = true;
+                chatConnected = true;
             }
         }
 
@@ -265,7 +268,8 @@ public sealed class MatrixSyncBackgroundService(
             target,
             result.NextBatchToken,
             managementResult,
-            connected,
+            managementConnected,
+            chatConnected,
             ingestedMessages > 0,
             cancellationToken);
 
@@ -276,7 +280,8 @@ public sealed class MatrixSyncBackgroundService(
         MatrixSyncTarget target,
         string? nextBatchToken,
         ManagementRoomResult? managementResult,
-        bool connected,
+        bool managementConnected,
+        bool chatConnected,
         bool sawMessages,
         CancellationToken cancellationToken)
     {
@@ -306,7 +311,8 @@ public sealed class MatrixSyncBackgroundService(
         connection.UpdatedAt = timeProvider.GetUtcNow();
         connection.State = SyncStateResolver.ResolveConnectionStateAfterSuccessfulSync(
             connection.State,
-            connected,
+            managementConnected,
+            chatConnected,
             managementResult?.LostConnection ?? false,
             managementResult?.DetectedLoginStep);
         if (connection.State == TelegramConnectionState.Connected)
