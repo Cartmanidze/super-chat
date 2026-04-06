@@ -111,7 +111,6 @@ public sealed record TelegramLoginInputRequest(string Input);
 public sealed record TelegramConnectionResponse(
     string State,
     string? MatrixUserId,
-    Uri? WebLoginUrl,
     string? ChatLoginStep,
     DateTimeOffset? LastSyncedAt,
     bool RequiresAction);

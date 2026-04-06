@@ -180,6 +180,19 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
     }
 
     [Fact]
+    public async Task TelegramEndpoints_DoNotExposeWebLoginUrl()
+    {
+        using var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", await GetAccessTokenAsync(client));
+
+        var response = await client.PostAsync("/api/v1/integrations/telegram/connect", content: null);
+        var payload = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.DoesNotContain("\"webLoginUrl\"", payload, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task IntegrationEndpoints_ListConnections_AndRejectUnimplementedProvider()
     {
         using var client = _factory.CreateClient();

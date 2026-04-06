@@ -1,17 +1,13 @@
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Prometheus;
-using SuperChat.Infrastructure.Composition;
 using SuperChat.Infrastructure.Diagnostics;
+using SuperChat.Worker;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddSuperChatStructuredLogging("superchat-worker");
 
-builder.Services.AddSuperChatBootstrap(
-    builder.Configuration,
-    enableMatrixSyncWorker: false,
-    enablePipelineScheduling: false,
-    enablePipelineConsumers: true);
+WorkerServiceConfiguration.AddWorkerServices(builder.Services, builder.Configuration);
 
 var app = builder.Build();
 

@@ -4,7 +4,6 @@ import { withBearer } from "../../../shared/services/auth-header";
 export type TelegramConnection = {
   state: string;
   matrixUserId: string | null;
-  webLoginUrl: string | null;
   chatLoginStep: string | null;
   lastSyncedAt: string | null;
   requiresAction: boolean;
