@@ -3,7 +3,8 @@ name: ci
 on:
   push:
     branches:
-      - main
+      - staging
+      - production
   pull_request:
   workflow_dispatch:
     inputs:
@@ -93,7 +94,19 @@ jobs:
         run: dotnet test SuperChat.sln --configuration Release --no-build
 
   build-and-push-images:
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && (vars.STAGING_DEPLOY_ENABLED == 'true' || vars.PROD_DEPLOY_ENABLED == 'true') && needs.detect-full-stack-changes.outputs.requires_full_stack != 'true'
+    if: >
+      github.event_name != 'pull_request' &&
+      (
+        (
+          github.ref == 'refs/heads/staging' &&
+          vars.STAGING_DEPLOY_ENABLED == 'true' &&
+          needs.detect-full-stack-changes.outputs.requires_full_stack != 'true'
+        ) ||
+        (
+          github.ref == 'refs/heads/production' &&
+          vars.PROD_DEPLOY_ENABLED == 'true'
+        )
+      )
     needs:
       - detect-full-stack-changes
       - build-test
@@ -141,7 +154,9 @@ jobs:
           images: ghcr.io/${{ steps.vars.outputs.owner_lc }}/${{ matrix.image_name }}
           tags: |
             type=sha,prefix=sha-
-            type=raw,value=main,enable={{is_default_branch}}
+            type=raw,value=staging,enable=${{ github.ref == 'refs/heads/staging' }}
+            type=raw,value=production,enable=${{ github.ref == 'refs/heads/production' }}
+            type=raw,value=main,enable=${{ github.ref == 'refs/heads/production' }}
 
       - name: Build and push ${{ matrix.image_name }}
         uses: docker/build-push-action@v6
@@ -155,7 +170,21 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.image_name }}
 
   deploy-staging:
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && needs.detect-full-stack-changes.outputs.requires_full_stack != 'true' && ((github.event_name == 'push' && vars.STAGING_DEPLOY_ENABLED == 'true') || (github.event_name == 'workflow_dispatch' && inputs.deploy_environment == 'staging' && vars.STAGING_DEPLOY_ENABLED == 'true'))
+    if: >
+      needs.detect-full-stack-changes.outputs.requires_full_stack != 'true' &&
+      (
+        (
+          github.event_name == 'push' &&
+          github.ref == 'refs/heads/staging' &&
+          vars.STAGING_DEPLOY_ENABLED == 'true'
+        ) ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          github.ref == 'refs/heads/staging' &&
+          inputs.deploy_environment == 'staging' &&
+          vars.STAGING_DEPLOY_ENABLED == 'true'
+        )
+      )
     needs:
       - detect-full-stack-changes
       - build-test
@@ -249,7 +278,12 @@ jobs:
             "cd '${STAGING_WORKTREE_PATH}' && docker compose --env-file '${STAGING_ENV_FILE}' -f infra/prod/docker-compose.yml exec -T superchat-worker curl --fail --silent --show-error http://127.0.0.1:8080/health"
 
   deploy-production:
-    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.deploy_environment == 'production' && vars.PROD_DEPLOY_ENABLED == 'true' && needs.detect-full-stack-changes.outputs.requires_full_stack != 'true'
+    if: >
+      github.ref == 'refs/heads/production' &&
+      github.event_name == 'workflow_dispatch' &&
+      inputs.deploy_environment == 'production' &&
+      vars.PROD_DEPLOY_ENABLED == 'true' &&
+      needs.detect-full-stack-changes.outputs.requires_full_stack != 'true'
     needs:
       - detect-full-stack-changes
       - build-test
