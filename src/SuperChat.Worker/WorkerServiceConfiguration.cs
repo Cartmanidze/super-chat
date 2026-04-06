@@ -13,7 +13,7 @@ public static class WorkerServiceConfiguration
         services.AddSuperChatBootstrap(
             configuration,
             enableMatrixSyncWorker: true,
-            enablePipelineScheduling: false,
+            enablePipelineScheduling: true,
             enablePipelineConsumers: true);
 
         return services;
