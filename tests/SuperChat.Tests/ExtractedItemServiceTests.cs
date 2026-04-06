@@ -175,6 +175,66 @@ public sealed class ExtractedItemServiceTests
     }
 
     [Fact]
+    public async Task AddRangeAsync_ProjectsMeetingJoinLinkFromSourceMessageWhenSummaryIsShortened()
+    {
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        var userId = Guid.NewGuid();
+        var service = CreateService(factory);
+        var dueAt = new DateTimeOffset(2026, 04, 06, 18, 00, 00, TimeSpan.FromHours(6));
+        var joinUrl = new Uri("https://telemost.yandex.ru/j/77013557661694");
+
+        await using (var dbContext = await factory.CreateDbContextAsync(CancellationToken.None))
+        {
+            dbContext.NormalizedMessages.Add(new NormalizedMessageEntity
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                Source = "telegram",
+                MatrixRoomId = "!interview:matrix.localhost",
+                MatrixEventId = "$evt-telemost",
+                SenderName = "Stas",
+                Text = """
+                    напоминаю про сегоднешнее собеседование в 18:00, ссылка на яндекс теелмост
+
+                    https://telemost.yandex.ru/j/77013557661694
+
+                    Звонок в Яндекс Телемосте
+
+                    По ссылке вы сможете подключиться к звонку
+                    """,
+                SentAt = dueAt.AddHours(-5),
+                IngestedAt = dueAt.AddHours(-5),
+                Processed = true
+            });
+
+            await dbContext.SaveChangesAsync(CancellationToken.None);
+        }
+
+        await service.IngestRangeAsync(
+        [
+            new ExtractedItem(
+                Guid.NewGuid(),
+                userId,
+                ExtractedItemKind.Meeting,
+                "Upcoming meeting",
+                "напоминаю про сегоднешнее собеседование в 18:00, ссылка на яндекс теелмост",
+                "!interview:matrix.localhost",
+                "$evt-telemost",
+                null,
+                dueAt.AddHours(-5),
+                dueAt,
+                new Confidence(0.83))
+        ],
+        CancellationToken.None);
+
+        await using var verificationContext = await factory.CreateDbContextAsync(CancellationToken.None);
+        var meeting = await verificationContext.Meetings.SingleAsync(CancellationToken.None);
+
+        Assert.Equal("YandexTelemost", meeting.MeetingProvider);
+        Assert.Equal(joinUrl.ToString(), meeting.MeetingJoinUrl);
+    }
+
+    [Fact]
     public async Task GetActiveForUserAsync_AutoResolvesWaitingOnWhenUserReplies()
     {
         var factory = await CreateFactoryAsync(CancellationToken.None);

@@ -33,17 +33,38 @@ internal sealed class MeetingUpsertService(
         var existingMeetings = await dbContext.Meetings
             .Where(item => userIds.Contains(item.UserId) && sourceEventIds.Contains(item.SourceEventId))
             .ToListAsync(cancellationToken);
+        var sourceMessageTexts = await dbContext.NormalizedMessages
+            .Where(item => userIds.Contains(item.UserId) && sourceEventIds.Contains(item.MatrixEventId))
+            .Select(item => new
+            {
+                item.UserId,
+                SourceEventId = item.MatrixEventId,
+                item.Text
+            })
+            .ToListAsync(cancellationToken);
 
         var existingByKey = existingMeetings.ToDictionary(
             item => BuildKey(item.UserId, item.SourceEventId),
             item => item,
             StringComparer.Ordinal);
+        var sourceTextByKey = sourceMessageTexts
+            .GroupBy(item => BuildKey(item.UserId, item.SourceEventId), StringComparer.Ordinal)
+            .ToDictionary(
+                group => group.Key,
+                group => group.Last().Text,
+                StringComparer.Ordinal);
 
         foreach (var item in meetingItems)
         {
-            var joinLink = MeetingJoinLinkParser.TryParse(item.Summary);
-            var status = WorkItemPresentationMetadata.ResolveMeetingStatus(item.Summary);
             var key = BuildKey(item.UserId, item.SourceEventId);
+            var joinLink = MeetingJoinLinkParser.TryParse(item.Summary);
+            if (joinLink is null &&
+                sourceTextByKey.TryGetValue(key, out var sourceText))
+            {
+                joinLink = MeetingJoinLinkParser.TryParse(sourceText);
+            }
+
+            var status = WorkItemPresentationMetadata.ResolveMeetingStatus(item.Summary);
             if (existingByKey.TryGetValue(key, out var existing))
             {
                 existing.Title = item.Title;
