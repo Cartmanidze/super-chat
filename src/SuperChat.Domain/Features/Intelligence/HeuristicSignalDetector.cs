@@ -55,11 +55,13 @@ public static partial class HeuristicSignalDetector
             return;
         }
 
-        var meetingSignal = MeetingSignalDetector.TryFromChunk(
-            transcript,
-            window.TsFrom,
-            window.TsTo,
-            referenceTimeZone);
+        var meetingSignal = window.Messages.Count == 1
+            ? MeetingSignalDetector.TryFromMessage(window.LastMessage, referenceTimeZone)
+            : MeetingSignalDetector.TryFromChunk(
+                transcript,
+                window.TsFrom,
+                window.TsTo,
+                referenceTimeZone);
 
         if (meetingSignal is null)
         {

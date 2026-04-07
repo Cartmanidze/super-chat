@@ -47,11 +47,16 @@ public static partial class MeetingSignalDetector
         NormalizedMessage message,
         TimeZoneInfo referenceTimeZone)
     {
+        var text = StripSenderPrefix(message.Text);
         return TryDetectCore(
-            StripSenderPrefix(message.Text),
-            message.SentAt,
-            message.SentAt,
-            referenceTimeZone);
+                   text,
+                   message.SentAt,
+                   message.SentAt,
+                   referenceTimeZone)
+               ?? TryDetectStandaloneFollowUp(
+                   text,
+                   message.SentAt,
+                   referenceTimeZone);
     }
 
     public static MeetingSignal? TryFromChunk(
@@ -212,6 +217,25 @@ public static partial class MeetingSignalDetector
             new Confidence(Math.Min(0.92, confidence)));
     }
 
+    private static MeetingSignal? TryDetectStandaloneFollowUp(
+        string rawText,
+        DateTimeOffset observedAt,
+        TimeZoneInfo referenceTimeZone)
+    {
+        var lowered = rawText.Trim().ToLowerInvariant();
+        if (!ContainsSameLinkCue(lowered) &&
+            !UrlRegex().IsMatch(rawText))
+        {
+            return null;
+        }
+
+        return TryDetectContextualFollowUp(
+            rawText,
+            observedAt,
+            observedAt,
+            referenceTimeZone);
+    }
+
     private static DateTimeOffset? ResolveScheduledFor(
         DateTimeOffset observedAt,
         string lowered,
@@ -361,9 +385,21 @@ public static partial class MeetingSignalDetector
         return values.Any(value => text.Contains(value, StringComparison.Ordinal));
     }
 
-    [GeneratedRegex(@"(?:\b(?:at|в)\s*)(?<hour>\d{1,2})(?::(?<minute>\d{2}))?\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"(?:\b(?:at|в|на)\s*)(?<hour>\d{1,2})(?::(?<minute>\d{2}))?\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex TimeRegex();
+
+    private static bool ContainsSameLinkCue(string text)
+    {
+        return ContainsAny(text,
+        [
+            "same link", "link same",
+            "ссылка та же", "ссылка всё та же", "ссылка все та же"
+        ]);
+    }
 
     [GeneratedRegex(@"\b[\p{Lu}][\p{Ll}]+\b", RegexOptions.CultureInvariant)]
     private static partial Regex PersonRegex();
+
+    [GeneratedRegex(@"https?://\S+", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex UrlRegex();
 }

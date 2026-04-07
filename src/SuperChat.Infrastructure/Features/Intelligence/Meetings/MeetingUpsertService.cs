@@ -8,6 +8,12 @@ namespace SuperChat.Infrastructure.Features.Intelligence.Meetings;
 internal sealed class MeetingUpsertService(
     IDbContextFactory<SuperChatDbContext> dbContextFactory)
 {
+    private static readonly string[] SameLinkKeywords =
+    [
+        "same link", "link same",
+        "ссылка та же", "ссылка всё та же", "ссылка все та же"
+    ];
+
     public async Task UpsertRangeAsync(IEnumerable<ExtractedItem> items, CancellationToken cancellationToken)
     {
         var meetingItems = items
@@ -27,11 +33,17 @@ internal sealed class MeetingUpsertService(
 
         var userIds = meetingItems.Select(item => item.UserId).Distinct().ToList();
         var sourceEventIds = meetingItems.Select(item => item.SourceEventId).Distinct(StringComparer.Ordinal).ToList();
+        var sourceRooms = meetingItems.Select(item => item.SourceRoom).Distinct(StringComparer.Ordinal).ToList();
         var now = DateTimeOffset.UtcNow;
 
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         var existingMeetings = await dbContext.Meetings
             .Where(item => userIds.Contains(item.UserId) && sourceEventIds.Contains(item.SourceEventId))
+            .ToListAsync(cancellationToken);
+        var unresolvedRoomMeetings = await dbContext.Meetings
+            .Where(item => userIds.Contains(item.UserId) &&
+                           sourceRooms.Contains(item.SourceRoom) &&
+                           item.ResolvedAt == null)
             .ToListAsync(cancellationToken);
         var sourceMessageTexts = await dbContext.NormalizedMessages
             .Where(item => userIds.Contains(item.UserId) && sourceEventIds.Contains(item.MatrixEventId))
@@ -67,17 +79,23 @@ internal sealed class MeetingUpsertService(
             var status = WorkItemPresentationMetadata.ResolveMeetingStatus(item.Summary);
             if (existingByKey.TryGetValue(key, out var existing))
             {
-                existing.Title = item.Title;
-                existing.Summary = item.Summary;
-                existing.SourceRoom = item.SourceRoom;
-                existing.Person = item.Person;
-                existing.ObservedAt = MeetingTimeSupport.NormalizeToUtc(item.ObservedAt);
-                existing.ScheduledFor = MeetingTimeSupport.NormalizeToUtc(item.DueAt!.Value);
-                existing.Confidence = item.Confidence;
-                existing.Status = status;
-                existing.MeetingProvider = joinLink?.Provider.ToString();
-                existing.MeetingJoinUrl = joinLink?.Url.ToString();
-                existing.UpdatedAt = now;
+                UpdateMeeting(existing, item, status, joinLink, now);
+                continue;
+            }
+
+            var correlatedMeeting = TryFindCorrelatedMeeting(
+                item,
+                status,
+                joinLink,
+                sourceTextByKey.GetValueOrDefault(key),
+                unresolvedRoomMeetings);
+            if (correlatedMeeting is not null)
+            {
+                var previousKey = BuildKey(correlatedMeeting.UserId, correlatedMeeting.SourceEventId);
+                UpdateMeeting(correlatedMeeting, item, status, joinLink, now);
+                correlatedMeeting.SourceEventId = item.SourceEventId;
+                existingByKey.Remove(previousKey);
+                existingByKey[BuildKey(correlatedMeeting.UserId, correlatedMeeting.SourceEventId)] = correlatedMeeting;
                 continue;
             }
 
@@ -104,8 +122,84 @@ internal sealed class MeetingUpsertService(
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    private static void UpdateMeeting(
+        MeetingEntity existing,
+        ExtractedItem item,
+        MeetingStatus status,
+        MeetingJoinLink? joinLink,
+        DateTimeOffset now)
+    {
+        existing.Title = item.Title;
+        existing.Summary = item.Summary;
+        existing.SourceRoom = item.SourceRoom;
+        existing.Person = item.Person;
+        existing.ObservedAt = MeetingTimeSupport.NormalizeToUtc(item.ObservedAt);
+        existing.ScheduledFor = MeetingTimeSupport.NormalizeToUtc(item.DueAt!.Value);
+        existing.Confidence = item.Confidence;
+        existing.Status = status;
+        existing.MeetingProvider = joinLink?.Provider.ToString();
+        existing.MeetingJoinUrl = joinLink?.Url.ToString();
+        existing.UpdatedAt = now;
+    }
+
+    private static MeetingEntity? TryFindCorrelatedMeeting(
+        ExtractedItem item,
+        MeetingStatus status,
+        MeetingJoinLink? joinLink,
+        string? sourceText,
+        IReadOnlyList<MeetingEntity> unresolvedRoomMeetings)
+    {
+        if (status != MeetingStatus.Rescheduled)
+        {
+            return null;
+        }
+
+        var roomCandidates = unresolvedRoomMeetings
+            .Where(candidate => candidate.UserId == item.UserId &&
+                                candidate.SourceRoom == item.SourceRoom &&
+                                !string.Equals(candidate.SourceEventId, item.SourceEventId, StringComparison.Ordinal))
+            .OrderByDescending(candidate => candidate.ObservedAt)
+            .ToList();
+        if (roomCandidates.Count == 0)
+        {
+            return null;
+        }
+
+        if (joinLink is not null)
+        {
+            var byLink = roomCandidates
+                .Where(candidate => string.Equals(
+                    candidate.MeetingJoinUrl,
+                    joinLink.Url.ToString(),
+                    StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            if (byLink.Count == 1)
+            {
+                return byLink[0];
+            }
+        }
+
+        if (ContainsSameLinkCue(sourceText ?? item.Summary) && roomCandidates.Count == 1)
+        {
+            return roomCandidates[0];
+        }
+
+        return null;
+    }
+
     private static string BuildKey(Guid userId, string sourceEventId)
     {
         return $"{userId:N}|{sourceEventId}";
+    }
+
+    private static bool ContainsSameLinkCue(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        var lowered = text.Trim().ToLowerInvariant();
+        return SameLinkKeywords.Any(keyword => lowered.Contains(keyword, StringComparison.Ordinal));
     }
 }

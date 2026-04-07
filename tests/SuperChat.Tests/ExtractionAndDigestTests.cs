@@ -122,6 +122,30 @@ public sealed class ExtractionAndDigestTests
     }
 
     [Fact]
+    public async Task HeuristicExtraction_RecognizesStandaloneRescheduleFollowUpWithSameLinkCue()
+    {
+        var sentAt = new DateTimeOffset(2026, 04, 06, 11, 37, 23, TimeSpan.Zero);
+        var message = new NormalizedMessage(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "telegram",
+            "!friends:matrix.localhost",
+            "$event-reschedule-followup",
+            "glebov84",
+            "переносим на 19:00, ссылка всё та же https://telemost.yandex.ru/j/77013557661694",
+            sentAt,
+            sentAt,
+            false);
+
+        var service = CreateHeuristicService();
+        var items = await service.ExtractAsync(CreateWindow(message), CancellationToken.None);
+        var meeting = Assert.Single(items, item => item.Kind == ExtractedItemKind.Meeting);
+
+        Assert.Equal("$event-reschedule-followup", meeting.SourceEventId);
+        Assert.Equal(new DateTimeOffset(2026, 04, 06, 16, 00, 00, TimeSpan.Zero), meeting.DueAt);
+    }
+
+    [Fact]
     public async Task HeuristicExtraction_RecognizesMeetingSlangMitWithExplicitTime()
     {
         var sentAt = new DateTimeOffset(2026, 03, 21, 12, 00, 00, TimeSpan.Zero);

@@ -71,6 +71,28 @@ internal sealed class ProcessConversationAfterSettleCommandHandler(
                 timeProvider.GetUtcNow());
             if (readyWindows.Count == 0)
             {
+                var retryDelay = ConversationWindowSettlement.GetNextRetryDelay(
+                    pendingMessages,
+                    timeProvider.GetUtcNow());
+                if (retryDelay is not null)
+                {
+                    var bufferedRetryDelay = retryDelay.Value + TimeSpan.FromSeconds(1);
+                    await bus.DeferLocal(
+                        bufferedRetryDelay,
+                        new ProcessConversationAfterSettleCommand(
+                            message.UserId,
+                            message.Source,
+                            message.MatrixRoomId,
+                            message.TriggerMessageId,
+                            message.TriggerMatrixEventId));
+
+                    logger.LogInformation(
+                        "No conversation windows are ready yet. PendingCount={PendingCount}, RetryDelayMs={RetryDelayMs}.",
+                        pendingMessages.Count,
+                        bufferedRetryDelay.TotalMilliseconds);
+                    return;
+                }
+
                 logger.LogInformation(
                     "No conversation windows are ready yet. PendingCount={PendingCount}.",
                     pendingMessages.Count);

@@ -48,6 +48,47 @@ public static class ConversationWindowSettlement
         return windows;
     }
 
+    public static TimeSpan? GetNextRetryDelay(
+        IReadOnlyList<NormalizedMessage> pendingMessages,
+        DateTimeOffset now)
+    {
+        if (pendingMessages.Count == 0)
+        {
+            return null;
+        }
+
+        TimeSpan? nextDelay = null;
+        foreach (var roomGroup in pendingMessages
+                     .GroupBy(message => new { message.UserId, message.Source, message.MatrixRoomId }))
+        {
+            var orderedMessages = roomGroup
+                .OrderBy(message => message.SentAt)
+                .ThenBy(message => message.IngestedAt)
+                .ThenBy(message => message.Id)
+                .ToList();
+
+            var buffer = new List<NormalizedMessage>();
+            foreach (var message in orderedMessages)
+            {
+                if (buffer.Count > 0)
+                {
+                    var previous = buffer[^1];
+                    if (message.SentAt - previous.SentAt > DialogueGap)
+                    {
+                        TryUpdateNextDelay(buffer, now, ref nextDelay);
+                        buffer.Clear();
+                    }
+                }
+
+                buffer.Add(message);
+            }
+
+            TryUpdateNextDelay(buffer, now, ref nextDelay);
+        }
+
+        return nextDelay;
+    }
+
     private static void TryAddWindow(
         IReadOnlyList<NormalizedMessage> messages,
         DateTimeOffset now,
@@ -69,5 +110,28 @@ public static class ConversationWindowSettlement
             lastMessage.Source,
             lastMessage.MatrixRoomId,
             messages.ToList()));
+    }
+
+    private static void TryUpdateNextDelay(
+        IReadOnlyList<NormalizedMessage> messages,
+        DateTimeOffset now,
+        ref TimeSpan? nextDelay)
+    {
+        if (messages.Count == 0)
+        {
+            return;
+        }
+
+        var remainingDelay = SettleDelay - (now - messages[^1].IngestedAt);
+        if (remainingDelay <= TimeSpan.Zero)
+        {
+            nextDelay = TimeSpan.Zero;
+            return;
+        }
+
+        if (nextDelay is null || remainingDelay < nextDelay.Value)
+        {
+            nextDelay = remainingDelay;
+        }
     }
 }

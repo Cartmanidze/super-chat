@@ -71,6 +71,52 @@ public sealed class ProcessConversationAfterSettleCommandHandlerTests
                                                   resolve.MatrixRoomId == roomId);
     }
 
+    [Fact]
+    public async Task Handle_WhenConversationWindowIsNotReady_DefersRetryAndKeepsMessagePending()
+    {
+        var userId = Guid.NewGuid();
+        var roomId = "!room:matrix.localhost";
+        var message = new NormalizedMessage(
+            Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            userId,
+            "telegram",
+            roomId,
+            "$evt-1",
+            "glebov84",
+            "переносим на 19:00, ссылка всё та же",
+            new DateTimeOffset(2026, 04, 06, 11, 37, 23, TimeSpan.Zero),
+            new DateTimeOffset(2026, 04, 06, 11, 37, 26, TimeSpan.Zero),
+            false);
+
+        var normalizationService = new RecordingMessageNormalizationService([message]);
+        var extractionService = new StubExtractionService([]);
+        var workItemService = new RecordingWorkItemService();
+        var bus = new RecordingBus();
+
+        var handler = new ProcessConversationAfterSettleCommandHandler(
+            normalizationService,
+            extractionService,
+            workItemService,
+            bus,
+            Options.Create(new ResolutionOptions()),
+            new FixedTimeProvider(message.IngestedAt.AddSeconds(19)),
+            new TestHostApplicationLifetime(),
+            NullLogger<ProcessConversationAfterSettleCommandHandler>.Instance);
+
+        await handler.Handle(new ProcessConversationAfterSettleCommand(userId, "telegram", roomId));
+
+        Assert.Empty(normalizationService.MarkedProcessedIds);
+        Assert.Empty(workItemService.IngestedItems);
+        Assert.Empty(bus.SentMessages);
+
+        var retry = Assert.Single(bus.DeferredMessages);
+        var retryCommand = Assert.IsType<ProcessConversationAfterSettleCommand>(retry.Message);
+        Assert.Equal(userId, retryCommand.UserId);
+        Assert.Equal(roomId, retryCommand.MatrixRoomId);
+        Assert.True(retry.Delay > TimeSpan.Zero);
+        Assert.True(retry.Delay <= TimeSpan.FromSeconds(5));
+    }
+
     private sealed class RecordingMessageNormalizationService(IReadOnlyList<NormalizedMessage> pendingMessages) : IMessageNormalizationService
     {
         public List<Guid> MarkedProcessedIds { get; } = [];
