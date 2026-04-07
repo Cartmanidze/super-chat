@@ -29,8 +29,9 @@ public sealed class MeetingWorkItemCommandAppService(
             return false;
         }
 
-        await meetingRepository.ResolveAsync(
-            meeting.Id,
+        await meetingRepository.ResolveRelatedAsync(
+            userId,
+            meeting.SourceEventId,
             resolutionKind,
             "manual",
             timeProvider.GetUtcNow(),

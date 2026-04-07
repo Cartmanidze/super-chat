@@ -7,5 +7,6 @@ public interface IMeetingRepository
     Task<IReadOnlyList<MeetingRecord>> GetUnresolvedAsync(Guid userId, CancellationToken cancellationToken);
     Task<IReadOnlyList<MeetingRecord>> GetUpcomingAsync(Guid userId, DateTimeOffset from, int take, CancellationToken cancellationToken);
     Task UpsertRangeAsync(IReadOnlyList<MeetingRecord> meetings, CancellationToken cancellationToken);
+    Task ResolveRelatedAsync(Guid userId, string sourceEventId, string resolutionKind, string resolutionSource, DateTimeOffset resolvedAt, CancellationToken cancellationToken);
     Task ResolveAsync(Guid meetingId, string resolutionKind, string resolutionSource, DateTimeOffset resolvedAt, CancellationToken cancellationToken);
 }

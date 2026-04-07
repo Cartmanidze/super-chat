@@ -1,7 +1,10 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SuperChat.Domain.Features.Intelligence;
+using SuperChat.Infrastructure.Features.Intelligence.Extraction;
+using SuperChat.Infrastructure.Features.Intelligence.WorkItems.Specifications;
 using SuperChat.Infrastructure.Shared.Persistence;
+using SuperChat.Infrastructure.Shared.Presentation;
 
 namespace SuperChat.Infrastructure.Features.Intelligence.WorkItems;
 
@@ -49,30 +52,19 @@ internal sealed class EfWorkItemRepository(
 
     public async Task<WorkItemRecord?> FindByIdAsync(Guid userId, Guid workItemId, CancellationToken cancellationToken)
     {
-        await using var db = await GetDbContextAsync(cancellationToken);
-        var entity = await db.WorkItems
-            .AsNoTracking()
-            .FirstOrDefaultAsync(w => w.Id == workItemId && w.UserId == userId, cancellationToken);
+        var entity = await FirstOrDefaultAsync(new WorkItemByIdSpec(userId, workItemId), cancellationToken);
         return entity?.ToDomain();
     }
 
     public async Task<IReadOnlyList<WorkItemRecord>> GetByUserAsync(Guid userId, bool unresolvedOnly, CancellationToken cancellationToken)
     {
-        await using var db = await GetDbContextAsync(cancellationToken);
-        var query = db.WorkItems
-            .AsNoTracking()
-            .Where(w => w.UserId == userId);
+        var entities = await ListAsync(new UserWorkItemsSpec(userId, unresolvedOnly), cancellationToken);
 
-        if (unresolvedOnly)
-        {
-            query = query.Where(w => w.ResolvedAt == null);
-        }
-
-        var entities = await query
-            .OrderByDescending(w => w.ObservedAt)
-            .ToListAsync(cancellationToken);
-
-        return entities.Select(e => e.ToDomain()).ToList();
+        return entities
+            .Where(ExtractedItemFilters.ShouldKeep)
+            .OrderByDescending(item => item.ObservedAt)
+            .Select(entity => entity.ToDomain())
+            .ToList();
     }
 
     public async Task<IReadOnlyList<WorkItemRecord>> GetUnresolvedByRoomAsync(Guid userId, string matrixRoomId, CancellationToken cancellationToken)
@@ -85,6 +77,31 @@ internal sealed class EfWorkItemRepository(
             .ToListAsync(cancellationToken);
 
         return entities.Select(e => e.ToDomain()).ToList();
+    }
+
+    public async Task ResolveRelatedAsync(
+        Guid userId,
+        string sourceEventId,
+        string resolutionKind,
+        string resolutionSource,
+        DateTimeOffset resolvedAt,
+        CancellationToken cancellationToken)
+    {
+        await using var db = await GetDbContextAsync(cancellationToken);
+        var entities = await db.WorkItems
+            .Where(item => item.UserId == userId && item.SourceEventId == sourceEventId)
+            .ToListAsync(cancellationToken);
+
+        var changed = false;
+        foreach (var entity in entities)
+        {
+            changed |= ApplyResolution(entity, resolutionKind, resolutionSource, resolvedAt);
+        }
+
+        if (changed)
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
     }
 
     public async Task ResolveAsync(Guid workItemId, string resolutionKind, string resolutionSource, DateTimeOffset resolvedAt, CancellationToken cancellationToken)
@@ -120,5 +137,25 @@ internal sealed class EfWorkItemRepository(
         entity.UpdatedAt = DateTimeOffset.UtcNow;
 
         await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private static bool ApplyResolution(
+        WorkItemEntity entity,
+        string resolutionKind,
+        string resolutionSource,
+        DateTimeOffset resolvedAt)
+    {
+        if (entity.IsResolved() &&
+            string.Equals(entity.ResolutionKind, resolutionKind, StringComparison.Ordinal) &&
+            string.Equals(entity.ResolutionSource, resolutionSource, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        entity.ResolvedAt ??= resolvedAt;
+        entity.ResolutionKind = resolutionKind;
+        entity.ResolutionSource = resolutionSource;
+        entity.UpdatedAt = resolvedAt;
+        return true;
     }
 }

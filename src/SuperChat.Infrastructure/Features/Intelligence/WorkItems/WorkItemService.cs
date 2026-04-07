@@ -1,12 +1,13 @@
 using SuperChat.Contracts.Features.WorkItems;
 using SuperChat.Domain.Features.Intelligence;
+using SuperChat.Infrastructure.Shared.Presentation;
 
 namespace SuperChat.Infrastructure.Features.Intelligence.WorkItems;
 
 internal sealed class WorkItemService(
     WorkItemIngestionService ingestionService,
-    WorkItemQueryService queryService,
-    WorkItemManualResolutionService manualResolutionService) : IWorkItemService
+    IWorkItemRepository workItemRepository,
+    TimeProvider timeProvider) : IWorkItemService
 {
     public Task IngestRangeAsync(IEnumerable<ExtractedItem> items, CancellationToken cancellationToken)
     {
@@ -15,21 +16,44 @@ internal sealed class WorkItemService(
 
     public Task<IReadOnlyList<WorkItemRecord>> GetForUserAsync(Guid userId, CancellationToken cancellationToken)
     {
-        return queryService.GetForUserAsync(userId, cancellationToken);
+        return workItemRepository.GetByUserAsync(userId, unresolvedOnly: false, cancellationToken);
     }
 
     public Task<IReadOnlyList<WorkItemRecord>> GetActiveForUserAsync(Guid userId, CancellationToken cancellationToken)
     {
-        return queryService.GetActiveForUserAsync(userId, cancellationToken);
+        return workItemRepository.GetByUserAsync(userId, unresolvedOnly: true, cancellationToken);
     }
 
     public Task<bool> CompleteAsync(Guid userId, Guid workItemId, CancellationToken cancellationToken)
     {
-        return manualResolutionService.CompleteAsync(userId, workItemId, cancellationToken);
+        return ResolveAsync(userId, workItemId, WorkItemResolutionState.Completed, cancellationToken);
     }
 
     public Task<bool> DismissAsync(Guid userId, Guid workItemId, CancellationToken cancellationToken)
     {
-        return manualResolutionService.DismissAsync(userId, workItemId, cancellationToken);
+        return ResolveAsync(userId, workItemId, WorkItemResolutionState.Dismissed, cancellationToken);
+    }
+
+    private async Task<bool> ResolveAsync(
+        Guid userId,
+        Guid workItemId,
+        string resolutionKind,
+        CancellationToken cancellationToken)
+    {
+        var target = await workItemRepository.FindByIdAsync(userId, workItemId, cancellationToken);
+        if (target is null)
+        {
+            return false;
+        }
+
+        await workItemRepository.ResolveRelatedAsync(
+            userId,
+            target.SourceEventId,
+            resolutionKind,
+            WorkItemResolutionState.Manual,
+            timeProvider.GetUtcNow(),
+            cancellationToken);
+
+        return true;
     }
 }

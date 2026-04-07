@@ -33,12 +33,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Remove="Persistence\**\*.cs" />
-    <Compile Remove="Features\Auth\PostgresAuthFlowService.cs" />
-    <Compile Remove="Features\Auth\PostgresApiSessionService.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
     <InternalsVisibleTo Include="SuperChat.Tests" />
     <InternalsVisibleTo Include="SuperChat.Api.Tests" />
   </ItemGroup>

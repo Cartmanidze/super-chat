@@ -235,7 +235,7 @@ public sealed class ExtractedItemServiceTests
     }
 
     [Fact]
-    public async Task GetActiveForUserAsync_AutoResolvesWaitingOnWhenUserReplies()
+    public async Task GetActiveForUserAsync_DoesNotAutoResolveWaitingOnWhenUserReplies()
     {
         var factory = await CreateFactoryAsync(CancellationToken.None);
         var userId = Guid.NewGuid();
@@ -278,17 +278,18 @@ public sealed class ExtractedItemServiceTests
         var service = CreateService(factory);
         var items = await service.GetActiveForUserAsync(userId, CancellationToken.None);
 
-        Assert.Empty(items);
+        var item = Assert.Single(items);
+        Assert.Equal(itemId, item.Id);
 
         await using var verificationContext = await factory.CreateDbContextAsync(CancellationToken.None);
         var entity = await verificationContext.WorkItems.SingleAsync(item => item.Id == itemId, CancellationToken.None);
-        Assert.NotNull(entity.ResolvedAt);
-        Assert.Equal(WorkItemResolutionState.Completed, entity.ResolutionKind);
-        Assert.Equal(WorkItemResolutionState.AutoReply, entity.ResolutionSource);
+        Assert.Null(entity.ResolvedAt);
+        Assert.Null(entity.ResolutionKind);
+        Assert.Null(entity.ResolutionSource);
     }
 
     [Fact]
-    public async Task GetActiveForUserAsync_AutoResolvesCommitmentWhenCompletionMessageAppears()
+    public async Task GetActiveForUserAsync_DoesNotAutoResolveCommitmentWhenCompletionMessageAppears()
     {
         var factory = await CreateFactoryAsync(CancellationToken.None);
         var userId = Guid.NewGuid();
@@ -330,13 +331,14 @@ public sealed class ExtractedItemServiceTests
         var service = CreateService(factory);
         var items = await service.GetActiveForUserAsync(userId, CancellationToken.None);
 
-        Assert.Empty(items);
+        var item = Assert.Single(items);
+        Assert.Equal(itemId, item.Id);
 
         await using var verificationContext = await factory.CreateDbContextAsync(CancellationToken.None);
         var entity = await verificationContext.WorkItems.SingleAsync(item => item.Id == itemId, CancellationToken.None);
-        Assert.NotNull(entity.ResolvedAt);
-        Assert.Equal(WorkItemResolutionState.Completed, entity.ResolutionKind);
-        Assert.Equal(WorkItemResolutionState.AutoCompletion, entity.ResolutionSource);
+        Assert.Null(entity.ResolvedAt);
+        Assert.Null(entity.ResolutionKind);
+        Assert.Null(entity.ResolutionSource);
     }
 
     [Fact]
@@ -650,16 +652,16 @@ public sealed class ExtractedItemServiceTests
     {
         return new WorkItemService(
             new WorkItemIngestionService(factory, CreateMeetingService(factory), NullLogger<WorkItemIngestionService>.Instance),
-            new WorkItemQueryService(factory, new WorkItemAutoResolutionService(factory, NullLogger<WorkItemAutoResolutionService>.Instance)),
-            new WorkItemManualResolutionService(factory));
+            new EfWorkItemRepository(factory),
+            TimeProvider.System);
     }
 
     private static MeetingService CreateMeetingService(IDbContextFactory<SuperChatDbContext> factory)
     {
         return new MeetingService(
             new MeetingUpsertService(factory),
-            new MeetingUpcomingQueryService(factory),
-            new MeetingManualResolutionService(factory));
+            new EfMeetingRepository(factory),
+            TimeProvider.System);
     }
 
     private static MeetingWorkItemCommandAppService CreateMeetingCommandService(IDbContextFactory<SuperChatDbContext> factory)

@@ -202,16 +202,10 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IMeetingProjectionService, MeetingProjectionService>();
         services.AddSingleton<MeetingUpsertService>();
         services.AddSingleton<MeetingAutoResolutionService>();
-        services.AddSingleton<MeetingLookupService>();
-        services.AddSingleton<MeetingUpcomingQueryService>();
-        services.AddSingleton<MeetingManualResolutionService>();
         services.AddSingleton<IMeetingService, MeetingService>();
         services.AddSingleton<ConversationResolutionService>();
         services.AddSingleton<WorkItemIngestionService>();
         services.AddSingleton<WorkItemAutoResolutionService>();
-        services.AddSingleton<WorkItemLookupService>();
-        services.AddSingleton<WorkItemQueryService>();
-        services.AddSingleton<WorkItemManualResolutionService>();
         services.AddSingleton<IWorkItemService, WorkItemService>();
         services.AddSingleton<IRetrievalService, RetrievalService>();
         services.AddSingleton<HeuristicStructuredExtractionService>();
@@ -223,12 +217,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IChatExperienceService, ChatExperienceService>();
 
         // Repositories
-        services.AddSingleton<IAppUserRepository, EfAppUserRepository>();
         services.AddSingleton<IWorkItemRepository, EfWorkItemRepository>();
         services.AddSingleton<IMeetingRepository, EfMeetingRepository>();
-        services.AddSingleton<INormalizedMessageRepository, EfNormalizedMessageRepository>();
-        services.AddSingleton<ITelegramConnectionRepository, EfTelegramConnectionRepository>();
-        services.AddSingleton<IMatrixIdentityRepository, EfMatrixIdentityRepository>();
         services.AddSingleton<IFeedbackEventRepository, EfFeedbackEventRepository>();
 
         if (enableMatrixSyncWorker)

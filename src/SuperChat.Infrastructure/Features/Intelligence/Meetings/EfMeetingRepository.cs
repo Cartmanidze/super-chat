@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using SuperChat.Domain.Features.Intelligence;
+using SuperChat.Infrastructure.Features.Intelligence.Meetings.Specifications;
 using SuperChat.Infrastructure.Shared.Persistence;
+using SuperChat.Infrastructure.Shared.Presentation;
 
 namespace SuperChat.Infrastructure.Features.Intelligence.Meetings;
 
@@ -10,45 +12,48 @@ internal sealed class EfMeetingRepository(
 {
     public async Task<MeetingRecord?> FindByIdAsync(Guid userId, Guid meetingId, CancellationToken cancellationToken)
     {
-        await using var db = await GetDbContextAsync(cancellationToken);
-        var entity = await db.Meetings
-            .AsNoTracking()
-            .FirstOrDefaultAsync(m => m.Id == meetingId && m.UserId == userId, cancellationToken);
+        var entity = await FirstOrDefaultAsync(new MeetingByIdSpec(userId, meetingId), cancellationToken);
         return entity?.ToDomain();
     }
 
     public async Task<MeetingRecord?> FindBySourceEventIdAsync(Guid userId, string sourceEventId, CancellationToken cancellationToken)
     {
-        await using var db = await GetDbContextAsync(cancellationToken);
-        var entity = await db.Meetings
-            .AsNoTracking()
-            .FirstOrDefaultAsync(m => m.UserId == userId && m.SourceEventId == sourceEventId, cancellationToken);
+        var entity = await FirstOrDefaultAsync(new MeetingBySourceEventIdSpec(userId, sourceEventId), cancellationToken);
         return entity?.ToDomain();
     }
 
     public async Task<IReadOnlyList<MeetingRecord>> GetUnresolvedAsync(Guid userId, CancellationToken cancellationToken)
     {
-        await using var db = await GetDbContextAsync(cancellationToken);
-        var entities = await db.Meetings
-            .AsNoTracking()
-            .Where(m => m.UserId == userId && m.ResolvedAt == null)
-            .OrderByDescending(m => m.ObservedAt)
-            .ToListAsync(cancellationToken);
+        var entities = await ListAsync(new UnresolvedMeetingsSpec(userId), cancellationToken);
 
-        return entities.Select(e => e.ToDomain()).ToList();
+        return entities
+            .OrderByDescending(item => item.ObservedAt)
+            .Select(entity => entity.ToDomain())
+            .ToList();
     }
 
     public async Task<IReadOnlyList<MeetingRecord>> GetUpcomingAsync(Guid userId, DateTimeOffset from, int take, CancellationToken cancellationToken)
     {
-        await using var db = await GetDbContextAsync(cancellationToken);
-        var entities = await db.Meetings
-            .AsNoTracking()
-            .Where(m => m.UserId == userId && m.ResolvedAt == null && m.ScheduledFor >= from)
-            .OrderBy(m => m.ScheduledFor)
-            .Take(take)
-            .ToListAsync(cancellationToken);
+        var boundedTake = Math.Clamp(take, 1, 50);
+        var fromInclusiveUtc = MeetingTimeSupport.NormalizeToUtc(from);
+        var entities = await ListAsync(new UnresolvedMeetingsSpec(userId), cancellationToken);
 
-        return entities.Select(e => e.ToDomain()).ToList();
+        return entities
+            .Where(item => item.ScheduledFor >= fromInclusiveUtc)
+            .OrderBy(item => item.ScheduledFor)
+            .ThenByDescending(item => item.Confidence)
+            .Take(Math.Max(50, boundedTake * 4))
+            .Select(entity => entity.ToDomain())
+            .GroupBy(item => item.ToMeetingDeduplicationKey(), StringComparer.Ordinal)
+            .Select(group => group
+                .OrderBy(item => item.ScheduledFor)
+                .ThenByDescending(item => item.Confidence.Value)
+                .ThenByDescending(item => item.ObservedAt)
+                .First())
+            .OrderBy(item => item.ScheduledFor)
+            .ThenByDescending(item => item.Confidence.Value)
+            .Take(boundedTake)
+            .ToList();
     }
 
     public async Task UpsertRangeAsync(IReadOnlyList<MeetingRecord> meetings, CancellationToken cancellationToken)
@@ -104,6 +109,31 @@ internal sealed class EfMeetingRepository(
         await db.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task ResolveRelatedAsync(
+        Guid userId,
+        string sourceEventId,
+        string resolutionKind,
+        string resolutionSource,
+        DateTimeOffset resolvedAt,
+        CancellationToken cancellationToken)
+    {
+        await using var db = await GetDbContextAsync(cancellationToken);
+        var entities = await db.Meetings
+            .Where(item => item.UserId == userId && item.SourceEventId == sourceEventId)
+            .ToListAsync(cancellationToken);
+
+        var changed = false;
+        foreach (var entity in entities)
+        {
+            changed |= ApplyResolution(entity, resolutionKind, resolutionSource, resolvedAt);
+        }
+
+        if (changed)
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+    }
+
     public async Task ResolveAsync(Guid meetingId, string resolutionKind, string resolutionSource, DateTimeOffset resolvedAt, CancellationToken cancellationToken)
     {
         await using var db = await GetDbContextAsync(cancellationToken);
@@ -117,5 +147,25 @@ internal sealed class EfMeetingRepository(
         entity.UpdatedAt = DateTimeOffset.UtcNow;
 
         await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private static bool ApplyResolution(
+        MeetingEntity entity,
+        string resolutionKind,
+        string resolutionSource,
+        DateTimeOffset resolvedAt)
+    {
+        if (entity.IsResolved() &&
+            string.Equals(entity.ResolutionKind, resolutionKind, StringComparison.Ordinal) &&
+            string.Equals(entity.ResolutionSource, resolutionSource, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        entity.ResolvedAt ??= resolvedAt;
+        entity.ResolutionKind = resolutionKind;
+        entity.ResolutionSource = resolutionSource;
+        entity.UpdatedAt = resolvedAt;
+        return true;
     }
 }
