@@ -173,7 +173,7 @@ internal sealed class ProcessConversationAfterSettleCommandHandler(
         SuperChatMetrics.PipelineDispatchTotal.WithLabels("handler", "resolve_conversation_items").Inc();
         var deferredConversationResolves = 0;
 
-        if (resolutionOptions.Value.ScheduleDeferredConversationPass)
+        if (resolutionOptions.Value.ScheduleDeferredConversationPass && items.Count > 0)
         {
             var delay = TimeSpan.FromMinutes(Math.Max(1, resolutionOptions.Value.DeferredConversationDelayMinutes));
             await bus.DeferLocal(
@@ -286,12 +286,12 @@ internal sealed class RebuildConversationChunksCommandHandler(
 
             if (buildResult.RoomsRebuilt > 0)
             {
-                await bus.SendLocal(new IndexConversationChunksCommand(
+                await bus.SendLocal(new ProjectConversationMeetingsCommand(
                     message.UserId,
                     message.MatrixRoomId,
                     message.TriggerMessageId,
                     message.TriggerMatrixEventId));
-                await bus.SendLocal(new ProjectConversationMeetingsCommand(
+                await bus.SendLocal(new IndexConversationChunksCommand(
                     message.UserId,
                     message.MatrixRoomId,
                     message.TriggerMessageId,

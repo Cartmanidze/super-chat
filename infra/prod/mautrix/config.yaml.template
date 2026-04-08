@@ -37,7 +37,7 @@ bridge:
     enabled: false
   backfill:
     enabled: false
-  sync_with_custom_puppets: true
+  sync_with_custom_puppets: false
   double_puppet_server_map: {}
   double_puppet_allow_discovery: false
   login_shared_secret_map:

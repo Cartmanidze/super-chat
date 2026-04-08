@@ -117,6 +117,100 @@ public sealed class ProcessConversationAfterSettleCommandHandlerTests
         Assert.True(retry.Delay <= TimeSpan.FromSeconds(5));
     }
 
+    [Fact]
+    public async Task Handle_WhenExtractionReturnsNoItems_DoesNotScheduleDeferredConversationResolve()
+    {
+        var userId = Guid.NewGuid();
+        var roomId = "!room:matrix.localhost";
+        var message = new NormalizedMessage(
+            Guid.Parse("33333333-3333-3333-3333-333333333333"),
+            userId,
+            "telegram",
+            roomId,
+            "$evt-empty",
+            "Alice",
+            "just chatting",
+            new DateTimeOffset(2026, 04, 08, 10, 00, 00, TimeSpan.Zero),
+            new DateTimeOffset(2026, 04, 08, 10, 00, 00, TimeSpan.Zero),
+            false);
+
+        var bus = new RecordingBus();
+        var handler = new ProcessConversationAfterSettleCommandHandler(
+            new RecordingMessageNormalizationService([message]),
+            new StubExtractionService([]),
+            new RecordingWorkItemService(),
+            bus,
+            Options.Create(new ResolutionOptions
+            {
+                ScheduleDeferredConversationPass = true
+            }),
+            new FixedTimeProvider(message.IngestedAt.AddMinutes(5)),
+            new TestHostApplicationLifetime(),
+            NullLogger<ProcessConversationAfterSettleCommandHandler>.Instance);
+
+        await handler.Handle(new ProcessConversationAfterSettleCommand(userId, "telegram", roomId));
+
+        Assert.Contains(bus.SentMessages, item => item is ResolveConversationItemsCommand resolve &&
+                                                  resolve.UserId == userId &&
+                                                  resolve.MatrixRoomId == roomId);
+        Assert.DoesNotContain(bus.DeferredMessages, item => item.Message is ResolveConversationItemsCommand);
+    }
+
+    [Fact]
+    public async Task Handle_WhenExtractionReturnsItems_StillSchedulesDeferredConversationResolve()
+    {
+        var userId = Guid.NewGuid();
+        var roomId = "!room:matrix.localhost";
+        var message = new NormalizedMessage(
+            Guid.Parse("44444444-4444-4444-4444-444444444444"),
+            userId,
+            "telegram",
+            roomId,
+            "$evt-task",
+            "Alice",
+            "please prepare the notes",
+            new DateTimeOffset(2026, 04, 08, 11, 00, 00, TimeSpan.Zero),
+            new DateTimeOffset(2026, 04, 08, 11, 00, 00, TimeSpan.Zero),
+            false);
+
+        var bus = new RecordingBus();
+        var handler = new ProcessConversationAfterSettleCommandHandler(
+            new RecordingMessageNormalizationService([message]),
+            new StubExtractionService(
+            [
+                new ExtractedItem(
+                    Guid.Parse("55555555-5555-5555-5555-555555555555"),
+                    userId,
+                    ExtractedItemKind.Task,
+                    "Prepare notes",
+                    "please prepare the notes",
+                    roomId,
+                    "$evt-task",
+                    "Alice",
+                    message.SentAt,
+                    null,
+                    new Confidence(0.9))
+            ]),
+            new RecordingWorkItemService(),
+            bus,
+            Options.Create(new ResolutionOptions
+            {
+                ScheduleDeferredConversationPass = true
+            }),
+            new FixedTimeProvider(message.IngestedAt.AddMinutes(5)),
+            new TestHostApplicationLifetime(),
+            NullLogger<ProcessConversationAfterSettleCommandHandler>.Instance);
+
+        await handler.Handle(new ProcessConversationAfterSettleCommand(userId, "telegram", roomId));
+
+        Assert.Contains(bus.SentMessages, item => item is ResolveConversationItemsCommand resolve &&
+                                                  resolve.UserId == userId &&
+                                                  resolve.MatrixRoomId == roomId);
+        Assert.Contains(bus.DeferredMessages, item => item.Message is ResolveConversationItemsCommand resolve &&
+                                                      resolve.UserId == userId &&
+                                                      resolve.MatrixRoomId == roomId);
+    }
+
     private sealed class RecordingMessageNormalizationService(IReadOnlyList<NormalizedMessage> pendingMessages) : IMessageNormalizationService
     {
         public List<Guid> MarkedProcessedIds { get; } = [];
