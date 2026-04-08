@@ -49,13 +49,34 @@ internal sealed class WorkItemIngestionService(
                 CreatedAt = item.ObservedAt,
                 UpdatedAt = item.ObservedAt
             })
+            .GroupBy(item => (item.UserId, item.SourceEventId, item.Kind))
+            .Select(group => group
+                .OrderByDescending(item => item.Confidence)
+                .First())
             .ToList();
 
         if (workItemEntities.Count > 0)
         {
             await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-            dbContext.WorkItems.AddRange(workItemEntities);
-            await dbContext.SaveChangesAsync(cancellationToken);
+            var sourceEventIds = workItemEntities.Select(item => item.SourceEventId).Distinct().ToList();
+            var userIds = workItemEntities.Select(item => item.UserId).Distinct().ToList();
+            var existingKeys = (await dbContext.WorkItems
+                    .Where(item => userIds.Contains(item.UserId) &&
+                                   sourceEventIds.Contains(item.SourceEventId))
+                    .Select(item => new { item.UserId, item.SourceEventId, item.Kind })
+                    .ToListAsync(cancellationToken))
+                .Select(item => $"{item.UserId:N}|{item.SourceEventId}|{item.Kind}")
+                .ToHashSet(StringComparer.Ordinal);
+
+            workItemEntities = workItemEntities
+                .Where(item => !existingKeys.Contains($"{item.UserId:N}|{item.SourceEventId}|{item.Kind}"))
+                .ToList();
+
+            if (workItemEntities.Count > 0)
+            {
+                dbContext.WorkItems.AddRange(workItemEntities);
+                await dbContext.SaveChangesAsync(cancellationToken);
+            }
         }
 
         await meetingService.UpsertRangeAsync(filteredItems, cancellationToken);

@@ -59,6 +59,13 @@ internal sealed class MeetingUpsertService(
             item => BuildKey(item.UserId, item.SourceEventId),
             item => item,
             StringComparer.Ordinal);
+        var existingByDedupKey = existingMeetings
+            .Concat(unresolvedRoomMeetings)
+            .GroupBy(item => item.ToMeetingDeduplicationKey(), StringComparer.Ordinal)
+            .ToDictionary(
+                group => group.Key,
+                group => MeetingRecordMappings.SelectDedupPriorityMeeting(group),
+                StringComparer.Ordinal);
         var sourceTextByKey = sourceMessageTexts
             .GroupBy(item => BuildKey(item.UserId, item.SourceEventId), StringComparer.Ordinal)
             .ToDictionary(
@@ -99,7 +106,14 @@ internal sealed class MeetingUpsertService(
                 continue;
             }
 
-            dbContext.Meetings.Add(new MeetingEntity
+            var dedupKey = BuildDedupKey(item);
+            if (existingByDedupKey.TryGetValue(dedupKey, out var duplicate))
+            {
+                UpdateMeeting(duplicate, item, status, joinLink, now);
+                continue;
+            }
+
+            var newEntity = new MeetingEntity
             {
                 Id = item.Id,
                 UserId = item.UserId,
@@ -116,7 +130,9 @@ internal sealed class MeetingUpsertService(
                 MeetingJoinUrl = joinLink?.Url.ToString(),
                 CreatedAt = now,
                 UpdatedAt = now
-            });
+            };
+            dbContext.Meetings.Add(newEntity);
+            existingByDedupKey[dedupKey] = newEntity;
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -190,6 +206,14 @@ internal sealed class MeetingUpsertService(
     private static string BuildKey(Guid userId, string sourceEventId)
     {
         return $"{userId:N}|{sourceEventId}";
+    }
+
+    private static string BuildDedupKey(ExtractedItem item)
+    {
+        return MeetingRecordMappings.BuildDeduplicationKey(
+            item.SourceRoom,
+            MeetingTimeSupport.NormalizeToUtc(item.DueAt!.Value).UtcDateTime,
+            item.Summary);
     }
 
     private static bool ContainsSameLinkCue(string text)

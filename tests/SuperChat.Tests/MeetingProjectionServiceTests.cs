@@ -317,6 +317,192 @@ public sealed class MeetingProjectionServiceTests
         Assert.Equal("!target:matrix.localhost", meetings[0].SourceRoom);
     }
 
+    [Fact]
+    public async Task ProjectPendingChunkMeetingsAsync_SkipsChunkMeetingWhenExtractionMeetingExists()
+    {
+        var userId = Guid.NewGuid();
+        var roomId = "!dm:matrix.localhost";
+        var now = new DateTimeOffset(2026, 04, 07, 09, 30, 00, TimeSpan.Zero);
+        var scheduledFor = new DateTimeOffset(2026, 04, 07, 17, 00, 00, TimeSpan.Zero);
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+
+        await using (var dbContext = await factory.CreateDbContextAsync(CancellationToken.None))
+        {
+            dbContext.MessageChunks.Add(CreateChunkEntity(
+                Guid.Parse("a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1"),
+                userId,
+                roomId,
+                now.AddMinutes(-10),
+                now.AddMinutes(-5),
+                "chunk-hash-dup",
+                "Alex: созвон сегодня в 20:00 по мск\nYou: ок"));
+
+            dbContext.Meetings.Add(new MeetingEntity
+            {
+                Id = Guid.Parse("b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1"),
+                UserId = userId,
+                Title = "Upcoming meeting",
+                Summary = "созвон сегодня в 20:00 по мск",
+                SourceRoom = roomId,
+                SourceEventId = "$evt-extraction",
+                ObservedAt = now.AddMinutes(-15),
+                ScheduledFor = scheduledFor,
+                Confidence = 0.90,
+                CreatedAt = now.AddMinutes(-15),
+                UpdatedAt = now.AddMinutes(-15)
+            });
+
+            await dbContext.SaveChangesAsync(CancellationToken.None);
+        }
+
+        var service = CreateService(factory, now);
+        var result = await service.ProjectPendingChunkMeetingsAsync(CancellationToken.None);
+
+        await using var verificationDbContext = await factory.CreateDbContextAsync(CancellationToken.None);
+        var meetings = await verificationDbContext.Meetings
+            .Where(item => item.UserId == userId && item.SourceRoom == roomId)
+            .ToListAsync(CancellationToken.None);
+
+        Assert.Single(meetings);
+        Assert.Equal("$evt-extraction", meetings[0].SourceEventId);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ProjectChunkMeetingsAsync_UpdatesExistingChunkInPlaceWhenHashChangesWithoutExtraction(bool usePendingProjection)
+    {
+        var userId = Guid.NewGuid();
+        var roomId = "!dm:matrix.localhost";
+        var now = new DateTimeOffset(2026, 04, 07, 09, 30, 00, TimeSpan.Zero);
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        var oldMeetingId = Guid.Parse("d4d4d4d4-d4d4-d4d4-d4d4-d4d4d4d4d4d4");
+
+        await using (var dbContext = await factory.CreateDbContextAsync(CancellationToken.None))
+        {
+            dbContext.MessageChunks.Add(CreateChunkEntity(
+                Guid.Parse("c4c4c4c4-c4c4-c4c4-c4c4-c4c4c4c4c4c4"),
+                userId,
+                roomId,
+                now.AddMinutes(-10),
+                now.AddMinutes(-5),
+                "new-hash",
+                "Alex: созвон сегодня в 20:00 по мск\nYou: ок"));
+
+            dbContext.Meetings.Add(new MeetingEntity
+            {
+                Id = oldMeetingId,
+                UserId = userId,
+                Title = "Upcoming meeting",
+                Summary = "созвон сегодня в 20:00 по мск",
+                SourceRoom = roomId,
+                SourceEventId = "chunk:old-hash",
+                ObservedAt = now.AddMinutes(-20),
+                ScheduledFor = new DateTimeOffset(2026, 04, 07, 17, 00, 00, TimeSpan.Zero),
+                Confidence = 0.50,
+                CreatedAt = now.AddMinutes(-20),
+                UpdatedAt = now.AddMinutes(-20)
+            });
+
+            await dbContext.SaveChangesAsync(CancellationToken.None);
+        }
+
+        var service = CreateService(factory, now);
+        if (usePendingProjection)
+        {
+            await service.ProjectPendingChunkMeetingsAsync(CancellationToken.None);
+        }
+        else
+        {
+            await service.ProjectConversationMeetingsAsync(userId, roomId, CancellationToken.None);
+        }
+
+        await using var verificationDbContext = await factory.CreateDbContextAsync(CancellationToken.None);
+        var meetings = await verificationDbContext.Meetings
+            .Where(item => item.UserId == userId && item.SourceRoom == roomId)
+            .ToListAsync(CancellationToken.None);
+
+        var meeting = Assert.Single(meetings);
+        Assert.Equal(oldMeetingId, meeting.Id);
+        Assert.Equal("chunk:new-hash", meeting.SourceEventId);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ProjectChunkMeetingsAsync_PrefersExtractionOverExistingChunkForSameDedupKey(bool usePendingProjection)
+    {
+        var userId = Guid.NewGuid();
+        var roomId = "!dm:matrix.localhost";
+        var now = new DateTimeOffset(2026, 04, 07, 09, 30, 00, TimeSpan.Zero);
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+
+        await using (var dbContext = await factory.CreateDbContextAsync(CancellationToken.None))
+        {
+            dbContext.MessageChunks.Add(CreateChunkEntity(
+                Guid.Parse("e5e5e5e5-e5e5-e5e5-e5e5-e5e5e5e5e5e5"),
+                userId,
+                roomId,
+                now.AddMinutes(-10),
+                now.AddMinutes(-5),
+                "fresh-hash",
+                "Alex: созвон сегодня в 20:00 по мск\nYou: ок"));
+
+            dbContext.Meetings.AddRange(
+            [
+                new MeetingEntity
+                {
+                    Id = Guid.Parse("f6f6f6f6-f6f6-f6f6-f6f6-f6f6f6f6f6f6"),
+                    UserId = userId,
+                    Title = "Upcoming meeting",
+                    Summary = "созвон сегодня в 20:00 по мск",
+                    SourceRoom = roomId,
+                    SourceEventId = "chunk:old-hash",
+                    ObservedAt = now.AddMinutes(-20),
+                    ScheduledFor = new DateTimeOffset(2026, 04, 07, 17, 00, 00, TimeSpan.Zero),
+                    Confidence = 0.50,
+                    CreatedAt = now.AddMinutes(-20),
+                    UpdatedAt = now.AddMinutes(-20)
+                },
+                new MeetingEntity
+                {
+                    Id = Guid.Parse("a7a7a7a7-a7a7-a7a7-a7a7-a7a7a7a7a7a7"),
+                    UserId = userId,
+                    Title = "Upcoming meeting",
+                    Summary = "созвон сегодня в 20:00 по мск",
+                    SourceRoom = roomId,
+                    SourceEventId = "$evt-extraction",
+                    ObservedAt = now.AddMinutes(-19),
+                    ScheduledFor = new DateTimeOffset(2026, 04, 07, 17, 00, 00, TimeSpan.Zero),
+                    Confidence = 0.95,
+                    CreatedAt = now.AddMinutes(-19),
+                    UpdatedAt = now.AddMinutes(-19)
+                }
+            ]);
+
+            await dbContext.SaveChangesAsync(CancellationToken.None);
+        }
+
+        var service = CreateService(factory, now);
+        if (usePendingProjection)
+        {
+            await service.ProjectPendingChunkMeetingsAsync(CancellationToken.None);
+        }
+        else
+        {
+            await service.ProjectConversationMeetingsAsync(userId, roomId, CancellationToken.None);
+        }
+
+        await using var verificationDbContext = await factory.CreateDbContextAsync(CancellationToken.None);
+        var meetings = await verificationDbContext.Meetings
+            .Where(item => item.UserId == userId && item.SourceRoom == roomId)
+            .OrderBy(item => item.SourceEventId)
+            .ToListAsync(CancellationToken.None);
+
+        var meeting = Assert.Single(meetings);
+        Assert.Equal("$evt-extraction", meeting.SourceEventId);
+    }
+
     private static MeetingProjectionService CreateService(
         IDbContextFactory<SuperChatDbContext> factory,
         DateTimeOffset now)

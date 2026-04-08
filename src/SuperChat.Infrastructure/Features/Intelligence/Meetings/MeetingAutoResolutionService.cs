@@ -74,6 +74,10 @@ internal sealed class MeetingAutoResolutionService(
         {
             unresolvedMeetingsQuery = unresolvedMeetingsQuery.Where(item => item.ScheduledFor <= dueBeforeInclusive.Value);
         }
+        else
+        {
+            unresolvedMeetingsQuery = unresolvedMeetingsQuery.Where(item => item.ScheduledFor <= fromInclusive);
+        }
 
         var unresolvedMeetings = await unresolvedMeetingsQuery
             .ToListAsync(cancellationToken);

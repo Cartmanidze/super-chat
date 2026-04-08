@@ -38,12 +38,13 @@ internal static class ConversationResolutionPromptBuilder
             - Do not resolve an item unless the evidence is clear.
             - "waiting_on" usually resolves when the user clearly replied with a meaningful answer.
             - "commitment" and "task" resolve when later messages clearly indicate completion, sending, delivery, or acknowledgement.
-            - "meeting" may resolve as:
-              - "completed" when later messages imply the call or meeting happened
-              - "rescheduled" when later messages explicitly move it
-              - "cancelled" when later messages explicitly cancel it
-              - "missed" only when the meeting time already passed and later messages strongly imply it did not happen
-            - If evidence is weak or ambiguous, return should_resolve=false.
+             - "meeting" may resolve as:
+               - "completed" when later messages imply the call or meeting happened
+               - "rescheduled" when later messages explicitly move it
+               - "cancelled" when later messages explicitly cancel it
+               - "missed" only when the meeting time already passed and later messages strongly imply it did not happen
+             - A meeting with due_at_utc in the FUTURE relative to the latest later_message timestamp can ONLY be resolved as "cancelled", never as "completed", "rescheduled", or "missed".
+             - If evidence is weak or ambiguous, return should_resolve=false.
             - Confidence below {{minConfidence.ToString("0.00", CultureInfo.InvariantCulture)}} should usually mean should_resolve=false.
             - Reference timezone for relative dates is {{timeZoneId}}.
             """;

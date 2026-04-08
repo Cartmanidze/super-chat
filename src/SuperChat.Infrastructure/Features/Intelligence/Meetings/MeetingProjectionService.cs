@@ -152,10 +152,21 @@ public sealed class MeetingProjectionService(
                                EF.Functions.Like(item.SourceEventId, "chunk:%"))
                 .ToListAsync(cancellationToken);
 
+            var allRoomMeetings = await dbContext.Meetings
+                .Where(item => item.UserId == userId && item.SourceRoom == roomId)
+                .ToListAsync(cancellationToken);
+
             var existingBySourceEventId = existingChunkMeetings.ToDictionary(
                 item => item.SourceEventId,
                 item => item,
                 StringComparer.Ordinal);
+
+            var existingByDedupKey = allRoomMeetings
+                .GroupBy(item => item.ToMeetingDeduplicationKey(), StringComparer.Ordinal)
+                .ToDictionary(
+                    group => group.Key,
+                    group => MeetingRecordMappings.SelectDedupPriorityMeeting(group),
+                    StringComparer.Ordinal);
 
             var retainedSourceEventIds = new HashSet<string>(StringComparer.Ordinal);
 
@@ -165,16 +176,20 @@ public sealed class MeetingProjectionService(
 
                 if (existingBySourceEventId.TryGetValue(meeting.SourceEventId, out var existing))
                 {
-                    existing.Title = meeting.Title;
-                    existing.Summary = meeting.Summary;
-                    existing.Person = meeting.Person;
-                    existing.ObservedAt = MeetingTimeSupport.NormalizeToUtc(meeting.ObservedAt);
-                    existing.ScheduledFor = MeetingTimeSupport.NormalizeToUtc(meeting.ScheduledFor);
-                    existing.Confidence = meeting.Confidence;
-                    existing.Status = meeting.Status;
-                    existing.MeetingProvider = meeting.MeetingProvider;
-                    existing.MeetingJoinUrl = meeting.MeetingJoinUrl?.ToString();
-                    existing.UpdatedAt = now;
+                    UpdateMeetingEntity(existing, meeting, now, updateSourceEventId: false);
+                    continue;
+                }
+
+                if (existingByDedupKey.TryGetValue(meeting.ToMeetingDeduplicationKey(), out var dedupMatch))
+                {
+                    if (dedupMatch.SourceEventId.StartsWith("chunk:", StringComparison.Ordinal))
+                    {
+                        var previousSourceEventId = dedupMatch.SourceEventId;
+                        UpdateMeetingEntity(dedupMatch, meeting, now, updateSourceEventId: true);
+                        existingBySourceEventId.Remove(previousSourceEventId);
+                        existingBySourceEventId[dedupMatch.SourceEventId] = dedupMatch;
+                    }
+
                     continue;
                 }
 
@@ -273,10 +288,21 @@ public sealed class MeetingProjectionService(
                            EF.Functions.Like(item.SourceEventId, "chunk:%"))
             .ToListAsync(cancellationToken);
 
+        var allRoomMeetings = await dbContext.Meetings
+            .Where(item => item.UserId == userId && item.SourceRoom == roomId)
+            .ToListAsync(cancellationToken);
+
         var existingBySourceEventId = existingChunkMeetings.ToDictionary(
             item => item.SourceEventId,
             item => item,
             StringComparer.Ordinal);
+
+        var existingByDedupKey = allRoomMeetings
+            .GroupBy(item => item.ToMeetingDeduplicationKey(), StringComparer.Ordinal)
+            .ToDictionary(
+                group => group.Key,
+                group => MeetingRecordMappings.SelectDedupPriorityMeeting(group),
+                StringComparer.Ordinal);
 
         var retainedSourceEventIds = new HashSet<string>(StringComparer.Ordinal);
 
@@ -286,16 +312,20 @@ public sealed class MeetingProjectionService(
 
             if (existingBySourceEventId.TryGetValue(meeting.SourceEventId, out var existing))
             {
-                existing.Title = meeting.Title;
-                existing.Summary = meeting.Summary;
-                existing.Person = meeting.Person;
-                existing.ObservedAt = MeetingTimeSupport.NormalizeToUtc(meeting.ObservedAt);
-                existing.ScheduledFor = MeetingTimeSupport.NormalizeToUtc(meeting.ScheduledFor);
-                existing.Confidence = meeting.Confidence;
-                existing.Status = meeting.Status;
-                existing.MeetingProvider = meeting.MeetingProvider;
-                existing.MeetingJoinUrl = meeting.MeetingJoinUrl?.ToString();
-                existing.UpdatedAt = now;
+                UpdateMeetingEntity(existing, meeting, now, updateSourceEventId: false);
+                continue;
+            }
+
+            if (existingByDedupKey.TryGetValue(meeting.ToMeetingDeduplicationKey(), out var dedupMatch))
+            {
+                if (dedupMatch.SourceEventId.StartsWith("chunk:", StringComparison.Ordinal))
+                {
+                    var previousSourceEventId = dedupMatch.SourceEventId;
+                    UpdateMeetingEntity(dedupMatch, meeting, now, updateSourceEventId: true);
+                    existingBySourceEventId.Remove(previousSourceEventId);
+                    existingBySourceEventId[dedupMatch.SourceEventId] = dedupMatch;
+                }
+
                 continue;
             }
 
@@ -331,6 +361,29 @@ public sealed class MeetingProjectionService(
         return roomChunks.Count == 0 && existingChunkMeetings.Count == 0
             ? MeetingProjectionRunResult.Empty
             : new MeetingProjectionRunResult(1, 1, projectedMeetings.Count);
+    }
+
+    private static void UpdateMeetingEntity(
+        MeetingEntity entity,
+        MeetingRecord meeting,
+        DateTimeOffset now,
+        bool updateSourceEventId)
+    {
+        entity.Title = meeting.Title;
+        entity.Summary = meeting.Summary;
+        entity.Person = meeting.Person;
+        entity.ObservedAt = MeetingTimeSupport.NormalizeToUtc(meeting.ObservedAt);
+        entity.ScheduledFor = MeetingTimeSupport.NormalizeToUtc(meeting.ScheduledFor);
+        entity.Confidence = meeting.Confidence;
+        entity.Status = meeting.Status;
+        entity.MeetingProvider = meeting.MeetingProvider;
+        entity.MeetingJoinUrl = meeting.MeetingJoinUrl?.ToString();
+        if (updateSourceEventId)
+        {
+            entity.SourceEventId = meeting.SourceEventId;
+        }
+
+        entity.UpdatedAt = now;
     }
 
     private sealed record UserLatestChunk(Guid UserId, DateTimeOffset LatestUpdatedAt);

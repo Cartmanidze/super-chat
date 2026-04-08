@@ -51,11 +51,36 @@ internal static class MeetingRecordMappings
 
     public static string ToMeetingDeduplicationKey(this MeetingRecord meeting)
     {
+        return BuildDeduplicationKey(
+            meeting.SourceRoom,
+            meeting.ScheduledFor.UtcDateTime,
+            meeting.Summary);
+    }
+
+    public static string ToMeetingDeduplicationKey(this MeetingEntity entity)
+    {
+        return BuildDeduplicationKey(
+            entity.SourceRoom,
+            entity.ScheduledFor.UtcDateTime,
+            entity.Summary);
+    }
+
+    internal static string BuildDeduplicationKey(string sourceRoom, DateTime scheduledForUtc, string summary)
+    {
         return string.Join(
             '|',
-            meeting.SourceRoom,
-            meeting.ScheduledFor.UtcDateTime.ToString("yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture),
-            meeting.Summary.Trim().ToLowerInvariant());
+            sourceRoom,
+            scheduledForUtc.ToString("yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture),
+            summary.Trim().ToLowerInvariant());
+    }
+
+    internal static MeetingEntity SelectDedupPriorityMeeting(IEnumerable<MeetingEntity> group)
+    {
+        return group
+            .OrderBy(item => item.SourceEventId.StartsWith("chunk:", StringComparison.Ordinal) ? 1 : 0)
+            .ThenBy(item => item.CreatedAt)
+            .ThenBy(item => item.Id)
+            .First();
     }
 
     public static Guid ToDeterministicGuid(this string seed)

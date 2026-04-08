@@ -37,7 +37,7 @@ internal sealed class ConversationResolutionService(
             aiDecisions.Count);
         if (aiDecisions.Count > 0)
         {
-            var appliedCount = await ApplyAiDecisionsAsync(userId, aiDecisions, cancellationToken);
+            var appliedCount = await ApplyAiDecisionsAsync(userId, aiDecisions, now, cancellationToken);
             logger.LogInformation(
                 "Applied AI conversation resolution decisions. AppliedCount={AppliedCount}.",
                 appliedCount);
@@ -64,7 +64,7 @@ internal sealed class ConversationResolutionService(
             aiDecisions.Count);
         if (aiDecisions.Count > 0)
         {
-            var appliedCount = await ApplyAiDecisionsAsync(userId, aiDecisions, cancellationToken);
+            var appliedCount = await ApplyAiDecisionsAsync(userId, aiDecisions, resolveAfter, cancellationToken);
             logger.LogInformation(
                 "Applied AI due meeting resolution decisions. AppliedCount={AppliedCount}.",
                 appliedCount);
@@ -81,12 +81,14 @@ internal sealed class ConversationResolutionService(
     {
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         var options = resolutionOptions.Value;
+        var cooldownThreshold = now.AddMinutes(-options.AutoResolutionCooldownMinutes);
 
         var workItems = await dbContext.WorkItems
             .AsNoTracking()
             .Where(item => item.UserId == userId &&
                            item.SourceRoom == matrixRoomId &&
-                           item.ResolvedAt == null)
+                           item.ResolvedAt == null &&
+                           item.ObservedAt <= cooldownThreshold)
             .OrderBy(item => item.ObservedAt)
             .Take(Math.Max(1, options.MaxCandidatesPerRequest))
             .ToListAsync(cancellationToken);
@@ -172,6 +174,7 @@ internal sealed class ConversationResolutionService(
     private async Task<int> ApplyAiDecisionsAsync(
         Guid userId,
         IReadOnlyList<AiResolutionDecisionResult> decisions,
+        DateTimeOffset now,
         CancellationToken cancellationToken)
     {
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -199,7 +202,7 @@ internal sealed class ConversationResolutionService(
             var meeting = meetings.SingleOrDefault(item => item.Id == decision.CandidateId);
             if (meeting is not null)
             {
-                var applied = ApplyResolution(meeting, decision);
+                var applied = ApplyResolution(meeting, decision, now);
                 changed |= applied;
                 appliedCount += applied ? 1 : 0;
             }
@@ -230,9 +233,15 @@ internal sealed class ConversationResolutionService(
         return true;
     }
 
-    private static bool ApplyResolution(MeetingEntity entity, AiResolutionDecisionResult decision)
+    private static bool ApplyResolution(MeetingEntity entity, AiResolutionDecisionResult decision, DateTimeOffset now)
     {
         if (entity.IsResolved())
+        {
+            return false;
+        }
+
+        if (entity.ScheduledFor > now &&
+            !string.Equals(decision.ResolutionKind, WorkItemResolutionState.Cancelled, StringComparison.Ordinal))
         {
             return false;
         }

@@ -85,6 +85,206 @@ public sealed class MeetingUpsertServiceTests
         Assert.Equal(MeetingStatus.Rescheduled, meeting.Status);
     }
 
+    [Fact]
+    public async Task UpsertRangeAsync_DuplicateContentWithDifferentSourceEventId_CreatesOneMeeting()
+    {
+        var userId = Guid.NewGuid();
+        var roomId = "!dm:matrix.localhost";
+        var observedAt = new DateTimeOffset(2026, 04, 07, 08, 00, 00, TimeSpan.Zero);
+        var scheduledFor = new DateTimeOffset(2026, 04, 07, 15, 00, 00, TimeSpan.Zero);
+
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        var service = new MeetingUpsertService(factory);
+
+        await service.UpsertRangeAsync(
+        [
+            new ExtractedItem(
+                Guid.NewGuid(),
+                userId,
+                ExtractedItemKind.Meeting,
+                "Upcoming meeting",
+                "встреча в 18:00 по мск",
+                roomId,
+                "$evt-first",
+                null,
+                observedAt,
+                scheduledFor,
+                new Confidence(0.85))
+        ], CancellationToken.None);
+
+        await service.UpsertRangeAsync(
+        [
+            new ExtractedItem(
+                Guid.NewGuid(),
+                userId,
+                ExtractedItemKind.Meeting,
+                "Upcoming meeting",
+                "встреча в 18:00 по мск",
+                roomId,
+                "$evt-second",
+                null,
+                observedAt.AddMinutes(5),
+                scheduledFor,
+                new Confidence(0.90))
+        ], CancellationToken.None);
+
+        await using var verificationDbContext = await factory.CreateDbContextAsync(CancellationToken.None);
+        var meetings = await verificationDbContext.Meetings
+            .Where(item => item.UserId == userId && item.SourceRoom == roomId)
+            .ToListAsync(CancellationToken.None);
+
+        Assert.Single(meetings);
+    }
+
+    [Fact]
+    public async Task UpsertRangeAsync_DedupKeyMatchesProjectionPath_WhenDueAtHasNonUtcOffset()
+    {
+        var userId = Guid.NewGuid();
+        var roomId = "!dm:matrix.localhost";
+        var existingId = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd");
+        var existingEventId = "$evt-existing";
+        var incomingEventId = "$evt-offset";
+        var observedAt = new DateTimeOffset(2026, 04, 07, 08, 15, 00, TimeSpan.Zero);
+        var scheduledForUtc = new DateTimeOffset(2026, 04, 07, 15, 00, 00, TimeSpan.Zero);
+        var scheduledForPlusThree = new DateTimeOffset(2026, 04, 07, 18, 00, 00, TimeSpan.FromHours(3));
+        const string summary = "встреча в 18:00 по мск";
+
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        await using (var dbContext = await factory.CreateDbContextAsync(CancellationToken.None))
+        {
+            dbContext.Meetings.Add(new MeetingEntity
+            {
+                Id = existingId,
+                UserId = userId,
+                Title = "Existing meeting",
+                Summary = summary,
+                SourceRoom = roomId,
+                SourceEventId = existingEventId,
+                ObservedAt = observedAt.AddMinutes(-20),
+                ScheduledFor = scheduledForUtc,
+                Confidence = 0.70,
+                CreatedAt = observedAt.AddHours(-1),
+                UpdatedAt = observedAt.AddHours(-1)
+            });
+
+            await dbContext.SaveChangesAsync(CancellationToken.None);
+        }
+
+        var service = new MeetingUpsertService(factory);
+        await service.UpsertRangeAsync(
+        [
+            new ExtractedItem(
+                Guid.NewGuid(),
+                userId,
+                ExtractedItemKind.Meeting,
+                "Offset meeting",
+                summary,
+                roomId,
+                incomingEventId,
+                null,
+                observedAt,
+                scheduledForPlusThree,
+                new Confidence(0.93))
+        ], CancellationToken.None);
+
+        await using var verificationDbContext = await factory.CreateDbContextAsync(CancellationToken.None);
+        var meetings = await verificationDbContext.Meetings
+            .Where(item => item.UserId == userId && item.SourceRoom == roomId)
+            .OrderBy(item => item.CreatedAt)
+            .ToListAsync(CancellationToken.None);
+
+        var meeting = Assert.Single(meetings);
+        Assert.Equal(existingId, meeting.Id);
+        Assert.Equal(existingEventId, meeting.SourceEventId);
+        Assert.Equal(scheduledForUtc, meeting.ScheduledFor);
+        Assert.Equal(0.93, meeting.Confidence, 3);
+    }
+
+    [Fact]
+    public async Task UpsertRangeAsync_PrefersExtractionEntityOverChunkEntity_ForSameDedupKey()
+    {
+        var userId = Guid.NewGuid();
+        var roomId = "!dm:matrix.localhost";
+        var scheduledFor = new DateTimeOffset(2026, 04, 07, 15, 00, 00, TimeSpan.Zero);
+        var observedAt = new DateTimeOffset(2026, 04, 07, 08, 00, 00, TimeSpan.Zero);
+        const string summary = "встреча в 18:00 по мск";
+        var chunkId = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee");
+        var extractionId = Guid.Parse("ffffffff-ffff-ffff-ffff-ffffffffffff");
+        const string chunkSourceEventId = "chunk:old-hash";
+        const string extractionSourceEventId = "$evt-extraction";
+
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        await using (var dbContext = await factory.CreateDbContextAsync(CancellationToken.None))
+        {
+            dbContext.Meetings.Add(new MeetingEntity
+            {
+                Id = chunkId,
+                UserId = userId,
+                Title = "Chunk title",
+                Summary = summary,
+                SourceRoom = roomId,
+                SourceEventId = chunkSourceEventId,
+                Person = "Chunk person",
+                ObservedAt = observedAt.AddMinutes(-15),
+                ScheduledFor = scheduledFor,
+                Confidence = 0.61,
+                CreatedAt = observedAt.AddMinutes(-15),
+                UpdatedAt = observedAt.AddMinutes(-15)
+            });
+            dbContext.Meetings.Add(new MeetingEntity
+            {
+                Id = extractionId,
+                UserId = userId,
+                Title = "Extraction title",
+                Summary = summary,
+                SourceRoom = roomId,
+                SourceEventId = extractionSourceEventId,
+                Person = "Extraction person",
+                ObservedAt = observedAt.AddMinutes(-10),
+                ScheduledFor = scheduledFor,
+                Confidence = 0.74,
+                CreatedAt = observedAt.AddMinutes(-10),
+                UpdatedAt = observedAt.AddMinutes(-10)
+            });
+
+            await dbContext.SaveChangesAsync(CancellationToken.None);
+        }
+
+        var service = new MeetingUpsertService(factory);
+        await service.UpsertRangeAsync(
+        [
+            new ExtractedItem(
+                Guid.NewGuid(),
+                userId,
+                ExtractedItemKind.Meeting,
+                "Updated title",
+                summary,
+                roomId,
+                "$evt-new",
+                "Updated person",
+                observedAt,
+                scheduledFor,
+                new Confidence(0.95))
+        ], CancellationToken.None);
+
+        await using var verificationDbContext = await factory.CreateDbContextAsync(CancellationToken.None);
+        var meetings = await verificationDbContext.Meetings
+            .Where(item => item.UserId == userId && item.SourceRoom == roomId)
+            .OrderBy(item => item.CreatedAt)
+            .ToListAsync(CancellationToken.None);
+
+        Assert.Equal(2, meetings.Count);
+
+        var chunkMeeting = Assert.Single(meetings, item => item.Id == chunkId);
+        var extractionMeeting = Assert.Single(meetings, item => item.Id == extractionId);
+
+        Assert.Equal("Chunk title", chunkMeeting.Title);
+        Assert.Equal("Chunk person", chunkMeeting.Person);
+        Assert.Equal("Updated title", extractionMeeting.Title);
+        Assert.Equal("Updated person", extractionMeeting.Person);
+        Assert.Equal(0.95, extractionMeeting.Confidence, 3);
+    }
+
     private static async Task<IDbContextFactory<SuperChatDbContext>> CreateFactoryAsync(CancellationToken cancellationToken)
     {
         var dbContextOptions = new DbContextOptionsBuilder<SuperChatDbContext>()

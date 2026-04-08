@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using SuperChat.Contracts.Features.Operations;
 using SuperChat.Infrastructure.Shared.Persistence;
 using SuperChat.Infrastructure.Shared.Presentation;
 
@@ -7,7 +9,9 @@ namespace SuperChat.Infrastructure.Features.Intelligence.WorkItems;
 
 internal sealed class WorkItemAutoResolutionService(
     IDbContextFactory<SuperChatDbContext> dbContextFactory,
-    ILogger<WorkItemAutoResolutionService> logger)
+    ILogger<WorkItemAutoResolutionService> logger,
+    TimeProvider timeProvider,
+    IOptions<ResolutionOptions> resolutionOptions)
 {
     public async Task ResolveAsync(Guid userId, CancellationToken cancellationToken)
     {
@@ -28,8 +32,12 @@ internal sealed class WorkItemAutoResolutionService(
         CancellationToken cancellationToken)
     {
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var cooldownThreshold = timeProvider.GetUtcNow()
+            .AddMinutes(-resolutionOptions.Value.AutoResolutionCooldownMinutes);
         var candidatesQuery = dbContext.WorkItems
-            .Where(item => item.UserId == userId && item.ResolvedAt == null);
+            .Where(item => item.UserId == userId &&
+                           item.ResolvedAt == null &&
+                           item.ObservedAt <= cooldownThreshold);
 
         if (!string.IsNullOrWhiteSpace(matrixRoomId))
         {

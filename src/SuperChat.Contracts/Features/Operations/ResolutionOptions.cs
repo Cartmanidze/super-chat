@@ -16,6 +16,8 @@ public sealed class ResolutionOptions
 
     public int MaxOutputTokens { get; set; } = 700;
 
+    public int AutoResolutionCooldownMinutes { get; set; } = 5;
+
     public bool ScheduleDeferredConversationPass { get; set; } = true;
 
     public int DeferredConversationDelayMinutes { get; set; } = 15;
