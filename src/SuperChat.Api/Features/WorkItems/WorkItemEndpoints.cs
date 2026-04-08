@@ -30,6 +30,34 @@ public static class WorkItemEndpoints
 
     private static void MapMeetingActionEndpoints(RouteGroupBuilder group)
     {
+        group.MapPost("/{id:guid}/confirm", async (
+            HttpContext httpContext,
+            Guid id,
+            IMeetingWorkItemCommandService meetingWorkItemCommandService,
+            CancellationToken cancellationToken) =>
+        {
+            var confirmed = await meetingWorkItemCommandService.ConfirmAsync(
+                httpContext.User.GetRequiredUserId(),
+                id,
+                cancellationToken);
+
+            return confirmed ? Results.NoContent() : Results.NotFound();
+        });
+
+        group.MapPost("/{id:guid}/unconfirm", async (
+            HttpContext httpContext,
+            Guid id,
+            IMeetingWorkItemCommandService meetingWorkItemCommandService,
+            CancellationToken cancellationToken) =>
+        {
+            var unconfirmed = await meetingWorkItemCommandService.UnconfirmAsync(
+                httpContext.User.GetRequiredUserId(),
+                id,
+                cancellationToken);
+
+            return unconfirmed ? Results.NoContent() : Results.NotFound();
+        });
+
         group.MapPost("/{id:guid}/complete", async (
             HttpContext httpContext,
             Guid id,

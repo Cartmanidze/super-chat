@@ -412,6 +412,201 @@ public sealed class ConversationResolutionCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_DoesNotApplyAiRescheduledDecisionToConfirmedMeeting()
+    {
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        var userId = Guid.NewGuid();
+        var roomId = "!meetings:matrix.localhost";
+        var now = new DateTimeOffset(2026, 04, 08, 12, 00, 00, TimeSpan.Zero);
+        var meetingId = Guid.NewGuid();
+
+        await using (var dbContext = await factory.CreateDbContextAsync(CancellationToken.None))
+        {
+            dbContext.Meetings.Add(new MeetingEntity
+            {
+                Id = meetingId,
+                UserId = userId,
+                Title = "Interview",
+                Summary = "Interview at 11:00",
+                SourceRoom = roomId,
+                SourceEventId = "$evt-confirmed-reschedule",
+                ObservedAt = now.AddHours(-2),
+                ScheduledFor = now.AddMinutes(-30),
+                Confidence = 0.93,
+                Status = MeetingStatus.Confirmed,
+                CreatedAt = now.AddHours(-2),
+                UpdatedAt = now.AddHours(-2)
+            });
+
+            dbContext.NormalizedMessages.Add(new NormalizedMessageEntity
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                Source = "telegram",
+                MatrixRoomId = roomId,
+                MatrixEventId = "$evt-reschedule",
+                SenderName = "Alex",
+                Text = "давай перенесем",
+                SentAt = now.AddMinutes(-10),
+                IngestedAt = now.AddMinutes(-10),
+                Processed = true
+            });
+
+            await dbContext.SaveChangesAsync(CancellationToken.None);
+        }
+
+        var aiService = new StubAiResolutionService(
+        [
+            new AiResolutionDecisionResult(
+                meetingId,
+                WorkItemResolutionState.Rescheduled,
+                WorkItemResolutionState.AutoAiMeetingCompletion,
+                now.AddMinutes(-10),
+                0.97,
+                "deepseek-reasoner",
+                ["$evt-reschedule"])
+        ]);
+
+        var handler = CreateHandler(factory, aiService, now, useLlm: true);
+        await handler.Handle(new ResolveConversationItemsCommand(userId, roomId));
+
+        await using var verificationContext = await factory.CreateDbContextAsync(CancellationToken.None);
+        var entity = await verificationContext.Meetings.SingleAsync(item => item.Id == meetingId, CancellationToken.None);
+        Assert.Null(entity.ResolvedAt);
+        Assert.Null(entity.ResolutionKind);
+    }
+
+    [Fact]
+    public async Task Handle_AppliesAiCompletedDecisionToConfirmedMeeting()
+    {
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        var userId = Guid.NewGuid();
+        var roomId = "!meetings:matrix.localhost";
+        var now = new DateTimeOffset(2026, 04, 08, 12, 00, 00, TimeSpan.Zero);
+        var meetingId = Guid.NewGuid();
+
+        await using (var dbContext = await factory.CreateDbContextAsync(CancellationToken.None))
+        {
+            dbContext.Meetings.Add(new MeetingEntity
+            {
+                Id = meetingId,
+                UserId = userId,
+                Title = "Interview",
+                Summary = "Interview at 11:00",
+                SourceRoom = roomId,
+                SourceEventId = "$evt-confirmed-complete",
+                ObservedAt = now.AddHours(-2),
+                ScheduledFor = now.AddMinutes(-30),
+                Confidence = 0.93,
+                Status = MeetingStatus.Confirmed,
+                CreatedAt = now.AddHours(-2),
+                UpdatedAt = now.AddHours(-2)
+            });
+
+            dbContext.NormalizedMessages.Add(new NormalizedMessageEntity
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                Source = "telegram",
+                MatrixRoomId = roomId,
+                MatrixEventId = "$evt-complete",
+                SenderName = "Alex",
+                Text = "встреча прошла",
+                SentAt = now.AddMinutes(-5),
+                IngestedAt = now.AddMinutes(-5),
+                Processed = true
+            });
+
+            await dbContext.SaveChangesAsync(CancellationToken.None);
+        }
+
+        var aiService = new StubAiResolutionService(
+        [
+            new AiResolutionDecisionResult(
+                meetingId,
+                WorkItemResolutionState.Completed,
+                WorkItemResolutionState.AutoAiMeetingCompletion,
+                now.AddMinutes(-5),
+                0.97,
+                "deepseek-reasoner",
+                ["$evt-complete"])
+        ]);
+
+        var handler = CreateHandler(factory, aiService, now, useLlm: true);
+        await handler.Handle(new ResolveConversationItemsCommand(userId, roomId));
+
+        await using var verificationContext = await factory.CreateDbContextAsync(CancellationToken.None);
+        var entity = await verificationContext.Meetings.SingleAsync(item => item.Id == meetingId, CancellationToken.None);
+        Assert.Equal(WorkItemResolutionState.Completed, entity.ResolutionKind);
+        Assert.NotNull(entity.ResolvedAt);
+    }
+
+    [Fact]
+    public async Task Handle_AppliesAiCancelledDecisionToConfirmedMeeting()
+    {
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        var userId = Guid.NewGuid();
+        var roomId = "!meetings:matrix.localhost";
+        var now = new DateTimeOffset(2026, 04, 08, 12, 00, 00, TimeSpan.Zero);
+        var meetingId = Guid.NewGuid();
+
+        await using (var dbContext = await factory.CreateDbContextAsync(CancellationToken.None))
+        {
+            dbContext.Meetings.Add(new MeetingEntity
+            {
+                Id = meetingId,
+                UserId = userId,
+                Title = "Interview",
+                Summary = "Interview at 18:00",
+                SourceRoom = roomId,
+                SourceEventId = "$evt-confirmed-cancel",
+                ObservedAt = now.AddHours(-2),
+                ScheduledFor = now.AddHours(2),
+                Confidence = 0.93,
+                Status = MeetingStatus.Confirmed,
+                CreatedAt = now.AddHours(-2),
+                UpdatedAt = now.AddHours(-2)
+            });
+
+            dbContext.NormalizedMessages.Add(new NormalizedMessageEntity
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                Source = "telegram",
+                MatrixRoomId = roomId,
+                MatrixEventId = "$evt-cancel",
+                SenderName = "Alex",
+                Text = "встречу отменяем",
+                SentAt = now.AddMinutes(5),
+                IngestedAt = now.AddMinutes(5),
+                Processed = true
+            });
+
+            await dbContext.SaveChangesAsync(CancellationToken.None);
+        }
+
+        var aiService = new StubAiResolutionService(
+        [
+            new AiResolutionDecisionResult(
+                meetingId,
+                WorkItemResolutionState.Cancelled,
+                WorkItemResolutionState.AutoAiMeetingCompletion,
+                now.AddMinutes(5),
+                0.97,
+                "deepseek-reasoner",
+                ["$evt-cancel"])
+        ]);
+
+        var handler = CreateHandler(factory, aiService, now, useLlm: true);
+        await handler.Handle(new ResolveConversationItemsCommand(userId, roomId));
+
+        await using var verificationContext = await factory.CreateDbContextAsync(CancellationToken.None);
+        var entity = await verificationContext.Meetings.SingleAsync(item => item.Id == meetingId, CancellationToken.None);
+        Assert.Equal(WorkItemResolutionState.Cancelled, entity.ResolutionKind);
+        Assert.NotNull(entity.ResolvedAt);
+    }
+
+    [Fact]
     public async Task Handle_SkipsYoungWorkItemForAiResolutionCandidates()
     {
         var factory = await CreateFactoryAsync(CancellationToken.None);

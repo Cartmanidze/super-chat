@@ -40,17 +40,20 @@ internal sealed class EfMeetingRepository(
 
         return entities
             .Where(item => item.ScheduledFor >= fromInclusiveUtc)
-            .OrderBy(item => item.ScheduledFor)
+            .OrderBy(item => item.Status == MeetingStatus.Confirmed ? 0 : 1)
+            .ThenBy(item => item.ScheduledFor)
             .ThenByDescending(item => item.Confidence)
             .Take(Math.Max(50, boundedTake * 4))
             .Select(entity => entity.ToDomain())
             .GroupBy(item => item.ToMeetingDeduplicationKey(), StringComparer.Ordinal)
             .Select(group => group
-                .OrderBy(item => item.ScheduledFor)
+                .OrderBy(item => item.Status == MeetingStatus.Confirmed ? 0 : 1)
+                .ThenBy(item => item.ScheduledFor)
                 .ThenByDescending(item => item.Confidence.Value)
                 .ThenByDescending(item => item.ObservedAt)
                 .First())
-            .OrderBy(item => item.ScheduledFor)
+            .OrderBy(item => item.Status == MeetingStatus.Confirmed ? 0 : 1)
+            .ThenBy(item => item.ScheduledFor)
             .ThenByDescending(item => item.Confidence.Value)
             .Take(boundedTake)
             .ToList();
@@ -105,6 +108,28 @@ internal sealed class EfMeetingRepository(
                 entity.UpdatedAt = now;
             }
         }
+
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task UpdateStatusAsync(
+        Guid userId,
+        Guid meetingId,
+        MeetingStatus status,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        await using var db = await GetDbContextAsync(cancellationToken);
+        var entity = await db.Meetings
+            .FirstOrDefaultAsync(item => item.UserId == userId && item.Id == meetingId, cancellationToken);
+
+        if (entity is null)
+        {
+            return;
+        }
+
+        entity.Status = status;
+        entity.UpdatedAt = now;
 
         await db.SaveChangesAsync(cancellationToken);
     }

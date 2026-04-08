@@ -21,6 +21,16 @@ export const meetingsGateway = {
       headers: withBearer(token),
     });
   },
+  confirm(token: string, id: string) {
+    return api.post<void>(`/work-items/meetings/${id}/confirm`, undefined, {
+      headers: withBearer(token),
+    });
+  },
+  unconfirm(token: string, id: string) {
+    return api.post<void>(`/work-items/meetings/${id}/unconfirm`, undefined, {
+      headers: withBearer(token),
+    });
+  },
   complete(token: string, id: string) {
     return api.post<void>(`/work-items/meetings/${id}/complete`, undefined, {
       headers: withBearer(token),

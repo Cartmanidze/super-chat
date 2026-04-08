@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useSessionStore } from "../features/auth/stores/session-store";
 import { TelegramLoginCard } from "../features/integrations/components/telegram-login-card";
 import { telegramGateway } from "../features/integrations/gateways/telegram-gateway";
@@ -34,6 +34,9 @@ export function ConnectionsPage() {
   const telegramQuery = useTelegramConnectionQuery(token);
   const rawChatLoginStep = telegramQuery.data?.chatLoginStep ?? null;
   const chatLoginStep = isTelegramLoginStep(rawChatLoginStep) ? rawChatLoginStep : null;
+  const activeSubmittedStep = submittedStep === chatLoginStep ? submittedStep : null;
+  const visibleLoginInput =
+    submittedStep && submittedStep !== chatLoginStep ? "" : loginInput;
 
   const invalidateAll = async () => {
     await queryClient.invalidateQueries({ queryKey: ["telegram-connection"] });
@@ -43,18 +46,6 @@ export function ConnectionsPage() {
     setLoginInput("");
     setSubmittedStep(null);
   };
-
-  useEffect(() => {
-    if (!chatLoginStep) {
-      resetLoginForm();
-      return;
-    }
-
-    if (submittedStep && submittedStep !== chatLoginStep) {
-      setLoginInput("");
-      setSubmittedStep(null);
-    }
-  }, [chatLoginStep, submittedStep]);
 
   const connectMutation = useMutation({
     mutationFn: () => telegramGateway.connect(token!),
@@ -188,14 +179,14 @@ export function ConnectionsPage() {
           {chatLoginStep ? (
             <TelegramLoginCard
               step={chatLoginStep}
-              value={loginInput}
-              submittedStep={submittedStep}
+              value={visibleLoginInput}
+              submittedStep={activeSubmittedStep}
               isSubmitting={loginInputMutation.isPending}
               errorMessage={loginInputMutation.isError ? String(loginInputMutation.error.message) : null}
               onValueChange={setLoginInput}
               onSubmit={() => {
                 loginInputMutation.mutate({
-                  input: loginInput.trim(),
+                  input: visibleLoginInput.trim(),
                   step: chatLoginStep,
                 });
               }}

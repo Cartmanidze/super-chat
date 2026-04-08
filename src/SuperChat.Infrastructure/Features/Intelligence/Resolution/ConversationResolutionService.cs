@@ -240,6 +240,13 @@ internal sealed class ConversationResolutionService(
             return false;
         }
 
+        if (entity.Status == MeetingStatus.Confirmed &&
+            !string.Equals(decision.ResolutionKind, WorkItemResolutionState.Completed, StringComparison.Ordinal) &&
+            !string.Equals(decision.ResolutionKind, WorkItemResolutionState.Cancelled, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
         if (entity.ScheduledFor > now &&
             !string.Equals(decision.ResolutionKind, WorkItemResolutionState.Cancelled, StringComparison.Ordinal))
         {

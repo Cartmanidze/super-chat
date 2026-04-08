@@ -1,5 +1,4 @@
 import { useMutation } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useSessionStore } from "../features/auth/stores/session-store";
 import { feedbackGateway } from "../features/feedback/gateways/feedback-gateway";
@@ -15,15 +14,9 @@ export function FeedbackPage() {
   const navigate = useNavigate();
   const search = useSearch({ from: "/feedback" });
   const token = useSessionStore((state) => state.accessToken);
-  const [area, setArea] = useState(search.area);
-  const [useful, setUseful] = useState(search.useful);
-  const [note, setNote] = useState(search.note);
-
-  useEffect(() => {
-    setArea(search.area);
-    setUseful(search.useful);
-    setNote(search.note);
-  }, [search.area, search.useful, search.note]);
+  const area = search.area;
+  const useful = search.useful;
+  const note = search.note;
 
   const feedbackMutation = useMutation({
     mutationFn: () => feedbackGateway.submit(token!, area, useful, note),
@@ -54,11 +47,9 @@ export function FeedbackPage() {
               className="search-input"
               value={area}
               onChange={(event) => {
-                const nextArea = event.target.value;
-                setArea(nextArea);
                 void navigate({
                   to: "/feedback",
-                  search: { area: nextArea, useful, note },
+                  search: { area: event.target.value, useful, note },
                   replace: true,
                 });
               }}
@@ -77,11 +68,9 @@ export function FeedbackPage() {
               className="search-input"
               value={useful ? "true" : "false"}
               onChange={(event) => {
-                const nextUseful = event.target.value === "true";
-                setUseful(nextUseful);
                 void navigate({
                   to: "/feedback",
-                  search: { area, useful: nextUseful, note },
+                  search: { area, useful: event.target.value === "true", note },
                   replace: true,
                 });
               }}
@@ -98,11 +87,9 @@ export function FeedbackPage() {
               rows={6}
               value={note}
               onChange={(event) => {
-                const nextNote = event.target.value;
-                setNote(nextNote);
                 void navigate({
                   to: "/feedback",
-                  search: { area, useful, note: nextNote },
+                  search: { area, useful, note: event.target.value },
                   replace: true,
                 });
               }}
@@ -117,7 +104,7 @@ export function FeedbackPage() {
           </div>
 
           {feedbackMutation.isSuccess ? (
-            <p className="form-note">Спасибо, отзыв сохранён.</p>
+            <p className="form-note">Спасибо, отзыв сохранен.</p>
           ) : null}
           {feedbackMutation.isError ? (
             <p className="form-error">{String(feedbackMutation.error.message)}</p>

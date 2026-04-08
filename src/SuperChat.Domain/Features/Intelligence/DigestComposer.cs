@@ -6,7 +6,8 @@ public static class DigestComposer
     {
         return items
             .Where(item => item.ScheduledFor >= now && item.ScheduledFor <= now.AddDays(14))
-            .OrderBy(item => item.ScheduledFor)
+            .OrderBy(item => item.Status == MeetingStatus.Confirmed ? 0 : 1)
+            .ThenBy(item => item.ScheduledFor)
             .ThenByDescending(item => item.Confidence.Value)
             .Take(10)
             .ToList();

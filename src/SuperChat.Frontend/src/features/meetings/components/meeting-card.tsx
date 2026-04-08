@@ -24,8 +24,25 @@ function formatConfidence(value: number) {
   return `${Math.round(Math.max(0, Math.min(1, value)) * 100)}%`;
 }
 
+function formatStatus(value: string | null) {
+  switch (value) {
+    case "PendingConfirmation":
+      return "Ждет подтверждения";
+    case "Confirmed":
+      return "Подтверждена";
+    case "Rescheduled":
+      return "Перенесена";
+    case "Cancelled":
+      return "Отменена";
+    default:
+      return value ?? "Неизвестно";
+  }
+}
+
 export function MeetingCard({ token, card }: MeetingCardProps) {
   const queryClient = useQueryClient();
+  const canConfirm = card.status === "PendingConfirmation";
+  const canUnconfirm = card.status === "Confirmed";
 
   const completeMutation = useMutation({
     mutationFn: () => meetingsGateway.complete(token, card.id!),
@@ -40,6 +57,26 @@ export function MeetingCard({ token, card }: MeetingCardProps) {
       await queryClient.invalidateQueries({ queryKey: ["meetings"] });
     },
   });
+
+  const confirmMutation = useMutation({
+    mutationFn: () => meetingsGateway.confirm(token, card.id!),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["meetings"] });
+    },
+  });
+
+  const unconfirmMutation = useMutation({
+    mutationFn: () => meetingsGateway.unconfirm(token, card.id!),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["meetings"] });
+    },
+  });
+
+  const isActionPending =
+    completeMutation.isPending ||
+    dismissMutation.isPending ||
+    confirmMutation.isPending ||
+    unconfirmMutation.isPending;
 
   return (
     <article className="meeting-card">
@@ -57,7 +94,7 @@ export function MeetingCard({ token, card }: MeetingCardProps) {
       </div>
 
       <div className="meeting-meta">
-        <span>Статус: {card.status ?? "unknown"}</span>
+        <span>Статус: {formatStatus(card.status)}</span>
         <span>Провайдер: {card.meetingProvider ?? "n/a"}</span>
       </div>
 
@@ -69,11 +106,31 @@ export function MeetingCard({ token, card }: MeetingCardProps) {
         ) : null}
         {card.id ? (
           <>
+            {canConfirm ? (
+              <button
+                className="ghost-button"
+                type="button"
+                onClick={() => confirmMutation.mutate()}
+                disabled={isActionPending}
+              >
+                Подтвердить
+              </button>
+            ) : null}
+            {canUnconfirm ? (
+              <button
+                className="ghost-button"
+                type="button"
+                onClick={() => unconfirmMutation.mutate()}
+                disabled={isActionPending}
+              >
+                Снять подтверждение
+              </button>
+            ) : null}
             <button
               className="ghost-button"
               type="button"
               onClick={() => completeMutation.mutate()}
-              disabled={completeMutation.isPending || dismissMutation.isPending}
+              disabled={isActionPending}
             >
               Завершить
             </button>
@@ -81,7 +138,7 @@ export function MeetingCard({ token, card }: MeetingCardProps) {
               className="ghost-button"
               type="button"
               onClick={() => dismissMutation.mutate()}
-              disabled={completeMutation.isPending || dismissMutation.isPending}
+              disabled={isActionPending}
             >
               Скрыть
             </button>
@@ -91,6 +148,8 @@ export function MeetingCard({ token, card }: MeetingCardProps) {
 
       {completeMutation.isError ? <p className="form-error">{String(completeMutation.error.message)}</p> : null}
       {dismissMutation.isError ? <p className="form-error">{String(dismissMutation.error.message)}</p> : null}
+      {confirmMutation.isError ? <p className="form-error">{String(confirmMutation.error.message)}</p> : null}
+      {unconfirmMutation.isError ? <p className="form-error">{String(unconfirmMutation.error.message)}</p> : null}
     </article>
   );
 }

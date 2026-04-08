@@ -199,6 +199,62 @@ public sealed class RepositoryQueryParityTests
         Assert.Equal("$evt-keep", item.SourceEventId);
     }
 
+    [Fact]
+    public async Task MeetingRepository_GetUpcomingAsync_PrioritizesConfirmedMeetingsBeforePendingConfirmation_WhenScheduledForIsSame()
+    {
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        var repository = new EfMeetingRepository(factory);
+        var userId = Guid.NewGuid();
+        var now = new DateTimeOffset(2026, 04, 08, 10, 00, 00, TimeSpan.Zero);
+        var scheduledFor = now.AddHours(2);
+
+        await using (var dbContext = await factory.CreateDbContextAsync(CancellationToken.None))
+        {
+            dbContext.Meetings.AddRange(
+            [
+                new MeetingEntity
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    Title = "Pending meeting",
+                    Summary = "Need confirmation",
+                    SourceRoom = "!team:matrix.localhost",
+                    SourceEventId = "$pending-status",
+                    ObservedAt = now.AddMinutes(-10),
+                    ScheduledFor = scheduledFor,
+                    Confidence = 0.99,
+                    Status = MeetingStatus.PendingConfirmation,
+                    CreatedAt = now.AddMinutes(-10),
+                    UpdatedAt = now.AddMinutes(-10)
+                },
+                new MeetingEntity
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    Title = "Confirmed meeting",
+                    Summary = "Already confirmed",
+                    SourceRoom = "!team:matrix.localhost",
+                    SourceEventId = "$confirmed-status",
+                    ObservedAt = now.AddMinutes(-20),
+                    ScheduledFor = scheduledFor,
+                    Confidence = 0.50,
+                    Status = MeetingStatus.Confirmed,
+                    CreatedAt = now.AddMinutes(-20),
+                    UpdatedAt = now.AddMinutes(-20)
+                }
+            ]);
+
+            await dbContext.SaveChangesAsync(CancellationToken.None);
+        }
+
+        var meetings = await repository.GetUpcomingAsync(userId, now, 2, CancellationToken.None);
+
+        Assert.Collection(
+            meetings,
+            item => Assert.Equal("$confirmed-status", item.SourceEventId),
+            item => Assert.Equal("$pending-status", item.SourceEventId));
+    }
+
     private static async Task<IDbContextFactory<SuperChatDbContext>> CreateFactoryAsync(CancellationToken cancellationToken)
     {
         var dbContextOptions = new DbContextOptionsBuilder<SuperChatDbContext>()

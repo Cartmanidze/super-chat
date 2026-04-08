@@ -9,6 +9,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using SuperChat.Domain.Features.Intelligence;
 using SuperChat.Infrastructure.Shared.Persistence;
 
 namespace SuperChat.Api.Tests;
@@ -320,6 +321,63 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
         Assert.NotNull(meeting.ResolvedAt);
         Assert.Equal("dismissed", meeting.ResolutionKind);
         Assert.Equal("manual", meeting.ResolutionSource);
+    }
+
+    [Fact]
+    public async Task WorkItemEndpoints_ConfirmAndUnconfirmMeeting()
+    {
+        using var client = _factory.CreateClient();
+        var accessToken = await GetAccessTokenAsync(client);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        var userId = await GetUserIdAsync("pilot@example.com");
+        var meetingId = Guid.NewGuid();
+        var scheduledFor = DateTimeOffset.UtcNow.AddHours(2);
+
+        await using (var dbContext = await CreateDbContextAsync())
+        {
+            dbContext.Meetings.Add(new MeetingEntity
+            {
+                Id = meetingId,
+                UserId = userId,
+                Title = "Interview sync",
+                Summary = "Interview at 18:00.",
+                SourceRoom = "!team:matrix.localhost",
+                SourceEventId = "$evt-api-confirm",
+                ObservedAt = scheduledFor.AddHours(-1),
+                ScheduledFor = scheduledFor,
+                Confidence = 0.84,
+                Status = MeetingStatus.PendingConfirmation,
+                CreatedAt = scheduledFor.AddHours(-1),
+                UpdatedAt = scheduledFor.AddHours(-1)
+            });
+
+            await dbContext.SaveChangesAsync();
+        }
+
+        var confirmResponse = await client.PostAsync(
+            $"/api/v1/work-items/meetings/{meetingId}/confirm",
+            content: null);
+
+        Assert.Equal(HttpStatusCode.NoContent, confirmResponse.StatusCode);
+
+        await using (var verificationContext = await CreateDbContextAsync())
+        {
+            var confirmedMeeting = await verificationContext.Meetings.SingleAsync(item => item.Id == meetingId);
+            Assert.Equal(MeetingStatus.Confirmed, confirmedMeeting.Status);
+            Assert.Null(confirmedMeeting.ResolvedAt);
+        }
+
+        var unconfirmResponse = await client.PostAsync(
+            $"/api/v1/work-items/meetings/{meetingId}/unconfirm",
+            content: null);
+
+        Assert.Equal(HttpStatusCode.NoContent, unconfirmResponse.StatusCode);
+
+        await using var verificationContextAfterUnconfirm = await CreateDbContextAsync();
+        var unconfirmedMeeting = await verificationContextAfterUnconfirm.Meetings.SingleAsync(item => item.Id == meetingId);
+        Assert.Equal(MeetingStatus.PendingConfirmation, unconfirmedMeeting.Status);
+        Assert.Null(unconfirmedMeeting.ResolvedAt);
     }
 
     [Fact]

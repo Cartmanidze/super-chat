@@ -22,4 +22,42 @@ public sealed class DigestComposerTests
         Assert.Equal("Встреча завтра в 9", upcoming[1].Summary);
         Assert.DoesNotContain(upcoming, item => item.Summary == "Уже идёт");
     }
+    [Fact]
+    public void BuildMeetings_PrioritizesConfirmedMeetingsBeforePendingConfirmation_WhenScheduledForIsSame()
+    {
+        var now = new DateTimeOffset(2026, 04, 08, 10, 00, 00, TimeSpan.Zero);
+        var scheduledFor = now.AddHours(3);
+        var meetings = new[]
+        {
+            new MeetingRecord(
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                "Pending meeting",
+                "Pending confirmation",
+                "!team",
+                "$pending",
+                null,
+                now.AddMinutes(-10),
+                scheduledFor,
+                new Confidence(0.99),
+                Status: MeetingStatus.PendingConfirmation),
+            new MeetingRecord(
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                "Confirmed meeting",
+                "Already confirmed",
+                "!team",
+                "$confirmed",
+                null,
+                now.AddMinutes(-20),
+                scheduledFor,
+                new Confidence(0.50),
+                Status: MeetingStatus.Confirmed)
+        };
+
+        var upcoming = DigestComposer.BuildMeetings(meetings, now);
+
+        Assert.Equal("Confirmed meeting", upcoming[0].Title);
+        Assert.Equal("Pending meeting", upcoming[1].Title);
+    }
 }
