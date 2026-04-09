@@ -8,5 +8,7 @@ public interface IAuthFlowService
 
     Task<AuthVerificationResult> VerifyCodeAsync(string email, string code, CancellationToken cancellationToken);
 
+    Task<AuthVerificationResult> VerifyCodeAsync(string email, string code, string? timeZoneId, CancellationToken cancellationToken);
+
     Task<AppUser?> FindUserAsync(string email, CancellationToken cancellationToken);
 }

@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using SuperChat.Contracts.Features.Auth;
 using SuperChat.Contracts.Features.Integrations.Matrix;
 using SuperChat.Domain.Features.Auth;
+using SuperChat.Infrastructure.Shared;
 using SuperChat.Infrastructure.Shared.Persistence;
 
 namespace SuperChat.Infrastructure.Features.Auth;
@@ -118,6 +119,11 @@ public sealed class AuthFlowService(
 
     public async Task<AuthVerificationResult> VerifyCodeAsync(string email, string code, CancellationToken cancellationToken)
     {
+        return await VerifyCodeAsync(email, code, timeZoneId: null, cancellationToken);
+    }
+
+    public async Task<AuthVerificationResult> VerifyCodeAsync(string email, string code, string? timeZoneId, CancellationToken cancellationToken)
+    {
         Guard.Against.NullOrWhiteSpace(email);
         Guard.Against.NullOrWhiteSpace(code);
 
@@ -158,7 +164,12 @@ public sealed class AuthFlowService(
             return AuthVerificationResult.Failure(AuthVerificationStatus.InvalidOrExpired, "Verification code is invalid or expired.");
         }
 
-        var user = await CreateOrRefreshUserAsync(dbContext, normalizedEmail, now, cancellationToken);
+        var user = await CreateOrRefreshUserAsync(
+            dbContext,
+            normalizedEmail,
+            UserTimeZoneSupport.NormalizeTimeZoneId(timeZoneId),
+            now,
+            cancellationToken);
         entity.Consumed = true;
         entity.ConsumedByUserId = user.Id;
 
@@ -204,6 +215,7 @@ public sealed class AuthFlowService(
     private static async Task<AppUser> CreateOrRefreshUserAsync(
         SuperChatDbContext dbContext,
         string normalizedEmail,
+        string? timeZoneId,
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
@@ -214,6 +226,7 @@ public sealed class AuthFlowService(
             {
                 Id = Guid.NewGuid(),
                 Email = normalizedEmail,
+                TimeZoneId = timeZoneId,
                 CreatedAt = now,
                 LastSeenAt = now
             };
@@ -222,6 +235,7 @@ public sealed class AuthFlowService(
             return entity.ToDomain();
         }
 
+        entity.TimeZoneId = timeZoneId ?? entity.TimeZoneId;
         entity.LastSeenAt = now;
         return entity.ToDomain();
     }

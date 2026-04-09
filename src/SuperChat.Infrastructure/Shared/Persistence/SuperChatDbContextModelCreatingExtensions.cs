@@ -26,6 +26,7 @@ internal static class SuperChatDbContextModelCreatingExtensions
             b.HasKey(item => item.Id);
             b.ConfigureByConvention();
             b.HasIndex(item => item.Email).IsUnique();
+            b.Property(item => item.TimeZoneId).HasMaxLength(100);
         });
 
         builder.Entity<VerificationCodeEntity>(b =>

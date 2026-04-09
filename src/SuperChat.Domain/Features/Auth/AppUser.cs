@@ -6,7 +6,8 @@ public sealed record AppUser(
     Guid Id,
     Email Email,
     DateTimeOffset CreatedAt,
-    DateTimeOffset LastSeenAt)
+    DateTimeOffset LastSeenAt,
+    string? TimeZoneId = null)
 {
     private readonly bool _validated = Validate(Id);
 

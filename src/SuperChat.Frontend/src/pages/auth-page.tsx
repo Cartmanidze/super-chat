@@ -27,7 +27,7 @@ export function AuthPage() {
   });
 
   const verifyCodeMutation = useMutation({
-    mutationFn: () => authGateway.verifyCode(email, code),
+    mutationFn: () => authGateway.verifyCode(email, code, getBrowserTimeZone()),
     onSuccess: async (session) => {
       setSession(session.accessToken, session.user.email);
       await navigate({ to: "/" });
@@ -106,4 +106,12 @@ export function AuthPage() {
       </article>
     </PageSection>
   );
+}
+
+function getBrowserTimeZone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    return undefined;
+  }
 }

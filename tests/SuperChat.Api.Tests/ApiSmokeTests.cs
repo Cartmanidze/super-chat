@@ -132,6 +132,39 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
     }
 
     [Fact]
+    public async Task AuthFlow_StoresUserTimeZoneFromVerifyRequest()
+    {
+        using var client = _factory.CreateClient();
+
+        var sendResponse = await client.PostAsJsonAsync("/api/v1/auth/send-code", new
+        {
+            email = "pilot@example.com"
+        });
+
+        Assert.Equal(HttpStatusCode.Accepted, sendResponse.StatusCode);
+
+        var codeSender = _factory.Services.GetRequiredService<CapturingApiCodeSender>();
+        var code = codeSender.LastCode!;
+
+        var verifyResponse = await client.PostAsJsonAsync("/api/v1/auth/verify-code", new
+        {
+            email = "pilot@example.com",
+            code,
+            timeZoneId = "Asia/Omsk"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, verifyResponse.StatusCode);
+
+        await using var dbContext = await CreateDbContextAsync();
+        var timeZoneId = await dbContext.AppUsers
+            .Where(item => item.Email == "pilot@example.com")
+            .Select(item => item.TimeZoneId)
+            .SingleAsync();
+
+        Assert.Equal("Asia/Omsk", timeZoneId);
+    }
+
+    [Fact]
     public async Task AuthFlow_RejectsMissingEmail_WithValidationProblem()
     {
         using var client = _factory.CreateClient();

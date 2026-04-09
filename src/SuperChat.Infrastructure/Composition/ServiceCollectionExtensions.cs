@@ -208,6 +208,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<WorkItemAutoResolutionService>();
         services.AddSingleton<IWorkItemService, WorkItemService>();
         services.AddSingleton<IRetrievalService, RetrievalService>();
+        services.AddSingleton<IUserTimeZoneResolver, AppUserTimeZoneResolver>();
         services.AddSingleton<HeuristicStructuredExtractionService>();
         services.AddSingleton<DeepSeekStructuredExtractionService>();
         services.AddSingleton<IAiStructuredExtractionService, BootstrapStructuredExtractionService>();

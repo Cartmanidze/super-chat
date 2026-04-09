@@ -229,6 +229,37 @@ public sealed class AuthFlowServiceTests
         Assert.True(second.User.LastSeenAt > firstSeenAt);
     }
 
+    [Fact]
+    public async Task VerifyCode_StoresTimeZoneForNewUser()
+    {
+        var (service, sender) = await CreateServiceAsync(["pilot@example.com"]);
+
+        await service.SendCodeAsync("pilot@example.com", CancellationToken.None);
+
+        var result = await service.VerifyCodeAsync("pilot@example.com", sender.LastCode!, "Asia/Omsk", CancellationToken.None);
+
+        Assert.True(result.Accepted);
+        Assert.NotNull(result.User);
+        Assert.Equal("Asia/Omsk", result.User!.TimeZoneId);
+    }
+
+    [Fact]
+    public async Task VerifyCode_UpdatesTimeZoneForExistingUser()
+    {
+        var (service, sender) = await CreateServiceAsync(["pilot@example.com"]);
+
+        await service.SendCodeAsync("pilot@example.com", CancellationToken.None);
+        var first = await service.VerifyCodeAsync("pilot@example.com", sender.LastCode!, "Europe/Moscow", CancellationToken.None);
+
+        await service.SendCodeAsync("pilot@example.com", CancellationToken.None);
+        var second = await service.VerifyCodeAsync("pilot@example.com", sender.LastCode!, "Asia/Omsk", CancellationToken.None);
+
+        Assert.True(first.Accepted);
+        Assert.True(second.Accepted);
+        Assert.NotNull(second.User);
+        Assert.Equal("Asia/Omsk", second.User!.TimeZoneId);
+    }
+
     // --- helpers ---
 
     private async Task<(AuthFlowService Service, CapturingCodeSender Sender)> CreateServiceAsync(

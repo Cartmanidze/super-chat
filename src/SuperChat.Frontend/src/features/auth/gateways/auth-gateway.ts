@@ -19,8 +19,8 @@ export const authGateway = {
   sendCode(email: string) {
     return api.post<SendCodeResponse>("/auth/send-code", { email });
   },
-  verifyCode(email: string, code: string) {
-    return api.post<SessionTokenResponse>("/auth/verify-code", { email, code });
+  verifyCode(email: string, code: string, timeZoneId?: string) {
+    return api.post<SessionTokenResponse>("/auth/verify-code", { email, code, timeZoneId });
   },
   logout(token: string) {
     return api.post<void>("/auth/logout", undefined, {

@@ -872,6 +872,90 @@ public sealed class ExtractionAndDigestTests
     }
 
     [Fact]
+    public void MeetingSignalDetector_ConvertsEstMentionToReferenceTimezone()
+    {
+        var observedAt = new DateTimeOffset(2026, 01, 10, 12, 00, 00, TimeSpan.Zero);
+        var chunkText = "Alex: meeting tomorrow at 9 AM EST";
+
+        var signal = MeetingSignalDetector.TryFromChunk(
+            chunkText,
+            observedAt,
+            observedAt,
+            TimeZoneInfo.FindSystemTimeZoneById("Europe/Moscow"));
+
+        Assert.NotNull(signal);
+        Assert.Equal(new DateTimeOffset(2026, 01, 11, 14, 00, 00, TimeSpan.Zero), signal!.ScheduledFor);
+    }
+
+    [Fact]
+    public void MeetingSignalDetector_ConvertsLondonMentionWithDst()
+    {
+        var observedAt = new DateTimeOffset(2026, 07, 10, 12, 00, 00, TimeSpan.Zero);
+        var chunkText = "Alex: meeting tomorrow at 9:00 London time";
+
+        var signal = MeetingSignalDetector.TryFromChunk(
+            chunkText,
+            observedAt,
+            observedAt,
+            TimeZoneInfo.FindSystemTimeZoneById("Europe/Moscow"));
+
+        Assert.NotNull(signal);
+        Assert.Equal(new DateTimeOffset(2026, 07, 11, 08, 00, 00, TimeSpan.Zero), signal!.ScheduledFor);
+    }
+
+    [Fact]
+    public async Task HeuristicExtraction_RequestsClarificationForUnknownTimezoneMention()
+    {
+        var sentAt = new DateTimeOffset(2026, 04, 10, 10, 00, 00, TimeSpan.Zero);
+        var message = new NormalizedMessage(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "telegram",
+            "!timezone:matrix.localhost",
+            "$event-timezone-unknown",
+            "Alex",
+            "meeting tomorrow at 15:00 Foo time",
+            sentAt,
+            sentAt,
+            false);
+
+        var service = CreateHeuristicService();
+        var items = await service.ExtractAsync(CreateWindow(message), CancellationToken.None);
+
+        Assert.DoesNotContain(items, item => item.Kind == ExtractedItemKind.Meeting);
+        var clarification = Assert.Single(items, item => item.Kind == ExtractedItemKind.WaitingOn);
+        Assert.Equal("Нужно уточнить часовой пояс", clarification.Title);
+    }
+
+    [Fact]
+    public async Task HeuristicExtraction_UsesStoredUserTimeZoneInsteadOfGlobalDefault()
+    {
+        var userId = Guid.NewGuid();
+        var sentAt = new DateTimeOffset(2026, 04, 10, 10, 00, 00, TimeSpan.Zero);
+        var message = new NormalizedMessage(
+            Guid.NewGuid(),
+            userId,
+            "telegram",
+            "!timezone-user:matrix.localhost",
+            "$event-timezone-user",
+            "Alex",
+            "meeting today at 18:00",
+            sentAt,
+            sentAt,
+            false);
+
+        var service = CreateHeuristicService(
+            userTimeZoneResolver: new FakeUserTimeZoneResolver(new Dictionary<Guid, string>
+            {
+                [userId] = "Asia/Omsk"
+            }));
+        var items = await service.ExtractAsync(CreateWindow(message), CancellationToken.None);
+        var meeting = Assert.Single(items, item => item.Kind == ExtractedItemKind.Meeting);
+
+        Assert.Equal(new DateTimeOffset(2026, 04, 10, 12, 00, 00, TimeSpan.Zero), meeting.DueAt);
+    }
+
+    [Fact]
     public void MeetingService_ToMeetingCandidate_IgnoresStructuredArtifactChunk()
     {
         var chunk = new MessageChunkEntity
@@ -916,14 +1000,17 @@ public sealed class ExtractionAndDigestTests
         Assert.Equal("Встреча завтра в 9", upcoming[1].Summary);
     }
 
-    private static HeuristicStructuredExtractionService CreateHeuristicService(ITextEnrichmentClient? textEnrichmentClient = null)
+    private static HeuristicStructuredExtractionService CreateHeuristicService(
+        ITextEnrichmentClient? textEnrichmentClient = null,
+        IUserTimeZoneResolver? userTimeZoneResolver = null)
     {
         return new HeuristicStructuredExtractionService(
             new PilotOptions
             {
                 TodayTimeZoneId = "Europe/Moscow"
             },
-            textEnrichmentClient ?? new FakeTextEnrichmentClient((TextEnrichmentResponse?)null));
+            textEnrichmentClient ?? new FakeTextEnrichmentClient((TextEnrichmentResponse?)null),
+            userTimeZoneResolver ?? new FakeUserTimeZoneResolver());
     }
 
     private static DeepSeekStructuredExtractionService CreateDeepSeekService(
@@ -937,6 +1024,7 @@ public sealed class ExtractionAndDigestTests
             {
                 TodayTimeZoneId = "Europe/Moscow"
             },
+            new FakeUserTimeZoneResolver(),
             logger ?? NullLogger<DeepSeekStructuredExtractionService>.Instance);
     }
 
@@ -988,6 +1076,21 @@ public sealed class ExtractionAndDigestTests
             }
 
             return Task.FromResult(response as TResponse);
+        }
+    }
+
+    private sealed class FakeUserTimeZoneResolver(IDictionary<Guid, string>? values = null) : IUserTimeZoneResolver
+    {
+        public ValueTask<TimeZoneInfo> ResolveAsync(Guid userId, TimeZoneInfo fallbackTimeZone, CancellationToken cancellationToken)
+        {
+            if (values is not null &&
+                values.TryGetValue(userId, out var timeZoneId) &&
+                !string.IsNullOrWhiteSpace(timeZoneId))
+            {
+                return ValueTask.FromResult(TimeZoneInfo.FindSystemTimeZoneById(timeZoneId));
+            }
+
+            return ValueTask.FromResult(fallbackTimeZone);
         }
     }
 

@@ -37,7 +37,7 @@ public static class AuthEndpoints
             IApiSessionService apiSessionService,
             CancellationToken cancellationToken) =>
         {
-            var result = await authFlowService.VerifyCodeAsync(request.Email, request.Code, cancellationToken);
+            var result = await authFlowService.VerifyCodeAsync(request.Email, request.Code, request.TimeZoneId, cancellationToken);
             if (!result.Accepted || result.User is null)
             {
                 var statusCode = result.Status == AuthVerificationStatus.TooManyAttempts
@@ -120,7 +120,7 @@ public sealed record SendCodeRequest(string Email);
 
 public sealed record SendCodeResponse(string Message);
 
-public sealed record VerifyCodeRequest(string Email, string Code);
+public sealed record VerifyCodeRequest(string Email, string Code, string? TimeZoneId);
 
 public sealed record SessionTokenResponse(
     string AccessToken,

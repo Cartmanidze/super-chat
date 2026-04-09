@@ -15,6 +15,7 @@ public sealed class DeepSeekStructuredExtractionService(
     IDeepSeekJsonClient deepSeekJsonClient,
     HeuristicStructuredExtractionService heuristicService,
     PilotOptions pilotOptions,
+    IUserTimeZoneResolver userTimeZoneResolver,
     ILogger<DeepSeekStructuredExtractionService> logger) : IAiStructuredExtractionService
 {
     private const int MaxOutputTokens = 900;
@@ -32,7 +33,8 @@ public sealed class DeepSeekStructuredExtractionService(
             return Array.Empty<ExtractedItem>();
         }
 
-        var referenceTimeZone = ResolveReferenceTimeZone(pilotOptions.TodayTimeZoneId);
+        var fallbackTimeZone = ResolveReferenceTimeZone(pilotOptions.TodayTimeZoneId);
+        var referenceTimeZone = await userTimeZoneResolver.ResolveAsync(window.UserId, fallbackTimeZone, cancellationToken);
         var stopwatch = Stopwatch.StartNew();
         AiPipelineLog.StructuredExtractionStarted(
             logger,
@@ -136,6 +138,7 @@ public sealed class DeepSeekStructuredExtractionService(
             deterministicMeeting.MergeInto(extractedItems, window);
         }
 
+        HeuristicStructuredExtractionService.ApplyTimeZoneClarificationRules(window, extractedItems, referenceTimeZone);
         HeuristicStructuredExtractionService.ApplyWaitingOnWindowRules(window, extractedItems);
         return new StructuredExtractionAiAttemptResult(extractedItems, true);
     }

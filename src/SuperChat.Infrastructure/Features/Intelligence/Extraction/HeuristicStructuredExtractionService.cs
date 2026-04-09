@@ -8,7 +8,8 @@ namespace SuperChat.Infrastructure.Features.Intelligence.Extraction;
 
 public sealed class HeuristicStructuredExtractionService(
     PilotOptions pilotOptions,
-    ITextEnrichmentClient textEnrichmentClient)
+    ITextEnrichmentClient textEnrichmentClient,
+    IUserTimeZoneResolver userTimeZoneResolver)
 {
     private static readonly string[] MeetingCueKeywords =
     [
@@ -29,8 +30,10 @@ public sealed class HeuristicStructuredExtractionService(
 
     public async Task<IReadOnlyCollection<ExtractedItem>> ExtractAsync(ConversationWindow window, CancellationToken cancellationToken)
     {
-        var referenceTimeZone = ResolveReferenceTimeZone(pilotOptions.TodayTimeZoneId);
+        var fallbackTimeZone = ResolveReferenceTimeZone(pilotOptions.TodayTimeZoneId);
+        var referenceTimeZone = await userTimeZoneResolver.ResolveAsync(window.UserId, fallbackTimeZone, cancellationToken);
         var items = HeuristicSignalDetector.Detect(window, referenceTimeZone).ToList();
+        ApplyTimeZoneClarificationRules(window, items, referenceTimeZone);
         if (items.Count == 0)
         {
             var recoveredItems = await RecoverMeetingFromTemporalEnrichmentAsync(
@@ -39,13 +42,15 @@ public sealed class HeuristicStructuredExtractionService(
                 cancellationToken);
             if (recoveredItems.Count == 0)
             {
-                return recoveredItems;
+                return items;
             }
 
             items = recoveredItems.ToList();
+            ApplyTimeZoneClarificationRules(window, items, referenceTimeZone);
         }
 
         await EnrichItemsAsync(window, items, referenceTimeZone, cancellationToken);
+        ApplyTimeZoneClarificationRules(window, items, referenceTimeZone);
         ApplyWaitingOnWindowRules(window, items);
         return items;
     }
@@ -287,6 +292,39 @@ public sealed class HeuristicStructuredExtractionService(
         }
     }
 
+    internal static void ApplyTimeZoneClarificationRules(
+        ConversationWindow window,
+        List<ExtractedItem> items,
+        TimeZoneInfo referenceTimeZone)
+    {
+        var clarificationSource = FindTimeZoneClarificationSource(window, referenceTimeZone, items.Count > 0);
+        if (clarificationSource is null)
+        {
+            return;
+        }
+
+        items.RemoveAll(item => item.Kind == ExtractedItemKind.Meeting);
+        if (items.Any(item =>
+                item.Kind == ExtractedItemKind.WaitingOn &&
+                string.Equals(item.Title, "Нужно уточнить часовой пояс", StringComparison.Ordinal)))
+        {
+            return;
+        }
+
+        items.Add(new ExtractedItem(
+            Guid.NewGuid(),
+            clarificationSource.UserId,
+            ExtractedItemKind.WaitingOn,
+            "Нужно уточнить часовой пояс",
+            clarificationSource.Text.Trim(),
+            clarificationSource.MatrixRoomId,
+            clarificationSource.MatrixEventId,
+            null,
+            clarificationSource.SentAt,
+            null,
+            new Confidence(0.92)));
+    }
+
     private static ExtractedItem CreateRecoveredMeetingItem(
         NormalizedMessage sourceMessage,
         string summary,
@@ -348,6 +386,41 @@ public sealed class HeuristicStructuredExtractionService(
                 .FirstOrDefault(entity => string.Equals(entity.Type, "ORG", StringComparison.OrdinalIgnoreCase))?.NormalizedText
             ?? enrichment.Entities
                 .FirstOrDefault(entity => string.Equals(entity.Type, "ORG", StringComparison.OrdinalIgnoreCase))?.Text;
+    }
+
+    private static NormalizedMessage? FindTimeZoneClarificationSource(
+        ConversationWindow window,
+        TimeZoneInfo referenceTimeZone,
+        bool hasMeetingContext)
+    {
+        var meetingContextSeen = hasMeetingContext;
+        NormalizedMessage? candidate = null;
+
+        foreach (var message in window.Messages)
+        {
+            if (string.IsNullOrWhiteSpace(message.Text) || StructuredArtifactDetector.LooksLikeStructuredArtifact(message.Text))
+            {
+                continue;
+            }
+
+            if (IsMeetingCueText(message.Text))
+            {
+                meetingContextSeen = true;
+            }
+
+            var timeZoneResolution = MeetingTimeZoneMentionResolver.Resolve(message.Text, referenceTimeZone);
+            if (!timeZoneResolution.RequiresClarification)
+            {
+                continue;
+            }
+
+            if (meetingContextSeen)
+            {
+                candidate = message;
+            }
+        }
+
+        return candidate;
     }
 
     private static DateTimeOffset? ResolveDueAt(

@@ -117,7 +117,13 @@ public static partial class MeetingSignalDetector
         }
 
         var lowered = summary.ToLowerInvariant();
-        var scheduledFor = ResolveScheduledFor(fallbackScheduledFrom, lowered, referenceTimeZone);
+        var timeZoneResolution = MeetingTimeZoneMentionResolver.Resolve(summary, referenceTimeZone);
+        if (timeZoneResolution.RequiresClarification)
+        {
+            return null;
+        }
+
+        var scheduledFor = ResolveScheduledFor(fallbackScheduledFrom, lowered, referenceTimeZone, timeZoneResolution);
         if (scheduledFor is null)
         {
             return null;
@@ -167,7 +173,7 @@ public static partial class MeetingSignalDetector
         return new MeetingSignal(
             "Upcoming meeting",
             summary,
-            TryExtractPerson(summary),
+            TryExtractPerson(summary, timeZoneResolution),
             observedAt,
             scheduledFor.Value,
             new Confidence(Math.Min(0.98, confidence)));
@@ -186,7 +192,13 @@ public static partial class MeetingSignalDetector
         }
 
         var lowered = summary.ToLowerInvariant();
-        var scheduledFor = ResolveScheduledFor(fallbackScheduledFrom, lowered, referenceTimeZone);
+        var timeZoneResolution = MeetingTimeZoneMentionResolver.Resolve(summary, referenceTimeZone);
+        if (timeZoneResolution.RequiresClarification)
+        {
+            return null;
+        }
+
+        var scheduledFor = ResolveScheduledFor(fallbackScheduledFrom, lowered, referenceTimeZone, timeZoneResolution);
         if (scheduledFor is null || !LooksLikeSchedulingFollowUp(lowered, summary))
         {
             return null;
@@ -211,7 +223,7 @@ public static partial class MeetingSignalDetector
         return new MeetingSignal(
             "Upcoming meeting",
             summary,
-            TryExtractPerson(summary),
+            TryExtractPerson(summary, timeZoneResolution),
             observedAt,
             scheduledFor.Value,
             new Confidence(Math.Min(0.92, confidence)));
@@ -239,10 +251,11 @@ public static partial class MeetingSignalDetector
     private static DateTimeOffset? ResolveScheduledFor(
         DateTimeOffset observedAt,
         string lowered,
-        TimeZoneInfo referenceTimeZone)
+        TimeZoneInfo referenceTimeZone,
+        MeetingTimeZoneResolution timeZoneResolution)
     {
         var localObservedAt = TimeZoneInfo.ConvertTime(observedAt, referenceTimeZone);
-        var explicitTime = TryResolveExplicitTime(localObservedAt, lowered, referenceTimeZone);
+        var explicitTime = TryResolveExplicitTime(localObservedAt, lowered, referenceTimeZone, timeZoneResolution);
         if (explicitTime is not null)
         {
             return explicitTime;
@@ -275,7 +288,8 @@ public static partial class MeetingSignalDetector
     private static DateTimeOffset? TryResolveExplicitTime(
         DateTimeOffset localObservedAt,
         string lowered,
-        TimeZoneInfo referenceTimeZone)
+        TimeZoneInfo referenceTimeZone,
+        MeetingTimeZoneResolution timeZoneResolution)
     {
         var matches = TimeRegex().Matches(lowered);
         if (matches.Count == 0)
@@ -293,6 +307,19 @@ public static partial class MeetingSignalDetector
                      int.TryParse(match.Groups["minute"].Value, CultureInfo.InvariantCulture, out var parsedMinute)
             ? parsedMinute
             : 0;
+
+        if (match.Groups["ampm"].Success)
+        {
+            var ampm = match.Groups["ampm"].Value;
+            if (hour is < 1 or > 12)
+            {
+                return null;
+            }
+
+            hour = ampm.StartsWith("p", StringComparison.OrdinalIgnoreCase)
+                ? hour % 12 + 12
+                : hour % 12;
+        }
 
         if (hour is < 0 or > 23 || minute is < 0 or > 59)
         {
@@ -314,24 +341,28 @@ public static partial class MeetingSignalDetector
             }
         }
 
-        var candidateLocal = new DateTimeOffset(
+        var sourceTimeZone = timeZoneResolution.TimeZone;
+        var candidateLocal = new DateTime(
             candidateDate.Year,
             candidateDate.Month,
             candidateDate.Day,
             hour,
             minute,
             0,
-            referenceTimeZone.GetUtcOffset(candidateDate));
+            DateTimeKind.Unspecified);
+        var candidateUtc = TimeZoneInfo.ConvertTimeToUtc(candidateLocal, sourceTimeZone);
+        var candidateInReferenceTimeZone = TimeZoneInfo.ConvertTime(candidateUtc, referenceTimeZone);
 
         if (!explicitlyToday &&
             !ContainsAny(lowered, TomorrowKeywords) &&
             !ContainsAny(lowered, FridayKeywords) &&
-            candidateLocal < localObservedAt.AddMinutes(-15))
+            candidateInReferenceTimeZone < localObservedAt.AddMinutes(-15))
         {
             candidateLocal = candidateLocal.AddDays(1);
+            candidateUtc = TimeZoneInfo.ConvertTimeToUtc(candidateLocal, sourceTimeZone);
         }
 
-        return ToUtc(candidateLocal, referenceTimeZone);
+        return new DateTimeOffset(candidateUtc, TimeSpan.Zero);
     }
 
     private static Match SelectRelevantTimeMatch(MatchCollection matches, string lowered)
@@ -372,12 +403,24 @@ public static partial class MeetingSignalDetector
             : line.Trim();
     }
 
-    private static string? TryExtractPerson(string summary)
+    private static string? TryExtractPerson(string summary, MeetingTimeZoneResolution timeZoneResolution)
     {
-        var match = PersonRegex().Match(summary);
-        return match.Success
-            ? match.Value
-            : null;
+        foreach (Match match in PersonRegex().Matches(summary))
+        {
+            if (!match.Success)
+            {
+                continue;
+            }
+
+            if (MeetingTimeZoneMentionResolver.ShouldIgnoreAsPerson(match.Value, timeZoneResolution))
+            {
+                continue;
+            }
+
+            return match.Value;
+        }
+
+        return null;
     }
 
     private static bool ContainsAny(string text, IEnumerable<string> values)
@@ -385,7 +428,7 @@ public static partial class MeetingSignalDetector
         return values.Any(value => text.Contains(value, StringComparison.Ordinal));
     }
 
-    [GeneratedRegex(@"(?:\b(?:at|в|на)\s*)(?<hour>\d{1,2})(?::(?<minute>\d{2}))?\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"(?:\b(?:at|в|на)\s*)(?<hour>\d{1,2})(?::(?<minute>\d{2}))?\s*(?<ampm>a\.?m\.?|p\.?m\.?)?\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex TimeRegex();
 
     private static bool ContainsSameLinkCue(string text)

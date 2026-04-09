@@ -13,7 +13,7 @@ internal static class PersistenceMappings
 
     public static AppUser ToDomain(this AppUserEntity entity)
     {
-        return new AppUser(entity.Id, new Email(entity.Email), entity.CreatedAt, entity.LastSeenAt);
+        return new AppUser(entity.Id, new Email(entity.Email), entity.CreatedAt, entity.LastSeenAt, entity.TimeZoneId);
     }
 
     public static ApiSession ToDomain(this ApiSessionEntity entity)

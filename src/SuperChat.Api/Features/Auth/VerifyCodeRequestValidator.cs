@@ -18,5 +18,11 @@ public sealed class VerifyCodeRequestValidator : AbstractValidator<VerifyCodeReq
             .Must(static code => code.Trim().Length == 6 && code.Trim().All(char.IsDigit))
             .WithMessage("Verification code must be exactly 6 digits.")
             .OverridePropertyName("code");
+
+        RuleFor(request => request.TimeZoneId)
+            .MaximumLength(100)
+            .When(request => !string.IsNullOrWhiteSpace(request.TimeZoneId))
+            .WithMessage("Time zone id is too long.")
+            .OverridePropertyName("timeZoneId");
     }
 }
