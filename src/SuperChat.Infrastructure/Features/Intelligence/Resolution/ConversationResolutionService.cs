@@ -97,7 +97,8 @@ internal sealed class ConversationResolutionService(
             .AsNoTracking()
             .Where(item => item.UserId == userId &&
                            item.SourceRoom == matrixRoomId &&
-                           item.ResolvedAt == null)
+                           item.ResolvedAt == null &&
+                           item.ScheduledFor != null)
             .OrderBy(item => item.ScheduledFor)
             .Take(Math.Max(1, options.MaxCandidatesPerRequest))
             .ToListAsync(cancellationToken);
@@ -144,6 +145,7 @@ internal sealed class ConversationResolutionService(
             .Where(item => item.UserId == userId &&
                            item.SourceRoom == matrixRoomId &&
                            item.ResolvedAt == null &&
+                           item.ScheduledFor != null &&
                            item.ScheduledFor <= resolveAfter)
             .OrderBy(item => item.ScheduledFor)
             .Take(Math.Max(1, options.MaxCandidatesPerRequest))
@@ -240,6 +242,11 @@ internal sealed class ConversationResolutionService(
             return false;
         }
 
+        if (entity.ScheduledFor is not DateTimeOffset scheduledFor)
+        {
+            return false;
+        }
+
         if (entity.Status == MeetingStatus.Confirmed &&
             !string.Equals(decision.ResolutionKind, WorkItemResolutionState.Completed, StringComparison.Ordinal) &&
             !string.Equals(decision.ResolutionKind, WorkItemResolutionState.Cancelled, StringComparison.Ordinal))
@@ -247,7 +254,7 @@ internal sealed class ConversationResolutionService(
             return false;
         }
 
-        if (entity.ScheduledFor > now &&
+        if (scheduledFor > now &&
             !string.Equals(decision.ResolutionKind, WorkItemResolutionState.Cancelled, StringComparison.Ordinal))
         {
             return false;

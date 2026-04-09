@@ -124,7 +124,8 @@ public sealed class ExtractedItemServiceTests
         Assert.Equal(userId, projectedMeeting.UserId);
         Assert.Equal("$evt-meeting", projectedMeeting.SourceEventId);
         Assert.Equal(dueAt.ToUniversalTime(), projectedMeeting.ScheduledFor);
-        Assert.Equal(TimeSpan.Zero, projectedMeeting.ScheduledFor.Offset);
+        Assert.NotNull(projectedMeeting.ScheduledFor);
+        Assert.Equal(TimeSpan.Zero, projectedMeeting.ScheduledFor.Value.Offset);
         Assert.Equal(MeetingStatus.PendingConfirmation, projectedMeeting.Status);
         Assert.Equal("Мб заехать за тобой в 11?", projectedMeeting.Summary);
 

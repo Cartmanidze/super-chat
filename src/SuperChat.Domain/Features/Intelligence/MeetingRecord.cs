@@ -11,7 +11,7 @@ public sealed record MeetingRecord(
     string SourceEventId,
     string? Person,
     DateTimeOffset ObservedAt,
-    DateTimeOffset ScheduledFor,
+    DateTimeOffset? ScheduledFor,
     Confidence Confidence,
     string? ResolutionKind = null,
     string? ResolutionSource = null,

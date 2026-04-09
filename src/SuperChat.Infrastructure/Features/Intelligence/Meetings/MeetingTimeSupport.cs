@@ -9,6 +9,13 @@ internal static class MeetingTimeSupport
             : value.ToUniversalTime();
     }
 
+    public static DateTimeOffset? NormalizeToUtc(DateTimeOffset? value)
+    {
+        return value is DateTimeOffset actual
+            ? NormalizeToUtc(actual)
+            : null;
+    }
+
     public static TimeZoneInfo ResolveReferenceTimeZone(string configuredTimeZoneId)
     {
         if (!string.IsNullOrWhiteSpace(configuredTimeZoneId))

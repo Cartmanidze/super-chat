@@ -35,6 +35,7 @@ internal sealed class MeetingAutoResolutionService(
         var staleScopes = await dbContext.Meetings
             .AsNoTracking()
             .Where(item => item.ResolvedAt == null &&
+                           item.ScheduledFor != null &&
                            item.ScheduledFor <= dueBeforeInclusive)
             .Select(item => new { item.UserId, item.SourceRoom })
             .Distinct()
@@ -72,18 +73,20 @@ internal sealed class MeetingAutoResolutionService(
 
         if (dueBeforeInclusive is not null)
         {
-            unresolvedMeetingsQuery = unresolvedMeetingsQuery.Where(item => item.ScheduledFor <= dueBeforeInclusive.Value);
+            unresolvedMeetingsQuery = unresolvedMeetingsQuery.Where(item => item.ScheduledFor != null &&
+                                                                           item.ScheduledFor <= dueBeforeInclusive.Value);
         }
         else
         {
-            unresolvedMeetingsQuery = unresolvedMeetingsQuery.Where(item => item.ScheduledFor <= fromInclusive);
+            unresolvedMeetingsQuery = unresolvedMeetingsQuery.Where(item => item.ScheduledFor != null &&
+                                                                           item.ScheduledFor <= fromInclusive);
         }
 
         var unresolvedMeetings = await unresolvedMeetingsQuery
             .ToListAsync(cancellationToken);
 
         var candidates = unresolvedMeetings
-            .Where(item => item.ScheduledFor >= scheduledFrom)
+            .Where(item => item.ScheduledFor is not null && item.ScheduledFor >= scheduledFrom)
             .ToList();
 
         logger.LogInformation(

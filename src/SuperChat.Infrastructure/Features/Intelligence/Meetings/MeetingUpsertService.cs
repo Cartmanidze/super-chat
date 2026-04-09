@@ -17,7 +17,7 @@ internal sealed class MeetingUpsertService(
     public async Task UpsertRangeAsync(IEnumerable<ExtractedItem> items, CancellationToken cancellationToken)
     {
         var meetingItems = items
-            .Where(item => item.Kind == ExtractedItemKind.Meeting && item.DueAt is not null)
+            .Where(item => item.Kind == ExtractedItemKind.Meeting)
             .Where(item => !StructuredArtifactDetector.LooksLikeStructuredArtifact(item.Summary))
             .GroupBy(item => (item.UserId, item.SourceEventId))
             .Select(group => group
@@ -86,7 +86,9 @@ internal sealed class MeetingUpsertService(
             var status = WorkItemPresentationMetadata.ResolveMeetingStatus(item.Summary);
             if (existingByKey.TryGetValue(key, out var existing))
             {
+                var previousDedupKey = existing.ToMeetingDeduplicationKey();
                 UpdateMeeting(existing, item, status, joinLink, now);
+                RefreshDedupIndex(existingByDedupKey, existing, previousDedupKey);
                 continue;
             }
 
@@ -99,17 +101,26 @@ internal sealed class MeetingUpsertService(
             if (correlatedMeeting is not null)
             {
                 var previousKey = BuildKey(correlatedMeeting.UserId, correlatedMeeting.SourceEventId);
+                var previousDedupKey = correlatedMeeting.ToMeetingDeduplicationKey();
                 UpdateMeeting(correlatedMeeting, item, status, joinLink, now);
                 correlatedMeeting.SourceEventId = item.SourceEventId;
                 existingByKey.Remove(previousKey);
                 existingByKey[BuildKey(correlatedMeeting.UserId, correlatedMeeting.SourceEventId)] = correlatedMeeting;
+                RefreshDedupIndex(existingByDedupKey, correlatedMeeting, previousDedupKey);
+                continue;
+            }
+
+            if (item.DueAt is null)
+            {
                 continue;
             }
 
             var dedupKey = BuildDedupKey(item);
             if (existingByDedupKey.TryGetValue(dedupKey, out var duplicate))
             {
+                var previousDedupKey = duplicate.ToMeetingDeduplicationKey();
                 UpdateMeeting(duplicate, item, status, joinLink, now);
+                RefreshDedupIndex(existingByDedupKey, duplicate, previousDedupKey);
                 continue;
             }
 
@@ -123,7 +134,7 @@ internal sealed class MeetingUpsertService(
                 SourceEventId = item.SourceEventId,
                 Person = item.Person,
                 ObservedAt = MeetingTimeSupport.NormalizeToUtc(item.ObservedAt),
-                ScheduledFor = MeetingTimeSupport.NormalizeToUtc(item.DueAt!.Value),
+                ScheduledFor = MeetingTimeSupport.NormalizeToUtc(item.DueAt),
                 Confidence = item.Confidence,
                 Status = status,
                 MeetingProvider = joinLink?.Provider.ToString(),
@@ -150,7 +161,7 @@ internal sealed class MeetingUpsertService(
         existing.SourceRoom = item.SourceRoom;
         existing.Person = item.Person;
         existing.ObservedAt = MeetingTimeSupport.NormalizeToUtc(item.ObservedAt);
-        existing.ScheduledFor = MeetingTimeSupport.NormalizeToUtc(item.DueAt!.Value);
+        existing.ScheduledFor = MeetingTimeSupport.NormalizeToUtc(item.DueAt);
         existing.Confidence = item.Confidence;
         existing.Status = status;
         existing.MeetingProvider = joinLink?.Provider.ToString();
@@ -195,6 +206,11 @@ internal sealed class MeetingUpsertService(
             }
         }
 
+        if (item.DueAt is null && roomCandidates.Count == 1)
+        {
+            return roomCandidates[0];
+        }
+
         if (ContainsSameLinkCue(sourceText ?? item.Summary) && roomCandidates.Count == 1)
         {
             return roomCandidates[0];
@@ -212,8 +228,22 @@ internal sealed class MeetingUpsertService(
     {
         return MeetingRecordMappings.BuildDeduplicationKey(
             item.SourceRoom,
-            MeetingTimeSupport.NormalizeToUtc(item.DueAt!.Value).UtcDateTime,
+            MeetingTimeSupport.NormalizeToUtc(item.DueAt)!.Value.UtcDateTime,
             item.Summary);
+    }
+
+    private static void RefreshDedupIndex(
+        IDictionary<string, MeetingEntity> existingByDedupKey,
+        MeetingEntity entity,
+        string previousDedupKey)
+    {
+        if (existingByDedupKey.TryGetValue(previousDedupKey, out var mappedEntity) &&
+            ReferenceEquals(mappedEntity, entity))
+        {
+            existingByDedupKey.Remove(previousDedupKey);
+        }
+
+        existingByDedupKey[entity.ToMeetingDeduplicationKey()] = entity;
     }
 
     private static bool ContainsSameLinkCue(string text)

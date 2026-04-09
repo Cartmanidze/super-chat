@@ -8,6 +8,64 @@ namespace SuperChat.Tests;
 public sealed class MeetingUpsertServiceTests
 {
     [Fact]
+    public async Task UpsertRangeAsync_RescheduleWithoutFinalTime_StoresMeetingWithoutScheduledFor()
+    {
+        var userId = Guid.NewGuid();
+        var roomId = "!dm:matrix.localhost";
+        var originalEventId = "$evt-original";
+        var rescheduleEventId = "$evt-reschedule";
+        var observedAt = new DateTimeOffset(2026, 04, 09, 08, 46, 02, TimeSpan.Zero);
+
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        await using (var dbContext = await factory.CreateDbContextAsync(CancellationToken.None))
+        {
+            dbContext.Meetings.Add(new MeetingEntity
+            {
+                Id = Guid.Parse("10101010-1010-1010-1010-101010101010"),
+                UserId = userId,
+                Title = "Upcoming meeting",
+                Summary = "Приглашение на интервью в пятницу, 10 апреля, с 15:30 до 16:30 по Мск.",
+                SourceRoom = roomId,
+                SourceEventId = originalEventId,
+                Person = "Глеб",
+                ObservedAt = observedAt.AddDays(-1),
+                ScheduledFor = new DateTimeOffset(2026, 04, 10, 12, 30, 00, TimeSpan.Zero),
+                Confidence = 0.83,
+                Status = MeetingStatus.Confirmed,
+                CreatedAt = observedAt.AddDays(-1),
+                UpdatedAt = observedAt.AddDays(-1)
+            });
+
+            await dbContext.SaveChangesAsync(CancellationToken.None);
+        }
+
+        var service = new MeetingUpsertService(factory);
+        await service.UpsertRangeAsync(
+        [
+            new ExtractedItem(
+                Guid.Parse("20202020-2020-2020-2020-202020202020"),
+                userId,
+                ExtractedItemKind.Meeting,
+                "Перенос интервью",
+                "Коллеги попросили перенести интервью, предложены варианты на 13, 16, 17 апреля.",
+                roomId,
+                rescheduleEventId,
+                "Глеб",
+                observedAt,
+                null,
+                new Confidence(0.80))
+        ], CancellationToken.None);
+
+        await using var verificationDbContext = await factory.CreateDbContextAsync(CancellationToken.None);
+        var meeting = await verificationDbContext.Meetings.SingleAsync(item => item.UserId == userId, CancellationToken.None);
+
+        Assert.Equal(rescheduleEventId, meeting.SourceEventId);
+        Assert.Equal(MeetingStatus.Rescheduled, meeting.Status);
+        Assert.Null(meeting.ScheduledFor);
+        Assert.Equal("Коллеги попросили перенести интервью, предложены варианты на 13, 16, 17 апреля.", meeting.Summary);
+    }
+
+    [Fact]
     public async Task UpsertRangeAsync_RescheduleFollowUpUpdatesExistingMeetingInRoom()
     {
         var userId = Guid.NewGuid();

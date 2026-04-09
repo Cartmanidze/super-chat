@@ -113,7 +113,9 @@ internal static class WorkItemAutoResolutionDetector
             return null;
         }
 
-        return TryResolveMeeting(item.ScheduledFor, laterMessages);
+        return item.ScheduledFor is DateTimeOffset scheduledFor
+            ? TryResolveMeeting(scheduledFor, laterMessages)
+            : null;
     }
 
     private static WorkItemAutoResolution? TryResolveWaiting(

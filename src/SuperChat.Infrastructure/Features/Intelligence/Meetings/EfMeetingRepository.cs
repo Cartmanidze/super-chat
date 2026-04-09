@@ -39,7 +39,7 @@ internal sealed class EfMeetingRepository(
         var entities = await ListAsync(new UnresolvedMeetingsSpec(userId), cancellationToken);
 
         return entities
-            .Where(item => item.ScheduledFor >= fromInclusiveUtc)
+            .Where(item => item.ScheduledFor is not null && item.ScheduledFor >= fromInclusiveUtc)
             .OrderBy(item => item.Status == MeetingStatus.Confirmed ? 0 : 1)
             .ThenBy(item => item.ScheduledFor)
             .ThenByDescending(item => item.Confidence)

@@ -12,7 +12,7 @@ internal sealed class MeetingEntity
     public string SourceEventId { get; set; } = string.Empty;
     public string? Person { get; set; }
     public DateTimeOffset ObservedAt { get; set; }
-    public DateTimeOffset ScheduledFor { get; set; }
+    public DateTimeOffset? ScheduledFor { get; set; }
     public double Confidence { get; set; }
     public MeetingStatus Status { get; set; } = MeetingStatus.PendingConfirmation;
     public string? MeetingProvider { get; set; }
