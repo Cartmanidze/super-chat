@@ -51,7 +51,9 @@ public sealed class MeetingServiceReadRepositoryBoundaryTests
 
         return (MeetingService)constructor.Invoke(
         [
-            new MeetingUpsertService(Substitute.For<Microsoft.EntityFrameworkCore.IDbContextFactory<SuperChat.Infrastructure.Shared.Persistence.SuperChatDbContext>>()),
+            new MeetingUpsertService(
+                Substitute.For<Microsoft.EntityFrameworkCore.IDbContextFactory<SuperChat.Infrastructure.Shared.Persistence.SuperChatDbContext>>(),
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<MeetingUpsertService>.Instance),
             repository,
             TimeProvider.System
         ]);

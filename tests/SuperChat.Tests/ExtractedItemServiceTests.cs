@@ -660,7 +660,7 @@ public sealed class ExtractedItemServiceTests
     private static MeetingService CreateMeetingService(IDbContextFactory<SuperChatDbContext> factory)
     {
         return new MeetingService(
-            new MeetingUpsertService(factory),
+            new MeetingUpsertService(factory, NullLogger<MeetingUpsertService>.Instance),
             new EfMeetingRepository(factory),
             TimeProvider.System);
     }

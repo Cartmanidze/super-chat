@@ -156,6 +156,98 @@ public sealed class MeetingWorkItemCommandAppServiceTests
         Assert.False(result);
     }
 
+    [Fact]
+    public async Task ConfirmAsync_DoesNotChangeStatus_WhenMeetingIsAlreadyResolved()
+    {
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        var repository = new EfMeetingRepository(factory);
+        var userId = Guid.NewGuid();
+        var meetingId = Guid.NewGuid();
+        var now = new DateTimeOffset(2026, 04, 08, 12, 30, 00, TimeSpan.Zero);
+        var resolvedAt = now.AddMinutes(-10);
+
+        await using (var dbContext = await factory.CreateDbContextAsync(CancellationToken.None))
+        {
+            dbContext.Meetings.Add(new MeetingEntity
+            {
+                Id = meetingId,
+                UserId = userId,
+                Title = "Interview",
+                Summary = "Candidate interview today at 18:00",
+                SourceRoom = "!team:matrix.localhost",
+                SourceEventId = "$evt-resolved",
+                ObservedAt = now.AddHours(-3),
+                ScheduledFor = now.AddHours(2),
+                Confidence = 0.91,
+                Status = MeetingStatus.PendingConfirmation,
+                ResolvedAt = resolvedAt,
+                ResolutionKind = WorkItemResolutionState.Dismissed,
+                ResolutionSource = WorkItemResolutionState.Manual,
+                CreatedAt = now.AddHours(-3),
+                UpdatedAt = resolvedAt
+            });
+
+            await dbContext.SaveChangesAsync(CancellationToken.None);
+        }
+
+        dynamic service = new MeetingWorkItemCommandAppService(repository, new FakeTimeProvider(now));
+
+        await service.ConfirmAsync(userId, meetingId, CancellationToken.None);
+
+        await using var verificationContext = await factory.CreateDbContextAsync(CancellationToken.None);
+        var meeting = await verificationContext.Meetings.SingleAsync(item => item.Id == meetingId, CancellationToken.None);
+        Assert.Equal(MeetingStatus.PendingConfirmation, meeting.Status);
+        Assert.Equal(resolvedAt, meeting.ResolvedAt);
+        Assert.Equal(WorkItemResolutionState.Dismissed, meeting.ResolutionKind);
+        Assert.Equal(resolvedAt, meeting.UpdatedAt);
+    }
+
+    [Fact]
+    public async Task UnconfirmAsync_DoesNotChangeStatus_WhenMeetingIsAlreadyResolved()
+    {
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        var repository = new EfMeetingRepository(factory);
+        var userId = Guid.NewGuid();
+        var meetingId = Guid.NewGuid();
+        var now = new DateTimeOffset(2026, 04, 08, 12, 45, 00, TimeSpan.Zero);
+        var resolvedAt = now.AddMinutes(-5);
+
+        await using (var dbContext = await factory.CreateDbContextAsync(CancellationToken.None))
+        {
+            dbContext.Meetings.Add(new MeetingEntity
+            {
+                Id = meetingId,
+                UserId = userId,
+                Title = "Interview",
+                Summary = "Candidate interview today at 18:00",
+                SourceRoom = "!team:matrix.localhost",
+                SourceEventId = "$evt-resolved-unconfirm",
+                ObservedAt = now.AddHours(-3),
+                ScheduledFor = now.AddHours(2),
+                Confidence = 0.91,
+                Status = MeetingStatus.Confirmed,
+                ResolvedAt = resolvedAt,
+                ResolutionKind = WorkItemResolutionState.Completed,
+                ResolutionSource = WorkItemResolutionState.Manual,
+                CreatedAt = now.AddHours(-3),
+                UpdatedAt = resolvedAt
+            });
+
+            await dbContext.SaveChangesAsync(CancellationToken.None);
+        }
+
+        dynamic service = new MeetingWorkItemCommandAppService(repository, new FakeTimeProvider(now));
+
+        await service.UnconfirmAsync(userId, meetingId, CancellationToken.None);
+
+        await using var verificationContext = await factory.CreateDbContextAsync(CancellationToken.None);
+        var meeting = await verificationContext.Meetings.SingleAsync(item => item.Id == meetingId, CancellationToken.None);
+        Assert.Equal(MeetingStatus.Confirmed, meeting.Status);
+        Assert.Equal(resolvedAt, meeting.ResolvedAt);
+        Assert.Equal(WorkItemResolutionState.Completed, meeting.ResolutionKind);
+        Assert.Equal(resolvedAt, meeting.UpdatedAt);
+    }
+
     private static async Task<IDbContextFactory<SuperChatDbContext>> CreateFactoryAsync(CancellationToken cancellationToken)
     {
         var dbContextOptions = new DbContextOptionsBuilder<SuperChatDbContext>()

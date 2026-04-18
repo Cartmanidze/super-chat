@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using SuperChat.Domain.Features.Intelligence;
 using SuperChat.Infrastructure.Features.Intelligence.Meetings;
 using SuperChat.Infrastructure.Shared.Persistence;
@@ -39,7 +40,7 @@ public sealed class MeetingUpsertServiceTests
             await dbContext.SaveChangesAsync(CancellationToken.None);
         }
 
-        var service = new MeetingUpsertService(factory);
+        var service = new MeetingUpsertService(factory, NullLogger<MeetingUpsertService>.Instance);
         await service.UpsertRangeAsync(
         [
             new ExtractedItem(
@@ -112,7 +113,7 @@ public sealed class MeetingUpsertServiceTests
             await dbContext.SaveChangesAsync(CancellationToken.None);
         }
 
-        var service = new MeetingUpsertService(factory);
+        var service = new MeetingUpsertService(factory, NullLogger<MeetingUpsertService>.Instance);
         await service.UpsertRangeAsync(
         [
             new ExtractedItem(
@@ -152,7 +153,7 @@ public sealed class MeetingUpsertServiceTests
         var scheduledFor = new DateTimeOffset(2026, 04, 07, 15, 00, 00, TimeSpan.Zero);
 
         var factory = await CreateFactoryAsync(CancellationToken.None);
-        var service = new MeetingUpsertService(factory);
+        var service = new MeetingUpsertService(factory, NullLogger<MeetingUpsertService>.Instance);
 
         await service.UpsertRangeAsync(
         [
@@ -228,7 +229,7 @@ public sealed class MeetingUpsertServiceTests
             await dbContext.SaveChangesAsync(CancellationToken.None);
         }
 
-        var service = new MeetingUpsertService(factory);
+        var service = new MeetingUpsertService(factory, NullLogger<MeetingUpsertService>.Instance);
         await service.UpsertRangeAsync(
         [
             new ExtractedItem(
@@ -308,7 +309,7 @@ public sealed class MeetingUpsertServiceTests
             await dbContext.SaveChangesAsync(CancellationToken.None);
         }
 
-        var service = new MeetingUpsertService(factory);
+        var service = new MeetingUpsertService(factory, NullLogger<MeetingUpsertService>.Instance);
         await service.UpsertRangeAsync(
         [
             new ExtractedItem(

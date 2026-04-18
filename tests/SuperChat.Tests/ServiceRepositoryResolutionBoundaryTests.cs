@@ -157,7 +157,9 @@ public sealed class ServiceRepositoryResolutionBoundaryTests
 
         return (MeetingService)constructor.Invoke(
         [
-            new MeetingUpsertService(Substitute.For<IDbContextFactory<SuperChatDbContext>>()),
+            new MeetingUpsertService(
+                Substitute.For<IDbContextFactory<SuperChatDbContext>>(),
+                NullLogger<MeetingUpsertService>.Instance),
             repository,
             timeProvider
         ]);

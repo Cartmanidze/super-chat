@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SuperChat.Domain.Features.Intelligence;
 using SuperChat.Infrastructure.Shared.Persistence;
 using SuperChat.Infrastructure.Shared.Presentation;
@@ -6,7 +7,8 @@ using SuperChat.Infrastructure.Shared.Presentation;
 namespace SuperChat.Infrastructure.Features.Intelligence.Meetings;
 
 internal sealed class MeetingUpsertService(
-    IDbContextFactory<SuperChatDbContext> dbContextFactory)
+    IDbContextFactory<SuperChatDbContext> dbContextFactory,
+    ILogger<MeetingUpsertService> logger)
 {
     private static readonly string[] SameLinkKeywords =
     [
@@ -112,6 +114,12 @@ internal sealed class MeetingUpsertService(
 
             if (item.DueAt is null)
             {
+                logger.LogInformation(
+                    "Skipping meeting upsert — no DueAt and no correlated meeting. ItemId={ItemId}, UserId={UserId}, SourceEventId={SourceEventId}, SourceRoom={SourceRoom}.",
+                    item.Id,
+                    item.UserId,
+                    item.SourceEventId,
+                    item.SourceRoom);
                 continue;
             }
 

@@ -123,7 +123,7 @@ internal sealed class EfMeetingRepository(
         var entity = await db.Meetings
             .FirstOrDefaultAsync(item => item.UserId == userId && item.Id == meetingId, cancellationToken);
 
-        if (entity is null)
+        if (entity is null || entity.IsResolved())
         {
             return;
         }

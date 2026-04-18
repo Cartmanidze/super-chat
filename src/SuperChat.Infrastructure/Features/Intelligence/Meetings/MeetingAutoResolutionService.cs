@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SuperChat.Domain.Features.Intelligence;
 using SuperChat.Infrastructure.Shared.Persistence;
 using SuperChat.Infrastructure.Shared.Presentation;
 
@@ -137,6 +138,13 @@ internal sealed class MeetingAutoResolutionService(
 
             var resolution = WorkItemAutoResolutionDetector.TryResolve(meeting, laterMessages);
             if (resolution is null)
+            {
+                continue;
+            }
+
+            if (meeting.Status == MeetingStatus.Confirmed &&
+                !string.Equals(resolution.ResolutionKind, WorkItemResolutionState.Completed, StringComparison.Ordinal) &&
+                !string.Equals(resolution.ResolutionKind, WorkItemResolutionState.Cancelled, StringComparison.Ordinal))
             {
                 continue;
             }

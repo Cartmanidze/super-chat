@@ -242,11 +242,6 @@ internal sealed class ConversationResolutionService(
             return false;
         }
 
-        if (entity.ScheduledFor is not DateTimeOffset scheduledFor)
-        {
-            return false;
-        }
-
         if (entity.Status == MeetingStatus.Confirmed &&
             !string.Equals(decision.ResolutionKind, WorkItemResolutionState.Completed, StringComparison.Ordinal) &&
             !string.Equals(decision.ResolutionKind, WorkItemResolutionState.Cancelled, StringComparison.Ordinal))
@@ -254,7 +249,9 @@ internal sealed class ConversationResolutionService(
             return false;
         }
 
-        if (scheduledFor > now &&
+        var isFutureOrUnscheduled = entity.ScheduledFor is null || entity.ScheduledFor > now;
+
+        if (isFutureOrUnscheduled &&
             !string.Equals(decision.ResolutionKind, WorkItemResolutionState.Cancelled, StringComparison.Ordinal))
         {
             return false;
