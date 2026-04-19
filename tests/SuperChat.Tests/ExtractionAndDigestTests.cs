@@ -1032,7 +1032,7 @@ public sealed class ExtractionAndDigestTests
     {
         var orderedMessages = messages
             .OrderBy(message => message.SentAt)
-            .ThenBy(message => message.IngestedAt)
+            .ThenBy(message => message.ReceivedAt)
             .ThenBy(message => message.Id)
             .ToList();
 
@@ -1040,7 +1040,7 @@ public sealed class ExtractionAndDigestTests
         return new ConversationWindow(
             first.UserId,
             first.Source,
-            first.MatrixRoomId,
+            first.ExternalChatId,
             orderedMessages);
     }
 

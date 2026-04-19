@@ -130,7 +130,7 @@ internal static class WorkItemAutoResolutionDetector
         IReadOnlyList<NormalizedMessageEntity> laterMessages)
     {
         var reply = laterMessages.FirstOrDefault(message =>
-            message.MatrixEventId != sourceEventId &&
+            message.ExternalMessageId != sourceEventId &&
             LooksMeaningful(message) &&
             WaitingOnTurnDetector.IsOwnSender(message.SenderName));
 

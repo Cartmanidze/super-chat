@@ -15,23 +15,20 @@ required_vars=(
   SUPERCHAT_PERSISTENCE_CONNECTION
   SUPERCHAT_WEB_HOST
   SUPERCHAT_API_HOST
-  TELEGRAM_BRIDGE_HOST
   SUPERCHAT_BASE_URL
-  MATRIX_SERVER_NAME
-  MATRIX_PUBLIC_BASEURL
-  MATRIX_SIGNING_KEY_PATH
-  MATRIX_REGISTRATION_SHARED_SECRET
-  MAUTRIX_AS_TOKEN
-  MAUTRIX_HS_TOKEN
-  MAUTRIX_DOUBLE_PUPPET_AS_TOKEN
-  MAUTRIX_TELEGRAM_API_ID
-  MAUTRIX_TELEGRAM_API_HASH
-  TELEGRAM_BRIDGE_BOT_USER_ID
-  TELEGRAM_BRIDGE_WEB_LOGIN_BASE_URL
   CADDY_ACME_EMAIL
   EMAIL_FROM
   EMAIL_SMTP_HOST
   QDRANT_BASE_URL
+)
+
+optional_vars=(
+  TELEGRAM_USERBOT_HMAC_SECRET
+  TELEGRAM_SESSION_ENCRYPTION_KEY
+  TELEGRAM_API_ID
+  TELEGRAM_API_HASH
+  TELEGRAM_USERBOT_DATABASE_URL
+  MAX_USERBOT_HMAC_SECRET
 )
 
 missing=0
@@ -65,6 +62,29 @@ for var_name in "${required_vars[@]}"; do
       ;;
   esac
 done
+
+if [ "${TELEGRAM_USERBOT_ENABLED:-false}" = "true" ]; then
+  for var_name in "${optional_vars[@]}"; do
+    case "$var_name" in
+      MAX_USERBOT_HMAC_SECRET)
+        continue
+        ;;
+    esac
+    value=${!var_name:-}
+    if [ -z "$value" ] || [ "$value" = "replace-me" ]; then
+      echo "TelegramUserbot enabled but $var_name is empty or a placeholder." >&2
+      missing=1
+    fi
+  done
+fi
+
+if [ "${MAX_USERBOT_ENABLED:-false}" = "true" ]; then
+  value=${MAX_USERBOT_HMAC_SECRET:-}
+  if [ -z "$value" ] || [ "$value" = "replace-me" ]; then
+    echo "MaxUserbot enabled but MAX_USERBOT_HMAC_SECRET is empty or a placeholder." >&2
+    missing=1
+  fi
+fi
 
 if [ "$missing" -ne 0 ]; then
   exit 1

@@ -31,7 +31,7 @@ internal static class ConversationResolutionPromptBuilder
             - confidence: number from 0.0 to 1.0
             - resolved_at_utc: ISO-8601 UTC timestamp when there is explicit evidence, otherwise null
             - reason: short grounded explanation in Russian
-            - evidence_message_ids: list of matrix event ids that support the decision
+            - evidence_message_ids: list of external message ids that support the decision
 
             Rules:
             - Use only the provided later messages as evidence.
@@ -62,7 +62,7 @@ internal static class ConversationResolutionPromptBuilder
             builder.AppendLine($"- candidate_id: {candidate.Id}");
             builder.AppendLine($"  type: {candidate.CandidateType}");
             builder.AppendLine($"  kind: {candidate.Kind}");
-            builder.AppendLine($"  room_id: {candidate.MatrixRoomId}");
+            builder.AppendLine($"  room_id: {candidate.ExternalChatId}");
             builder.AppendLine($"  observed_at_utc: {candidate.ObservedAt.UtcDateTime.ToString("O", CultureInfo.InvariantCulture)}");
             builder.AppendLine($"  observed_at_local: {TimeZoneInfo.ConvertTime(candidate.ObservedAt, referenceTimeZone).ToString("O", CultureInfo.InvariantCulture)}");
             builder.AppendLine($"  due_at_utc: {(candidate.DueAt.HasValue ? candidate.DueAt.Value.UtcDateTime.ToString("O", CultureInfo.InvariantCulture) : "null")}");
@@ -78,7 +78,7 @@ internal static class ConversationResolutionPromptBuilder
 
             foreach (var message in candidate.LaterMessages)
             {
-                builder.AppendLine($"    - id: {message.MatrixEventId}");
+                builder.AppendLine($"    - id: {message.ExternalMessageId}");
                 builder.AppendLine($"      sent_at_utc: {message.SentAt.UtcDateTime.ToString("O", CultureInfo.InvariantCulture)}");
                 builder.AppendLine($"      sender: {message.SenderName}");
                 builder.AppendLine($"      text: {message.Text}");

@@ -6,16 +6,16 @@ namespace SuperChat.Domain.Features.Intelligence;
 public sealed record ConversationWindow(
     Guid UserId,
     string Source,
-    string MatrixRoomId,
+    string ExternalChatId,
     IReadOnlyList<NormalizedMessage> Messages)
 {
-    private readonly bool _validated = Validate(UserId, Source, MatrixRoomId, Messages);
+    private readonly bool _validated = Validate(UserId, Source, ExternalChatId, Messages);
 
-    private static bool Validate(Guid userId, string source, string matrixRoomId, IReadOnlyList<NormalizedMessage> messages)
+    private static bool Validate(Guid userId, string source, string externalChatId, IReadOnlyList<NormalizedMessage> messages)
     {
         DomainGuard.NotEmpty(userId);
         ArgumentException.ThrowIfNullOrWhiteSpace(source);
-        ArgumentException.ThrowIfNullOrWhiteSpace(matrixRoomId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(externalChatId);
         ArgumentNullException.ThrowIfNull(messages);
         if (messages.Count == 0)
             throw new ArgumentException("Messages must not be empty.", nameof(messages));

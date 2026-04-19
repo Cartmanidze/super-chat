@@ -4,13 +4,10 @@ namespace SuperChat.Api.Features.Integrations.Telegram;
 
 internal static class TelegramConnectionResponseMappings
 {
-    public static TelegramConnectionResponse ToTelegramConnectionResponse(
-        this IntegrationConnection connection,
-        string? matrixUserId)
+    public static TelegramConnectionResponse ToTelegramConnectionResponse(this IntegrationConnection connection)
     {
         return new TelegramConnectionResponse(
             State: connection.State.ToString(),
-            MatrixUserId: matrixUserId,
             ChatLoginStep: connection.ChatLoginStep,
             LastSyncedAt: connection.LastSyncedAt,
             RequiresAction: connection.State is not IntegrationConnectionState.Connected);

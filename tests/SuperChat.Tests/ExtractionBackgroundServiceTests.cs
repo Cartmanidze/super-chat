@@ -23,9 +23,9 @@ public sealed class ConversationWindowSettlementTests
 
         Assert.Equal(2, windows.Count);
         Assert.Equal(2, windows[0].Messages.Count);
-        Assert.Equal("$2", windows[0].LastMessage.MatrixEventId);
+        Assert.Equal("$2", windows[0].LastMessage.ExternalMessageId);
         Assert.Single(windows[1].Messages);
-        Assert.Equal("$3", windows[1].LastMessage.MatrixEventId);
+        Assert.Equal("$3", windows[1].LastMessage.ExternalMessageId);
     }
 
     [Fact]
@@ -56,7 +56,7 @@ public sealed class ConversationWindowSettlementTests
         string senderName,
         string text,
         DateTimeOffset sentAt,
-        DateTimeOffset ingestedAt)
+        DateTimeOffset receivedAt)
     {
         return new NormalizedMessage(
             Guid.NewGuid(),
@@ -67,7 +67,7 @@ public sealed class ConversationWindowSettlementTests
             senderName,
             text,
             sentAt,
-            ingestedAt,
+            receivedAt,
             false);
     }
 }

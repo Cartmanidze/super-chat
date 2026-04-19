@@ -21,9 +21,9 @@ internal sealed class ResolveConversationItemsCommandHandler(
         using var scope = MessagePipelineTrace.BeginScope(
             logger,
             message.UserId,
-            message.MatrixRoomId,
+            message.ExternalChatId,
             message.TriggerMessageId,
-            message.TriggerMatrixEventId);
+            message.TriggerExternalMessageId);
         var stopwatch = Stopwatch.StartNew();
         var result = "succeeded";
         SuperChatMetrics.PipelineCommandsInProgress.WithLabels(CommandName).Inc();
@@ -33,14 +33,14 @@ internal sealed class ResolveConversationItemsCommandHandler(
             logger.LogInformation("Pipeline command started. Command={CommandName}.", CommandName);
             await conversationResolutionService.ResolveConversationAsync(
                 message.UserId,
-                message.MatrixRoomId,
+                message.ExternalChatId,
                 timeProvider.GetUtcNow(),
                 applicationLifetime.ApplicationStopping);
         }
         catch (Exception exception)
         {
             result = "failed";
-            logger.LogError(exception, "Conversation resolution failed for room {RoomId}.", message.MatrixRoomId);
+            logger.LogError(exception, "Conversation resolution failed for room {RoomId}.", message.ExternalChatId);
             throw;
         }
         finally
@@ -69,9 +69,9 @@ internal sealed class ResolveDueMeetingsCommandHandler(
         using var scope = MessagePipelineTrace.BeginScope(
             logger,
             message.UserId,
-            message.MatrixRoomId,
+            message.ExternalChatId,
             message.TriggerMessageId,
-            message.TriggerMatrixEventId);
+            message.TriggerExternalMessageId);
         var stopwatch = Stopwatch.StartNew();
         var result = "succeeded";
         SuperChatMetrics.PipelineCommandsInProgress.WithLabels(CommandName).Inc();
@@ -84,14 +84,14 @@ internal sealed class ResolveDueMeetingsCommandHandler(
                 message.ResolveAfter);
             await conversationResolutionService.ResolveDueMeetingsAsync(
                 message.UserId,
-                message.MatrixRoomId,
+                message.ExternalChatId,
                 message.ResolveAfter,
                 applicationLifetime.ApplicationStopping);
         }
         catch (Exception exception)
         {
             result = "failed";
-            logger.LogError(exception, "Due meeting resolution failed for room {RoomId}.", message.MatrixRoomId);
+            logger.LogError(exception, "Due meeting resolution failed for room {RoomId}.", message.ExternalChatId);
             throw;
         }
         finally

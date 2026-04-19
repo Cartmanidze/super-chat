@@ -204,7 +204,7 @@ public sealed class RoomDisplayNamePresentationTests
 
     private sealed class StubWorkItemService(IReadOnlyList<WorkItemRecord> items) : IWorkItemService
     {
-        public Task IngestRangeAsync(IEnumerable<ExtractedItem> items, CancellationToken cancellationToken)
+        public Task AcceptRangeAsync(IEnumerable<ExtractedItem> items, CancellationToken cancellationToken)
         {
             throw new NotSupportedException();
         }
@@ -234,8 +234,9 @@ public sealed class RoomDisplayNamePresentationTests
     {
         public Task<bool> TryStoreAsync(
             Guid userId,
-            string roomId,
-            string eventId,
+            string source,
+            string externalChatId,
+            string externalMessageId,
             string senderName,
             string text,
             DateTimeOffset sentAt,

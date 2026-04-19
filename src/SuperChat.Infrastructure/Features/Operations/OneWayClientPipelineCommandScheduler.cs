@@ -29,13 +29,13 @@ internal sealed class OneWayClientPipelineCommandScheduler(
         SuperChatDbContext dbContext,
         Guid userId,
         string source,
-        string matrixRoomId,
+        string externalChatId,
         Guid normalizedMessageId,
-        string matrixEventId,
+        string externalMessageId,
         DateTimeOffset sentAt,
         CancellationToken cancellationToken)
     {
-        using var scope = MessagePipelineTrace.BeginScope(logger, userId, matrixRoomId, normalizedMessageId, matrixEventId);
+        using var scope = MessagePipelineTrace.BeginScope(logger, userId, externalChatId, normalizedMessageId, externalMessageId);
 
         var queueName = pipelineMessagingOptions.Value.InputQueueName;
         var rebuildFrom = sentAt.AddMinutes(-Math.Max(1, chunkingOptions.Value.MaxGapMinutes));
@@ -68,21 +68,21 @@ internal sealed class OneWayClientPipelineCommandScheduler(
 
             using var rebusTransactionScope = new RebusTransactionScope();
             rebusTransactionScope.UseOutbox(npgsqlConnection, npgsqlTransaction);
-            await DispatchAsync(queueName, userId, source, matrixRoomId, normalizedMessageId, matrixEventId, sentAt, rebuildFrom, cancellationToken);
+            await DispatchAsync(queueName, userId, source, externalChatId, normalizedMessageId, externalMessageId, sentAt, rebuildFrom, cancellationToken);
             await rebusTransactionScope.CompleteAsync();
             return;
         }
 
-        await DispatchAsync(queueName, userId, source, matrixRoomId, normalizedMessageId, matrixEventId, sentAt, rebuildFrom, cancellationToken);
+        await DispatchAsync(queueName, userId, source, externalChatId, normalizedMessageId, externalMessageId, sentAt, rebuildFrom, cancellationToken);
     }
 
     private async Task DispatchAsync(
         string queueName,
         Guid userId,
         string source,
-        string matrixRoomId,
+        string externalChatId,
         Guid normalizedMessageId,
-        string matrixEventId,
+        string externalMessageId,
         DateTimeOffset sentAt,
         DateTimeOffset rebuildFrom,
         CancellationToken cancellationToken)
@@ -90,15 +90,15 @@ internal sealed class OneWayClientPipelineCommandScheduler(
         await bus.Advanced.Routing.Defer(
             queueName,
             ConversationWindowSettlement.SettleDelay,
-            new ProcessConversationAfterSettleCommand(userId, source, matrixRoomId, normalizedMessageId, matrixEventId));
+            new ProcessConversationAfterSettleCommand(userId, source, externalChatId, normalizedMessageId, externalMessageId));
         await bus.Advanced.Routing.Send(
             queueName,
             new RebuildConversationChunksCommand(
                 userId,
-                matrixRoomId,
+                externalChatId,
                 rebuildFrom,
                 normalizedMessageId,
-                matrixEventId));
+                externalMessageId));
 
         SuperChatMetrics.PipelineDispatchTotal.WithLabels("one_way", "process_conversation_after_settle").Inc();
         SuperChatMetrics.PipelineDispatchTotal.WithLabels("one_way", "rebuild_conversation_chunks").Inc();

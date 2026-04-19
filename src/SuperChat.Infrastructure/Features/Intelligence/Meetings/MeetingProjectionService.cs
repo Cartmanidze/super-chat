@@ -51,7 +51,7 @@ public sealed class MeetingProjectionService(
 
     public async Task<MeetingProjectionRunResult> ProjectConversationMeetingsAsync(
         Guid userId,
-        string matrixRoomId,
+        string externalChatId,
         CancellationToken cancellationToken)
     {
         var options = meetingProjectionOptions.Value;
@@ -64,7 +64,7 @@ public sealed class MeetingProjectionService(
         var result = await RebuildRoomMeetingsAsync(
             dbContext,
             userId,
-            matrixRoomId,
+            externalChatId,
             MeetingTimeSupport.ResolveReferenceTimeZone(pilotOptions.TodayTimeZoneId),
             timeProvider.GetUtcNow(),
             cancellationToken);

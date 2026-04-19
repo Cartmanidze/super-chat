@@ -10,9 +10,9 @@ public interface IPipelineCommandScheduler
         SuperChatDbContext dbContext,
         Guid userId,
         string source,
-        string matrixRoomId,
+        string externalChatId,
         Guid normalizedMessageId,
-        string matrixEventId,
+        string externalMessageId,
         DateTimeOffset sentAt,
         CancellationToken cancellationToken);
 }

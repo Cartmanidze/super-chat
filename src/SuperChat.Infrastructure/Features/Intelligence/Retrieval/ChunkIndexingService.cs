@@ -42,7 +42,7 @@ public sealed class ChunkIndexingService(
 
     public async Task<ChunkIndexingRunResult> IndexConversationChunksAsync(
         Guid userId,
-        string matrixRoomId,
+        string externalChatId,
         CancellationToken cancellationToken)
     {
         var options = chunkIndexingOptions.Value;
@@ -62,7 +62,7 @@ public sealed class ChunkIndexingService(
             var pendingChunks = await LoadPendingChunksForConversationAsync(
                 dbContext,
                 userId,
-                matrixRoomId,
+                externalChatId,
                 batchSize,
                 cancellationToken);
 
@@ -182,13 +182,13 @@ public sealed class ChunkIndexingService(
     private static Task<List<MessageChunkEntity>> LoadPendingChunksForConversationAsync(
         SuperChatDbContext dbContext,
         Guid userId,
-        string matrixRoomId,
+        string externalChatId,
         int batchSize,
         CancellationToken cancellationToken)
     {
         return dbContext.MessageChunks
             .Where(item => item.UserId == userId &&
-                           item.ChatId == matrixRoomId &&
+                           item.ChatId == externalChatId &&
                            (item.IndexedAt == null ||
                             item.QdrantPointId == null ||
                             item.QdrantPointId == "" ||

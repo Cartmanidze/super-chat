@@ -48,11 +48,11 @@ internal sealed class MeetingUpsertService(
                            item.ResolvedAt == null)
             .ToListAsync(cancellationToken);
         var sourceMessageTexts = await dbContext.NormalizedMessages
-            .Where(item => userIds.Contains(item.UserId) && sourceEventIds.Contains(item.MatrixEventId))
+            .Where(item => userIds.Contains(item.UserId) && sourceEventIds.Contains(item.ExternalMessageId))
             .Select(item => new
             {
                 item.UserId,
-                SourceEventId = item.MatrixEventId,
+                SourceEventId = item.ExternalMessageId,
                 item.Text
             })
             .ToListAsync(cancellationToken);

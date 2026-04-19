@@ -33,9 +33,9 @@ internal sealed class ProcessConversationAfterSettleCommandHandler(
         using var scope = MessagePipelineTrace.BeginScope(
             logger,
             message.UserId,
-            message.MatrixRoomId,
+            message.ExternalChatId,
             message.TriggerMessageId,
-            message.TriggerMatrixEventId);
+            message.TriggerExternalMessageId);
         var stopwatch = Stopwatch.StartNew();
         var result = "succeeded";
         SuperChatMetrics.PipelineCommandsInProgress.WithLabels(CommandName).Inc();
@@ -50,7 +50,7 @@ internal sealed class ProcessConversationAfterSettleCommandHandler(
             var pendingMessages = await normalizationService.GetPendingMessagesForConversationAsync(
                 message.UserId,
                 message.Source,
-                message.MatrixRoomId,
+                message.ExternalChatId,
                 applicationLifetime.ApplicationStopping);
             if (pendingMessages.Count == 0)
             {
@@ -64,7 +64,7 @@ internal sealed class ProcessConversationAfterSettleCommandHandler(
                 "Loaded pending normalized messages. PendingCount={PendingCount}, PendingMessageIds={PendingMessageIds}, PendingEventIds={PendingEventIds}.",
                 pendingMessages.Count,
                 MessagePipelineTrace.SummarizeGuids(pendingMessages.Select(item => item.Id)),
-                MessagePipelineTrace.SummarizeStrings(pendingMessages.Select(item => item.MatrixEventId)));
+                MessagePipelineTrace.SummarizeStrings(pendingMessages.Select(item => item.ExternalMessageId)));
 
             var readyWindows = ConversationWindowSettlement.BuildReadyConversationWindows(
                 pendingMessages,
@@ -82,9 +82,9 @@ internal sealed class ProcessConversationAfterSettleCommandHandler(
                         new ProcessConversationAfterSettleCommand(
                             message.UserId,
                             message.Source,
-                            message.MatrixRoomId,
+                            message.ExternalChatId,
                             message.TriggerMessageId,
-                            message.TriggerMatrixEventId));
+                            message.TriggerExternalMessageId));
 
                     logger.LogInformation(
                         "No conversation windows are ready yet. PendingCount={PendingCount}, RetryDelayMs={RetryDelayMs}.",
@@ -109,7 +109,7 @@ internal sealed class ProcessConversationAfterSettleCommandHandler(
                 logger.LogInformation(
                     "Processing ready conversation window. MessageCount={MessageCount}, EventIds={EventIds}, TsFrom={TsFrom}, TsTo={TsTo}.",
                     window.Messages.Count,
-                    MessagePipelineTrace.SummarizeStrings(window.Messages.Select(item => item.MatrixEventId)),
+                    MessagePipelineTrace.SummarizeStrings(window.Messages.Select(item => item.ExternalMessageId)),
                     window.TsFrom,
                     window.TsTo);
 
@@ -119,7 +119,7 @@ internal sealed class ProcessConversationAfterSettleCommandHandler(
                     items.Count,
                     MessagePipelineTrace.SummarizeKinds(items));
 
-                await workItemService.IngestRangeAsync(items, applicationLifetime.ApplicationStopping);
+                await workItemService.AcceptRangeAsync(items, applicationLifetime.ApplicationStopping);
                 var resolutionDispatch = await DispatchResolutionCommandsAsync(message, items, applicationLifetime.ApplicationStopping);
                 logger.LogInformation(
                     "Scheduled downstream resolution commands. ImmediateConversationResolves={ImmediateConversationResolves}, DeferredConversationResolves={DeferredConversationResolves}, DueMeetingResolves={DueMeetingResolves}.",
@@ -139,7 +139,7 @@ internal sealed class ProcessConversationAfterSettleCommandHandler(
         catch (Exception exception)
         {
             result = "failed";
-            logger.LogError(exception, "Deferred extraction failed for room {RoomId}.", message.MatrixRoomId);
+            logger.LogError(exception, "Deferred extraction failed for room {RoomId}.", message.ExternalChatId);
             throw;
         }
         finally
@@ -167,9 +167,9 @@ internal sealed class ProcessConversationAfterSettleCommandHandler(
 
         await bus.SendLocal(new ResolveConversationItemsCommand(
             message.UserId,
-            message.MatrixRoomId,
+            message.ExternalChatId,
             message.TriggerMessageId,
-            message.TriggerMatrixEventId));
+            message.TriggerExternalMessageId));
         SuperChatMetrics.PipelineDispatchTotal.WithLabels("handler", "resolve_conversation_items").Inc();
         var deferredConversationResolves = 0;
 
@@ -180,9 +180,9 @@ internal sealed class ProcessConversationAfterSettleCommandHandler(
                 delay,
                 new ResolveConversationItemsCommand(
                     message.UserId,
-                    message.MatrixRoomId,
+                    message.ExternalChatId,
                     message.TriggerMessageId,
-                    message.TriggerMatrixEventId));
+                    message.TriggerExternalMessageId));
             SuperChatMetrics.PipelineDispatchTotal.WithLabels("handler", "resolve_conversation_items_deferred").Inc();
             deferredConversationResolves = 1;
         }
@@ -201,10 +201,10 @@ internal sealed class ProcessConversationAfterSettleCommandHandler(
             {
                 await bus.SendLocal(new ResolveDueMeetingsCommand(
                     message.UserId,
-                    message.MatrixRoomId,
+                    message.ExternalChatId,
                     resolveAfter,
                     message.TriggerMessageId,
-                    message.TriggerMatrixEventId));
+                    message.TriggerExternalMessageId));
             }
             else
             {
@@ -212,10 +212,10 @@ internal sealed class ProcessConversationAfterSettleCommandHandler(
                     delay,
                     new ResolveDueMeetingsCommand(
                         message.UserId,
-                        message.MatrixRoomId,
+                        message.ExternalChatId,
                         resolveAfter,
                         message.TriggerMessageId,
-                        message.TriggerMatrixEventId));
+                        message.TriggerExternalMessageId));
             }
 
             SuperChatMetrics.PipelineDispatchTotal.WithLabels("handler", "resolve_due_meetings").Inc();
@@ -250,9 +250,9 @@ internal sealed class RebuildConversationChunksCommandHandler(
         using var scope = MessagePipelineTrace.BeginScope(
             logger,
             message.UserId,
-            message.MatrixRoomId,
+            message.ExternalChatId,
             message.TriggerMessageId,
-            message.TriggerMatrixEventId);
+            message.TriggerExternalMessageId);
         if (!chunkingOptions.Value.Enabled)
         {
             logger.LogInformation("Skipping chunk rebuild because chunking is disabled.");
@@ -274,7 +274,7 @@ internal sealed class RebuildConversationChunksCommandHandler(
 
             var buildResult = await chunkBuilderService.BuildConversationChunksAsync(
                 message.UserId,
-                message.MatrixRoomId,
+                message.ExternalChatId,
                 message.RebuildFrom,
                 applicationLifetime.ApplicationStopping);
             logger.LogInformation(
@@ -288,21 +288,21 @@ internal sealed class RebuildConversationChunksCommandHandler(
             {
                 await bus.SendLocal(new ProjectConversationMeetingsCommand(
                     message.UserId,
-                    message.MatrixRoomId,
+                    message.ExternalChatId,
                     message.TriggerMessageId,
-                    message.TriggerMatrixEventId));
+                    message.TriggerExternalMessageId));
                 await bus.SendLocal(new IndexConversationChunksCommand(
                     message.UserId,
-                    message.MatrixRoomId,
+                    message.ExternalChatId,
                     message.TriggerMessageId,
-                    message.TriggerMatrixEventId));
+                    message.TriggerExternalMessageId));
                 logger.LogInformation("Scheduled chunk indexing and meeting projection commands.");
             }
         }
         catch (Exception exception)
         {
             result = "failed";
-            logger.LogError(exception, "Chunk rebuild failed for room {RoomId}.", message.MatrixRoomId);
+            logger.LogError(exception, "Chunk rebuild failed for room {RoomId}.", message.ExternalChatId);
             throw;
         }
         finally
@@ -332,9 +332,9 @@ internal sealed class IndexConversationChunksCommandHandler(
         using var scope = MessagePipelineTrace.BeginScope(
             logger,
             message.UserId,
-            message.MatrixRoomId,
+            message.ExternalChatId,
             message.TriggerMessageId,
-            message.TriggerMatrixEventId);
+            message.TriggerExternalMessageId);
         if (!chunkIndexingOptions.Value.Enabled)
         {
             logger.LogInformation("Skipping chunk indexing because indexing is disabled.");
@@ -352,7 +352,7 @@ internal sealed class IndexConversationChunksCommandHandler(
             logger.LogInformation("Pipeline command started. Command={CommandName}.", CommandName);
             var resultSummary = await chunkIndexingService.IndexConversationChunksAsync(
                 message.UserId,
-                message.MatrixRoomId,
+                message.ExternalChatId,
                 applicationLifetime.ApplicationStopping);
             logger.LogInformation(
                 "Chunk indexing completed. ChunksSelected={ChunksSelected}, ChunksIndexed={ChunksIndexed}.",
@@ -362,7 +362,7 @@ internal sealed class IndexConversationChunksCommandHandler(
         catch (Exception exception)
         {
             result = "failed";
-            logger.LogError(exception, "Chunk indexing failed for room {RoomId}.", message.MatrixRoomId);
+            logger.LogError(exception, "Chunk indexing failed for room {RoomId}.", message.ExternalChatId);
             throw;
         }
         finally
@@ -394,9 +394,9 @@ internal sealed class ProjectConversationMeetingsCommandHandler(
         using var scope = MessagePipelineTrace.BeginScope(
             logger,
             message.UserId,
-            message.MatrixRoomId,
+            message.ExternalChatId,
             message.TriggerMessageId,
-            message.TriggerMatrixEventId);
+            message.TriggerExternalMessageId);
         if (!meetingProjectionOptions.Value.Enabled)
         {
             logger.LogInformation("Skipping meeting projection because projection is disabled.");
@@ -414,7 +414,7 @@ internal sealed class ProjectConversationMeetingsCommandHandler(
             logger.LogInformation("Pipeline command started. Command={CommandName}.", CommandName);
             var resultSummary = await meetingProjectionService.ProjectConversationMeetingsAsync(
                 message.UserId,
-                message.MatrixRoomId,
+                message.ExternalChatId,
                 applicationLifetime.ApplicationStopping);
             logger.LogInformation(
                 "Meeting projection completed. UsersProcessed={UsersProcessed}, RoomsRebuilt={RoomsRebuilt}, MeetingsProjected={MeetingsProjected}.",
@@ -426,18 +426,18 @@ internal sealed class ProjectConversationMeetingsCommandHandler(
             {
                 await meetingAutoResolutionService.ResolveConversationAsync(
                     message.UserId,
-                    message.MatrixRoomId,
+                    message.ExternalChatId,
                     timeProvider.GetUtcNow(),
                     applicationLifetime.ApplicationStopping);
                 logger.LogInformation(
                     "Completed post-projection meeting auto-resolution. RoomId={RoomId}.",
-                    message.MatrixRoomId);
+                    message.ExternalChatId);
             }
         }
         catch (Exception exception)
         {
             result = "failed";
-            logger.LogError(exception, "Meeting projection failed for room {RoomId}.", message.MatrixRoomId);
+            logger.LogError(exception, "Meeting projection failed for room {RoomId}.", message.ExternalChatId);
             throw;
         }
         finally

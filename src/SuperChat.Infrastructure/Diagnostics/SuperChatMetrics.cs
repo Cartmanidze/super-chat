@@ -14,40 +14,23 @@ public static class SuperChatMetrics
 
     public static readonly Counter NormalizedMessagesDuplicateTotal = Metrics.CreateCounter(
         "superchat_normalized_messages_duplicate_total",
-        "Total number of duplicate normalized messages skipped during ingestion.",
+        "Total number of duplicate normalized messages skipped when receiving.",
         new CounterConfiguration
         {
             LabelNames = ["source"]
         });
 
-    public static readonly Counter MatrixSyncTicksTotal = Metrics.CreateCounter(
-        "superchat_matrix_sync_ticks_total",
-        "Total number of Matrix sync ticks by mode and result.",
+    public static readonly Counter NormalizedMessagesByPathTotal = Metrics.CreateCounter(
+        "superchat_normalized_messages_by_path_total",
+        "Normalized messages split by ingestion path and result (stored vs duplicate).",
         new CounterConfiguration
         {
-            LabelNames = ["mode", "result"]
-        });
-
-    public static readonly Histogram MatrixSyncTickDurationSeconds = Metrics.CreateHistogram(
-        "superchat_matrix_sync_tick_duration_seconds",
-        "Duration of Matrix sync ticks.",
-        new HistogramConfiguration
-        {
-            LabelNames = ["mode", "result"],
-            Buckets = Histogram.ExponentialBuckets(0.05, 2, 10)
-        });
-
-    public static readonly Counter MatrixSyncMessagesIngestedTotal = Metrics.CreateCounter(
-        "superchat_matrix_sync_messages_ingested_total",
-        "Total number of new messages ingested during Matrix sync.",
-        new CounterConfiguration
-        {
-            LabelNames = ["mode"]
+            LabelNames = ["path", "result"]
         });
 
     public static readonly Counter PipelineDispatchTotal = Metrics.CreateCounter(
         "superchat_pipeline_dispatch_total",
-        "Total number of pipeline commands dispatched after message ingestion.",
+        "Total number of pipeline commands dispatched after a message is received.",
         new CounterConfiguration
         {
             LabelNames = ["scheduler", "command"]
@@ -90,9 +73,7 @@ public static class SuperChatMetrics
     {
         _ = NormalizedMessagesStoredTotal;
         _ = NormalizedMessagesDuplicateTotal;
-        _ = MatrixSyncTicksTotal;
-        _ = MatrixSyncTickDurationSeconds;
-        _ = MatrixSyncMessagesIngestedTotal;
+        _ = NormalizedMessagesByPathTotal;
         _ = PipelineDispatchTotal;
         _ = PipelineDispatchSkippedTotal;
         _ = PipelineCommandsTotal;

@@ -30,5 +30,11 @@ fi
 
 "$ROOT_DIR/scripts/preflight.sh" "$ENV_FILE"
 docker compose --env-file "$ENV_FILE" -f "$ROOT_DIR/docker-compose.yml" pull superchat-web superchat-api superchat-worker
-docker compose --env-file "$ENV_FILE" -f "$ROOT_DIR/docker-compose.yml" build mautrix-telegram-helper
-docker compose --env-file "$ENV_FILE" -f "$ROOT_DIR/docker-compose.yml" up -d --no-deps caddy mautrix-telegram-helper superchat-web superchat-api superchat-worker
+docker compose --env-file "$ENV_FILE" -f "$ROOT_DIR/docker-compose.yml" build telegram-userbot-service max-userbot-service
+docker compose --env-file "$ENV_FILE" -f "$ROOT_DIR/docker-compose.yml" up -d --no-deps \
+  caddy \
+  telegram-userbot-service \
+  max-userbot-service \
+  superchat-web \
+  superchat-api \
+  superchat-worker

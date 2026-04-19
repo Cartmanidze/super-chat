@@ -3,38 +3,38 @@ namespace SuperChat.Contracts.Features.Operations;
 public sealed record ProcessConversationAfterSettleCommand(
     Guid UserId,
     string Source,
-    string MatrixRoomId,
+    string ExternalChatId,
     Guid? TriggerMessageId = null,
-    string? TriggerMatrixEventId = null);
+    string? TriggerExternalMessageId = null);
 
 public sealed record ResolveConversationItemsCommand(
     Guid UserId,
-    string MatrixRoomId,
+    string ExternalChatId,
     Guid? TriggerMessageId = null,
-    string? TriggerMatrixEventId = null);
+    string? TriggerExternalMessageId = null);
 
 public sealed record ResolveDueMeetingsCommand(
     Guid UserId,
-    string MatrixRoomId,
+    string ExternalChatId,
     DateTimeOffset ResolveAfter,
     Guid? TriggerMessageId = null,
-    string? TriggerMatrixEventId = null);
+    string? TriggerExternalMessageId = null);
 
 public sealed record RebuildConversationChunksCommand(
     Guid UserId,
-    string MatrixRoomId,
+    string ExternalChatId,
     DateTimeOffset RebuildFrom,
     Guid? TriggerMessageId = null,
-    string? TriggerMatrixEventId = null);
+    string? TriggerExternalMessageId = null);
 
 public sealed record IndexConversationChunksCommand(
     Guid UserId,
-    string MatrixRoomId,
+    string ExternalChatId,
     Guid? TriggerMessageId = null,
-    string? TriggerMatrixEventId = null);
+    string? TriggerExternalMessageId = null);
 
 public sealed record ProjectConversationMeetingsCommand(
     Guid UserId,
-    string MatrixRoomId,
+    string ExternalChatId,
     Guid? TriggerMessageId = null,
-    string? TriggerMatrixEventId = null);
+    string? TriggerExternalMessageId = null);

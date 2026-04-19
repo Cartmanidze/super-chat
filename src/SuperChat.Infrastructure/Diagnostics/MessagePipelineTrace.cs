@@ -11,16 +11,16 @@ internal static class MessagePipelineTrace
     public static IDisposable? BeginScope(
         ILogger logger,
         Guid userId,
-        string matrixRoomId,
+        string externalChatId,
         Guid? triggerMessageId = null,
-        string? triggerMatrixEventId = null)
+        string? triggerExternalMessageId = null)
     {
         return logger.BeginScope(new Dictionary<string, object?>
         {
             ["PipelineUserId"] = userId,
-            ["PipelineRoomId"] = matrixRoomId,
+            ["PipelineExternalChatId"] = externalChatId,
             ["PipelineTriggerMessageId"] = triggerMessageId,
-            ["PipelineTriggerMatrixEventId"] = triggerMatrixEventId
+            ["PipelineTriggerExternalMessageId"] = triggerExternalMessageId
         });
     }
 

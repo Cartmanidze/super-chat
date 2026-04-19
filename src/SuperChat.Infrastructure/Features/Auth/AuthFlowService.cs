@@ -3,7 +3,6 @@ using Ardalis.GuardClauses;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SuperChat.Contracts.Features.Auth;
-using SuperChat.Contracts.Features.Integrations.Matrix;
 using SuperChat.Domain.Features.Auth;
 using SuperChat.Infrastructure.Shared;
 using SuperChat.Infrastructure.Shared.Persistence;
@@ -12,7 +11,6 @@ namespace SuperChat.Infrastructure.Features.Auth;
 
 public sealed class AuthFlowService(
     IDbContextFactory<SuperChatDbContext> dbContextFactory,
-    IMatrixProvisioningService matrixProvisioningService,
     IVerificationCodeSender codeSender,
     PilotOptions pilotOptions,
     TimeProvider timeProvider,
@@ -181,19 +179,6 @@ public sealed class AuthFlowService(
         {
             logger.LogWarning("Auth verify-code concurrency conflict for {Email} — code already consumed by another request", normalizedEmail);
             return AuthVerificationResult.Failure(AuthVerificationStatus.InvalidOrExpired, "Verification code is invalid or expired.");
-        }
-
-        try
-        {
-            await matrixProvisioningService.EnsureIdentityAsync(user, cancellationToken);
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Matrix provisioning failed for user {UserId} ({Email}) — auth succeeded, identity will be provisioned later", user.Id, normalizedEmail);
         }
 
         logger.LogInformation("Auth verification succeeded: {Email}, user {UserId}", normalizedEmail, user.Id);

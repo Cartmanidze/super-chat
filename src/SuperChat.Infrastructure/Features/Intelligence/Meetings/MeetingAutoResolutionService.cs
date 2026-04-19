@@ -12,20 +12,20 @@ internal sealed class MeetingAutoResolutionService(
 {
     public async Task ResolveConversationAsync(
         Guid userId,
-        string matrixRoomId,
+        string externalChatId,
         DateTimeOffset fromInclusive,
         CancellationToken cancellationToken)
     {
-        await ResolveCoreAsync(userId, matrixRoomId, fromInclusive, dueBeforeInclusive: null, cancellationToken);
+        await ResolveCoreAsync(userId, externalChatId, fromInclusive, dueBeforeInclusive: null, cancellationToken);
     }
 
     public async Task ResolveDueMeetingsAsync(
         Guid userId,
-        string matrixRoomId,
+        string externalChatId,
         DateTimeOffset dueBeforeInclusive,
         CancellationToken cancellationToken)
     {
-        await ResolveCoreAsync(userId, matrixRoomId, dueBeforeInclusive, dueBeforeInclusive, cancellationToken);
+        await ResolveCoreAsync(userId, externalChatId, dueBeforeInclusive, dueBeforeInclusive, cancellationToken);
     }
 
     public async Task ResolveDueMeetingsAsync(
@@ -56,7 +56,7 @@ internal sealed class MeetingAutoResolutionService(
 
     private async Task ResolveCoreAsync(
         Guid userId,
-        string? matrixRoomId,
+        string? externalChatId,
         DateTimeOffset fromInclusive,
         DateTimeOffset? dueBeforeInclusive,
         CancellationToken cancellationToken)
@@ -67,9 +67,9 @@ internal sealed class MeetingAutoResolutionService(
             .Where(item => item.UserId == userId &&
                            item.ResolvedAt == null);
 
-        if (!string.IsNullOrWhiteSpace(matrixRoomId))
+        if (!string.IsNullOrWhiteSpace(externalChatId))
         {
-            unresolvedMeetingsQuery = unresolvedMeetingsQuery.Where(item => item.SourceRoom == matrixRoomId);
+            unresolvedMeetingsQuery = unresolvedMeetingsQuery.Where(item => item.SourceRoom == externalChatId);
         }
 
         if (dueBeforeInclusive is not null)
@@ -91,9 +91,9 @@ internal sealed class MeetingAutoResolutionService(
             .ToList();
 
         logger.LogInformation(
-            "Loaded meeting auto-resolution candidates. CandidateCount={CandidateCount}, MatrixRoomId={MatrixRoomId}, DueBeforeInclusive={DueBeforeInclusive}.",
+            "Loaded meeting auto-resolution candidates. CandidateCount={CandidateCount}, ExternalChatId={ExternalChatId}, DueBeforeInclusive={DueBeforeInclusive}.",
             candidates.Count,
-            matrixRoomId ?? "(all)",
+            externalChatId ?? "(all)",
             dueBeforeInclusive);
 
         if (candidates.Count == 0)
@@ -110,14 +110,14 @@ internal sealed class MeetingAutoResolutionService(
         var messages = await dbContext.NormalizedMessages
             .AsNoTracking()
             .Where(item => item.UserId == userId &&
-                           roomIds.Contains(item.MatrixRoomId))
+                           roomIds.Contains(item.ExternalChatId))
             .ToListAsync(cancellationToken);
 
         var messagesByRoom = messages
             .Where(item => item.SentAt >= observedFrom)
             .OrderBy(item => item.SentAt)
-            .ThenBy(item => item.IngestedAt)
-            .GroupBy(item => item.MatrixRoomId, StringComparer.Ordinal)
+            .ThenBy(item => item.ReceivedAt)
+            .GroupBy(item => item.ExternalChatId, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => (IReadOnlyList<NormalizedMessageEntity>)group.ToList(), StringComparer.Ordinal);
 
         var changed = false;
@@ -133,7 +133,7 @@ internal sealed class MeetingAutoResolutionService(
             var laterMessages = roomMessages
                 .Where(message => message.SentAt > meeting.ObservedAt ||
                                   (message.SentAt == meeting.ObservedAt &&
-                                   !string.Equals(message.MatrixEventId, meeting.SourceEventId, StringComparison.Ordinal)))
+                                   !string.Equals(message.ExternalMessageId, meeting.SourceEventId, StringComparison.Ordinal)))
                 .ToList();
 
             var resolution = WorkItemAutoResolutionDetector.TryResolve(meeting, laterMessages);

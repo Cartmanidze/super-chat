@@ -36,13 +36,13 @@ public sealed class RebuildConversationChunksCommandHandlerTests
             {
                 var command = Assert.IsType<ProjectConversationMeetingsCommand>(item);
                 Assert.Equal(userId, command.UserId);
-                Assert.Equal(roomId, command.MatrixRoomId);
+                Assert.Equal(roomId, command.ExternalChatId);
             },
             item =>
             {
                 var command = Assert.IsType<IndexConversationChunksCommand>(item);
                 Assert.Equal(userId, command.UserId);
-                Assert.Equal(roomId, command.MatrixRoomId);
+                Assert.Equal(roomId, command.ExternalChatId);
             });
     }
 

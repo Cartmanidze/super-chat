@@ -9,7 +9,7 @@ using SuperChat.Contracts.Features.Admin;
 using SuperChat.Contracts.Features.Auth;
 using SuperChat.Contracts.Features.Chat;
 using SuperChat.Contracts.Features.Integrations;
-using SuperChat.Contracts.Features.Integrations.Matrix;
+using SuperChat.Contracts.Features.Integrations.Max;
 using SuperChat.Contracts.Features.Integrations.Telegram;
 using SuperChat.Contracts.Features.Intelligence.Extraction;
 using SuperChat.Contracts.Features.Intelligence.Meetings;
@@ -20,7 +20,6 @@ using SuperChat.Contracts.Features.Search;
 using SuperChat.Contracts.Features.WorkItems;
 using SuperChat.Domain.Features.Auth;
 using SuperChat.Domain.Features.Feedback;
-using SuperChat.Domain.Features.Integrations.Matrix;
 using SuperChat.Domain.Features.Integrations.Telegram;
 using SuperChat.Domain.Features.Intelligence;
 using SuperChat.Domain.Features.Messaging;
@@ -32,8 +31,9 @@ using SuperChat.Infrastructure.Features.Auth;
 using SuperChat.Infrastructure.Features.Chat;
 using SuperChat.Infrastructure.Features.Feedback;
 using SuperChat.Infrastructure.Features.Integrations;
-using SuperChat.Infrastructure.Features.Integrations.Matrix;
+using SuperChat.Infrastructure.Features.Integrations.Max.Userbot;
 using SuperChat.Infrastructure.Features.Integrations.Telegram;
+using SuperChat.Infrastructure.Features.Integrations.Telegram.Userbot;
 using SuperChat.Infrastructure.Features.Intelligence.Digest;
 using SuperChat.Infrastructure.Features.Intelligence.Extraction;
 using SuperChat.Infrastructure.Features.Intelligence.Meetings;
@@ -42,7 +42,6 @@ using SuperChat.Infrastructure.Features.Intelligence.Retrieval;
 using SuperChat.Infrastructure.Features.Intelligence.WorkItems;
 using SuperChat.Infrastructure.Features.Messaging;
 using SuperChat.Infrastructure.Features.Operations;
-using SuperChat.Infrastructure.Features.Operations.Sync;
 using SuperChat.Infrastructure.Features.Search;
 using SuperChat.Infrastructure.Shared.Persistence;
 using QdrantSdk = Qdrant.Client.QdrantClient;
@@ -54,7 +53,6 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddSuperChatBootstrap(
         this IServiceCollection services,
         IConfiguration configuration,
-        bool enableMatrixSyncWorker = true,
         bool enablePipelineScheduling = true,
         bool enablePipelineConsumers = true)
     {
@@ -83,14 +81,11 @@ public static class ServiceCollectionExtensions
             .AddOptions<EmailOptions>()
             .Bind(configuration.GetSection(EmailOptions.SectionName));
         services
-            .AddOptions<MatrixOptions>()
-            .Bind(configuration.GetSection(MatrixOptions.SectionName));
-        services
             .AddOptions<MeetingProjectionOptions>()
             .Bind(configuration.GetSection(MeetingProjectionOptions.SectionName));
         services
-            .AddOptions<MessageIngestionFilterOptions>()
-            .Bind(configuration.GetSection(MessageIngestionFilterOptions.SectionName));
+            .AddOptions<IncomingMessageFilterOptions>()
+            .Bind(configuration.GetSection(IncomingMessageFilterOptions.SectionName));
         services
             .AddOptions<PilotOptions>()
             .Bind(configuration.GetSection(PilotOptions.SectionName))
@@ -111,27 +106,14 @@ public static class ServiceCollectionExtensions
             .AddOptions<ResolutionOptions>()
             .Bind(configuration.GetSection(ResolutionOptions.SectionName));
         services
-            .AddOptions<TelegramBridgeOptions>()
-            .Bind(configuration.GetSection(TelegramBridgeOptions.SectionName));
+            .AddOptions<TelegramUserbotOptions>()
+            .Bind(configuration.GetSection(TelegramUserbotOptions.SectionName));
+        services
+            .AddOptions<MaxUserbotOptions>()
+            .Bind(configuration.GetSection(MaxUserbotOptions.SectionName));
 
         services.AddSingleton<TimeProvider>(TimeProvider.System);
         services.AddSingleton(sp => sp.GetRequiredService<IOptions<PilotOptions>>().Value);
-        services.AddSingleton(sp => sp.GetRequiredService<IOptions<MatrixOptions>>().Value);
-        services.AddHttpClient<MatrixApiClient>((serviceProvider, client) =>
-        {
-            var options = serviceProvider.GetRequiredService<IOptions<MatrixOptions>>().Value;
-            client.BaseAddress = new Uri(options.HomeserverUrl.TrimEnd('/'));
-        });
-        services.AddHttpClient<ITelegramRoomInfoService, TelegramRoomInfoService>((serviceProvider, client) =>
-        {
-            var options = serviceProvider.GetRequiredService<IOptions<TelegramBridgeOptions>>().Value;
-            if (Uri.TryCreate(options.ParticipantCountBaseUrl, UriKind.Absolute, out var baseUri))
-            {
-                client.BaseAddress = baseUri;
-            }
-
-            client.Timeout = TimeSpan.FromSeconds(8);
-        });
         services.AddSuperChatQdrant(configuration);
         services.AddHttpClient<IEmbeddingService, EmbeddingServiceClient>((serviceProvider, client) =>
         {
@@ -172,6 +154,26 @@ public static class ServiceCollectionExtensions
 
             client.Timeout = TimeSpan.FromSeconds(Math.Max(1, options.TimeoutSeconds));
         });
+        services.AddHttpClient<TelegramUserbotClient>((serviceProvider, client) =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<TelegramUserbotOptions>>().Value;
+            if (Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var baseUri))
+            {
+                client.BaseAddress = baseUri;
+            }
+
+            client.Timeout = TimeSpan.FromSeconds(Math.Max(1, options.TimeoutSeconds));
+        });
+        services.AddHttpClient<MaxUserbotClient>((serviceProvider, client) =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<MaxUserbotOptions>>().Value;
+            if (Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var baseUri))
+            {
+                client.BaseAddress = baseUri;
+            }
+
+            client.Timeout = TimeSpan.FromSeconds(Math.Max(1, options.TimeoutSeconds));
+        });
         services.AddDbContextFactory<SuperChatDbContext>((serviceProvider, optionsBuilder) =>
         {
             var persistence = serviceProvider.GetRequiredService<IOptions<PersistenceOptions>>().Value;
@@ -187,12 +189,10 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IApiSessionService, ApiSessionService>();
         services.AddSingleton<IAdminPasswordService, AdminPasswordService>();
         services.AddSingleton<IPilotInviteAdminService, PilotInviteAdminService>();
-        services.AddSingleton<IMatrixProvisioningService, MatrixProvisioningService>();
         services.AddSingleton<ITelegramConnectionService, TelegramConnectionService>();
         services.AddSingleton<IIntegrationConnectionService, IntegrationConnectionService>();
-        services.AddSingleton<IRoomDisplayNameService, MatrixRoomDisplayNameService>();
+        services.AddSingleton<IRoomDisplayNameService, EmptyRoomDisplayNameService>();
         services.AddSingleton<IncomingMessageFilter>();
-        services.AddSingleton<ChatRoomHandler>();
         services.AddSingleton<IMessageNormalizationService, MessageNormalizationService>();
         services.AddSingleton<IChatTemplateCatalog, ChatTemplateCatalog>();
         services.AddSingleton<IChatTemplateHandler, MeetingsChatTemplateHandler>();
@@ -204,7 +204,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<MeetingAutoResolutionService>();
         services.AddSingleton<IMeetingService, MeetingService>();
         services.AddSingleton<ConversationResolutionService>();
-        services.AddSingleton<WorkItemIngestionService>();
+        services.AddSingleton<WorkItemWriter>();
         services.AddSingleton<WorkItemAutoResolutionService>();
         services.AddSingleton<IWorkItemService, WorkItemService>();
         services.AddSingleton<IRetrievalService, RetrievalService>();
@@ -221,11 +221,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IWorkItemRepository, EfWorkItemRepository>();
         services.AddSingleton<IMeetingRepository, EfMeetingRepository>();
         services.AddSingleton<IFeedbackEventRepository, EfFeedbackEventRepository>();
-
-        if (enableMatrixSyncWorker)
-        {
-            services.AddHostedService<MatrixSyncBackgroundService>();
-        }
 
         var pipelineMessagingOptions = configuration.GetSection(PipelineMessagingOptions.SectionName).Get<PipelineMessagingOptions>() ?? new PipelineMessagingOptions();
         var persistenceOptions = configuration.GetSection(PersistenceOptions.SectionName).Get<PersistenceOptions>() ?? new PersistenceOptions();
@@ -323,8 +318,7 @@ public static class ServiceCollectionExtensions
         }
 
         services.AddHealthChecks()
-            .AddCheck<BootstrapHealthCheck>("bootstrap")
-            .AddCheck<BridgeHealthCheck>("bridge");
+            .AddCheck<BootstrapHealthCheck>("bootstrap");
 
         return services;
     }

@@ -60,7 +60,7 @@ public sealed class HeuristicStructuredExtractionService(
         var window = new ConversationWindow(
             message.UserId,
             message.Source,
-            message.MatrixRoomId,
+            message.ExternalChatId,
             [message]);
 
         return ExtractAsync(window, cancellationToken);
@@ -74,7 +74,7 @@ public sealed class HeuristicStructuredExtractionService(
         var window = new ConversationWindow(
             message.UserId,
             message.Source,
-            message.MatrixRoomId,
+            message.ExternalChatId,
             [message]);
 
         return Task.FromResult(HeuristicSignalDetector.Detect(window, referenceTimeZone));
@@ -92,7 +92,7 @@ public sealed class HeuristicStructuredExtractionService(
         }
 
         var messagesByEventId = window.Messages
-            .GroupBy(message => message.MatrixEventId, StringComparer.Ordinal)
+            .GroupBy(message => message.ExternalMessageId, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal);
 
         var enrichmentByEventId = new Dictionary<string, (TextEnrichmentResponse Enrichment, NormalizedMessage Message)>(StringComparer.Ordinal);
@@ -286,7 +286,7 @@ public sealed class HeuristicStructuredExtractionService(
             {
                 Title = title,
                 Person = person,
-                SourceEventId = unresolvedMessage.MatrixEventId,
+                SourceEventId = unresolvedMessage.ExternalMessageId,
                 ObservedAt = unresolvedMessage.SentAt
             };
         }
@@ -317,8 +317,8 @@ public sealed class HeuristicStructuredExtractionService(
             ExtractedItemKind.WaitingOn,
             "Нужно уточнить часовой пояс",
             clarificationSource.Text.Trim(),
-            clarificationSource.MatrixRoomId,
-            clarificationSource.MatrixEventId,
+            clarificationSource.ExternalChatId,
+            clarificationSource.ExternalMessageId,
             null,
             clarificationSource.SentAt,
             null,
@@ -338,8 +338,8 @@ public sealed class HeuristicStructuredExtractionService(
             ExtractedItemKind.Meeting,
             "Скоро встреча",
             summary,
-            sourceMessage.MatrixRoomId,
-            sourceMessage.MatrixEventId,
+            sourceMessage.ExternalChatId,
+            sourceMessage.ExternalMessageId,
             person,
             sourceMessage.SentAt,
             dueAt,

@@ -18,11 +18,11 @@ public static class ConversationWindowSettlement
 
         var windows = new List<ConversationWindow>();
         foreach (var roomGroup in pendingMessages
-                     .GroupBy(message => new { message.UserId, message.Source, message.MatrixRoomId }))
+                     .GroupBy(message => new { message.UserId, message.Source, message.ExternalChatId }))
         {
             var orderedMessages = roomGroup
                 .OrderBy(message => message.SentAt)
-                .ThenBy(message => message.IngestedAt)
+                .ThenBy(message => message.ReceivedAt)
                 .ThenBy(message => message.Id)
                 .ToList();
 
@@ -59,11 +59,11 @@ public static class ConversationWindowSettlement
 
         TimeSpan? nextDelay = null;
         foreach (var roomGroup in pendingMessages
-                     .GroupBy(message => new { message.UserId, message.Source, message.MatrixRoomId }))
+                     .GroupBy(message => new { message.UserId, message.Source, message.ExternalChatId }))
         {
             var orderedMessages = roomGroup
                 .OrderBy(message => message.SentAt)
-                .ThenBy(message => message.IngestedAt)
+                .ThenBy(message => message.ReceivedAt)
                 .ThenBy(message => message.Id)
                 .ToList();
 
@@ -100,7 +100,7 @@ public static class ConversationWindowSettlement
         }
 
         var lastMessage = messages[^1];
-        if (now - lastMessage.IngestedAt < SettleDelay)
+        if (now - lastMessage.ReceivedAt < SettleDelay)
         {
             return;
         }
@@ -108,7 +108,7 @@ public static class ConversationWindowSettlement
         windows.Add(new ConversationWindow(
             lastMessage.UserId,
             lastMessage.Source,
-            lastMessage.MatrixRoomId,
+            lastMessage.ExternalChatId,
             messages.ToList()));
     }
 
@@ -122,7 +122,7 @@ public static class ConversationWindowSettlement
             return;
         }
 
-        var remainingDelay = SettleDelay - (now - messages[^1].IngestedAt);
+        var remainingDelay = SettleDelay - (now - messages[^1].ReceivedAt);
         if (remainingDelay <= TimeSpan.Zero)
         {
             nextDelay = TimeSpan.Zero;

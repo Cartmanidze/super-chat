@@ -20,7 +20,7 @@ public sealed class MessageNormalizationService(
             .AsNoTracking()
             .Where(item => !item.Processed)
             .OrderBy(item => item.SentAt)
-            .ThenBy(item => item.IngestedAt)
+            .ThenBy(item => item.ReceivedAt)
             .ThenBy(item => item.Id)
             .Select(item => item.ToDomain())
             .ToListAsync(cancellationToken);
@@ -29,7 +29,7 @@ public sealed class MessageNormalizationService(
     public async Task<IReadOnlyList<NormalizedMessage>> GetPendingMessagesForConversationAsync(
         Guid userId,
         string source,
-        string matrixRoomId,
+        string externalChatId,
         CancellationToken cancellationToken)
     {
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -37,10 +37,10 @@ public sealed class MessageNormalizationService(
             .AsNoTracking()
             .Where(item => item.UserId == userId &&
                            item.Source == source &&
-                           item.MatrixRoomId == matrixRoomId &&
+                           item.ExternalChatId == externalChatId &&
                            !item.Processed)
             .OrderBy(item => item.SentAt)
-            .ThenBy(item => item.IngestedAt)
+            .ThenBy(item => item.ReceivedAt)
             .ThenBy(item => item.Id)
             .Select(item => item.ToDomain())
             .ToListAsync(cancellationToken);
@@ -81,8 +81,9 @@ public sealed class MessageNormalizationService(
 
     public async Task<bool> TryStoreAsync(
         Guid userId,
-        string roomId,
-        string eventId,
+        string source,
+        string externalChatId,
+        string externalMessageId,
         string senderName,
         string text,
         DateTimeOffset sentAt,
@@ -91,42 +92,42 @@ public sealed class MessageNormalizationService(
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         var exists = await dbContext.NormalizedMessages
             .AsNoTracking()
-            .AnyAsync(item => item.UserId == userId && item.MatrixRoomId == roomId && item.MatrixEventId == eventId, cancellationToken);
+            .AnyAsync(item => item.UserId == userId && item.ExternalChatId == externalChatId && item.ExternalMessageId == externalMessageId, cancellationToken);
 
         if (exists)
         {
-            using var duplicateScope = MessagePipelineTrace.BeginScope(logger, userId, roomId, triggerMatrixEventId: eventId);
+            using var duplicateScope = MessagePipelineTrace.BeginScope(logger, userId, externalChatId, triggerExternalMessageId: externalMessageId);
             logger.LogInformation(
                 "Skipped normalized message because it already exists. Source={Source}, SenderName={SenderName}, SentAt={SentAt}, TextLength={TextLength}, Preview={Preview}.",
-                "telegram",
+                source,
                 senderName,
                 sentAt,
                 text.Length,
                 MessagePipelineTrace.CreatePreview(text));
-            SuperChatMetrics.NormalizedMessagesDuplicateTotal.WithLabels("telegram").Inc();
+            SuperChatMetrics.NormalizedMessagesDuplicateTotal.WithLabels(source).Inc();
             return false;
         }
 
         var normalizedMessageId = Guid.NewGuid();
-        using var scope = MessagePipelineTrace.BeginScope(logger, userId, roomId, normalizedMessageId, eventId);
+        using var scope = MessagePipelineTrace.BeginScope(logger, userId, externalChatId, normalizedMessageId, externalMessageId);
 
         dbContext.NormalizedMessages.Add(new NormalizedMessageEntity
         {
             Id = normalizedMessageId,
             UserId = userId,
-            Source = "telegram",
-            MatrixRoomId = roomId,
-            MatrixEventId = eventId,
+            Source = source,
+            ExternalChatId = externalChatId,
+            ExternalMessageId = externalMessageId,
             SenderName = senderName,
             Text = text,
             SentAt = sentAt,
-            IngestedAt = DateTimeOffset.UtcNow,
+            ReceivedAt = DateTimeOffset.UtcNow,
             Processed = false
         });
 
         logger.LogInformation(
             "Persisting normalized message. Source={Source}, SenderName={SenderName}, SentAt={SentAt}, TextLength={TextLength}, Preview={Preview}.",
-            "telegram",
+            source,
             senderName,
             sentAt,
             text.Length,
@@ -142,17 +143,17 @@ public sealed class MessageNormalizationService(
                 await pipelineCommandScheduler.DispatchNormalizedMessageStoredAsync(
                     dbContext,
                     userId,
-                    "telegram",
-                    roomId,
+                    source,
+                    externalChatId,
                     normalizedMessageId,
-                    eventId,
+                    externalMessageId,
                     sentAt,
                     cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
                 logger.LogInformation(
                     "Stored normalized message and dispatched pipeline commands transactionally. SentAt={SentAt}.",
                     sentAt);
-                SuperChatMetrics.NormalizedMessagesStoredTotal.WithLabels("telegram").Inc();
+                SuperChatMetrics.NormalizedMessagesStoredTotal.WithLabels(source).Inc();
                 return true;
             }
             catch (DbUpdateException)
@@ -160,7 +161,7 @@ public sealed class MessageNormalizationService(
                 logger.LogInformation(
                     "Skipped normalized message after transactional save attempt because it was already written concurrently. SentAt={SentAt}.",
                     sentAt);
-                SuperChatMetrics.NormalizedMessagesDuplicateTotal.WithLabels("telegram").Inc();
+                SuperChatMetrics.NormalizedMessagesDuplicateTotal.WithLabels(source).Inc();
                 return false;
             }
         }
@@ -171,16 +172,16 @@ public sealed class MessageNormalizationService(
             await pipelineCommandScheduler.DispatchNormalizedMessageStoredAsync(
                 dbContext,
                 userId,
-                "telegram",
-                roomId,
+                source,
+                externalChatId,
                 normalizedMessageId,
-                eventId,
+                externalMessageId,
                 sentAt,
                 cancellationToken);
             logger.LogInformation(
                 "Stored normalized message and dispatched pipeline commands. SentAt={SentAt}.",
                 sentAt);
-            SuperChatMetrics.NormalizedMessagesStoredTotal.WithLabels("telegram").Inc();
+            SuperChatMetrics.NormalizedMessagesStoredTotal.WithLabels(source).Inc();
             return true;
         }
         catch (DbUpdateException)
@@ -188,7 +189,7 @@ public sealed class MessageNormalizationService(
             logger.LogInformation(
                 "Skipped normalized message after save attempt because it was already written concurrently. SentAt={SentAt}.",
                 sentAt);
-            SuperChatMetrics.NormalizedMessagesDuplicateTotal.WithLabels("telegram").Inc();
+            SuperChatMetrics.NormalizedMessagesDuplicateTotal.WithLabels(source).Inc();
             return false;
         }
     }

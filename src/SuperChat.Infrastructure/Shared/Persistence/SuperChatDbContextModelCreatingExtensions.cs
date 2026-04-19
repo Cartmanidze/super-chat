@@ -49,14 +49,6 @@ internal static class SuperChatDbContextModelCreatingExtensions
             b.HasIndex(item => item.UserId);
         });
 
-        builder.Entity<MatrixIdentityEntity>(b =>
-        {
-            b.ToTable(SuperChatConsts.DbTablePrefix + "matrix_identities", SuperChatConsts.DbSchema);
-            b.HasKey(item => item.UserId);
-            b.ConfigureByConvention();
-            b.HasIndex(item => item.MatrixUserId).IsUnique();
-        });
-
         builder.Entity<TelegramConnectionEntity>(b =>
         {
             b.ToTable(SuperChatConsts.DbTablePrefix + "telegram_connections", SuperChatConsts.DbSchema);
@@ -66,11 +58,12 @@ internal static class SuperChatDbContextModelCreatingExtensions
             b.HasIndex(item => item.State);
         });
 
-        builder.Entity<SyncCheckpointEntity>(b =>
+        builder.Entity<TelegramSessionEntity>(b =>
         {
-            b.ToTable(SuperChatConsts.DbTablePrefix + "sync_checkpoints", SuperChatConsts.DbSchema);
+            b.ToTable(SuperChatConsts.DbTablePrefix + "telegram_sessions", SuperChatConsts.DbSchema);
             b.HasKey(item => item.UserId);
             b.ConfigureByConvention();
+            b.Property(item => item.ServerAddress).HasMaxLength(255);
         });
 
         builder.Entity<NormalizedMessageEntity>(b =>
@@ -79,7 +72,7 @@ internal static class SuperChatDbContextModelCreatingExtensions
             b.HasKey(item => item.Id);
             b.ConfigureByConvention();
             b.HasIndex(item => item.Processed);
-            b.HasIndex(item => new { item.UserId, item.MatrixRoomId, item.MatrixEventId }).IsUnique();
+            b.HasIndex(item => new { item.UserId, item.ExternalChatId, item.ExternalMessageId }).IsUnique();
         });
 
         builder.Entity<ExtractedItemEntity>(b =>

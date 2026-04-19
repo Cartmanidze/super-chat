@@ -46,12 +46,12 @@ public sealed class ConversationResolutionCommandHandlerTests
                 Id = Guid.NewGuid(),
                 UserId = userId,
                 Source = "telegram",
-                MatrixRoomId = roomId,
-                MatrixEventId = "$evt-done",
+                ExternalChatId = roomId,
+                ExternalMessageId = "$evt-done",
                 SenderName = "You",
                 Text = "готово, отправил финальный дек",
                 SentAt = observedAt.AddMinutes(7),
-                IngestedAt = observedAt.AddMinutes(7),
+                ReceivedAt = observedAt.AddMinutes(7),
                 Processed = true
             });
 
@@ -113,12 +113,12 @@ public sealed class ConversationResolutionCommandHandlerTests
                 Id = Guid.NewGuid(),
                 UserId = userId,
                 Source = "telegram",
-                MatrixRoomId = roomId,
-                MatrixEventId = "$evt-done",
+                ExternalChatId = roomId,
+                ExternalMessageId = "$evt-done",
                 SenderName = "You",
                 Text = "готово, отправил финальный дек",
                 SentAt = observedAt.AddMinutes(7),
-                IngestedAt = observedAt.AddMinutes(7),
+                ReceivedAt = observedAt.AddMinutes(7),
                 Processed = true
             });
 
@@ -191,12 +191,12 @@ public sealed class ConversationResolutionCommandHandlerTests
                 Id = Guid.NewGuid(),
                 UserId = userId,
                 Source = "telegram",
-                MatrixRoomId = roomId,
-                MatrixEventId = string.Empty,
+                ExternalChatId = roomId,
+                ExternalMessageId = string.Empty,
                 SenderName = "You",
                 Text = "готово, уже ответил и отправил детали",
                 SentAt = observedAt.AddMinutes(7),
-                IngestedAt = observedAt.AddMinutes(7),
+                ReceivedAt = observedAt.AddMinutes(7),
                 Processed = true
             });
 
@@ -260,12 +260,12 @@ public sealed class ConversationResolutionCommandHandlerTests
                 Id = Guid.NewGuid(),
                 UserId = userId,
                 Source = "telegram",
-                MatrixRoomId = roomId,
-                MatrixEventId = "$evt-later",
+                ExternalChatId = roomId,
+                ExternalMessageId = "$evt-later",
                 SenderName = "Alex",
                 Text = "давай перенесем на попозже",
                 SentAt = now.AddMinutes(5),
-                IngestedAt = now.AddMinutes(5),
+                ReceivedAt = now.AddMinutes(5),
                 Processed = true
             });
 
@@ -325,12 +325,12 @@ public sealed class ConversationResolutionCommandHandlerTests
                 Id = Guid.NewGuid(),
                 UserId = userId,
                 Source = "telegram",
-                MatrixRoomId = roomId,
-                MatrixEventId = "$evt-later",
+                ExternalChatId = roomId,
+                ExternalMessageId = "$evt-later",
                 SenderName = "Alex",
                 Text = "отменяем созвон",
                 SentAt = now.AddMinutes(5),
-                IngestedAt = now.AddMinutes(5),
+                ReceivedAt = now.AddMinutes(5),
                 Processed = true
             });
 
@@ -390,12 +390,12 @@ public sealed class ConversationResolutionCommandHandlerTests
                 Id = Guid.NewGuid(),
                 UserId = userId,
                 Source = "telegram",
-                MatrixRoomId = roomId,
-                MatrixEventId = "$evt-after-call",
+                ExternalChatId = roomId,
+                ExternalMessageId = "$evt-after-call",
                 SenderName = "Alex",
                 Text = "thanks for the call",
                 SentAt = now.AddMinutes(1),
-                IngestedAt = now.AddMinutes(1),
+                ReceivedAt = now.AddMinutes(1),
                 Processed = true
             });
 
@@ -443,12 +443,12 @@ public sealed class ConversationResolutionCommandHandlerTests
                 Id = Guid.NewGuid(),
                 UserId = userId,
                 Source = "telegram",
-                MatrixRoomId = roomId,
-                MatrixEventId = "$evt-reschedule",
+                ExternalChatId = roomId,
+                ExternalMessageId = "$evt-reschedule",
                 SenderName = "Alex",
                 Text = "давай перенесем",
                 SentAt = now.AddMinutes(-10),
-                IngestedAt = now.AddMinutes(-10),
+                ReceivedAt = now.AddMinutes(-10),
                 Processed = true
             });
 
@@ -508,12 +508,12 @@ public sealed class ConversationResolutionCommandHandlerTests
                 Id = Guid.NewGuid(),
                 UserId = userId,
                 Source = "telegram",
-                MatrixRoomId = roomId,
-                MatrixEventId = "$evt-complete",
+                ExternalChatId = roomId,
+                ExternalMessageId = "$evt-complete",
                 SenderName = "Alex",
                 Text = "встреча прошла",
                 SentAt = now.AddMinutes(-5),
-                IngestedAt = now.AddMinutes(-5),
+                ReceivedAt = now.AddMinutes(-5),
                 Processed = true
             });
 
@@ -573,12 +573,12 @@ public sealed class ConversationResolutionCommandHandlerTests
                 Id = Guid.NewGuid(),
                 UserId = userId,
                 Source = "telegram",
-                MatrixRoomId = roomId,
-                MatrixEventId = "$evt-cancel",
+                ExternalChatId = roomId,
+                ExternalMessageId = "$evt-cancel",
                 SenderName = "Alex",
                 Text = "встречу отменяем",
                 SentAt = now.AddMinutes(5),
-                IngestedAt = now.AddMinutes(5),
+                ReceivedAt = now.AddMinutes(5),
                 Processed = true
             });
 
@@ -639,12 +639,12 @@ public sealed class ConversationResolutionCommandHandlerTests
                 Id = Guid.NewGuid(),
                 UserId = userId,
                 Source = "telegram",
-                MatrixRoomId = roomId,
-                MatrixEventId = "$evt-after-retro",
+                ExternalChatId = roomId,
+                ExternalMessageId = "$evt-after-retro",
                 SenderName = "Alex",
                 Text = "спасибо за созвон, было продуктивно",
                 SentAt = now.AddMinutes(-30),
-                IngestedAt = now.AddMinutes(-30),
+                ReceivedAt = now.AddMinutes(-30),
                 Processed = true
             });
 
@@ -693,12 +693,12 @@ public sealed class ConversationResolutionCommandHandlerTests
                 Id = Guid.NewGuid(),
                 UserId = userId,
                 Source = "telegram",
-                MatrixRoomId = roomId,
-                MatrixEventId = "$evt-cancel-later",
+                ExternalChatId = roomId,
+                ExternalMessageId = "$evt-cancel-later",
                 SenderName = "Alex",
                 Text = "всё, отменяем совсем",
                 SentAt = now.AddMinutes(5),
-                IngestedAt = now.AddMinutes(5),
+                ReceivedAt = now.AddMinutes(5),
                 Processed = true
             });
 
@@ -758,12 +758,12 @@ public sealed class ConversationResolutionCommandHandlerTests
                 Id = Guid.NewGuid(),
                 UserId = userId,
                 Source = "telegram",
-                MatrixRoomId = roomId,
-                MatrixEventId = "$evt-later-confirm",
+                ExternalChatId = roomId,
+                ExternalMessageId = "$evt-later-confirm",
                 SenderName = "Alex",
                 Text = "договорились",
                 SentAt = now.AddMinutes(5),
-                IngestedAt = now.AddMinutes(5),
+                ReceivedAt = now.AddMinutes(5),
                 Processed = true
             });
 
@@ -822,12 +822,12 @@ public sealed class ConversationResolutionCommandHandlerTests
                 Id = Guid.NewGuid(),
                 UserId = userId,
                 Source = "telegram",
-                MatrixRoomId = roomId,
-                MatrixEventId = "$evt-done",
+                ExternalChatId = roomId,
+                ExternalMessageId = "$evt-done",
                 SenderName = "You",
                 Text = "готово, отправил",
                 SentAt = now,
-                IngestedAt = now,
+                ReceivedAt = now,
                 Processed = true
             });
 
@@ -872,12 +872,12 @@ public sealed class ConversationResolutionCommandHandlerTests
                 Id = Guid.NewGuid(),
                 UserId = userId,
                 Source = "telegram",
-                MatrixRoomId = roomId,
-                MatrixEventId = "$evt-done",
+                ExternalChatId = roomId,
+                ExternalMessageId = "$evt-done",
                 SenderName = "You",
                 Text = "готово, отправил",
                 SentAt = now,
-                IngestedAt = now,
+                ReceivedAt = now,
                 Processed = true
             });
 

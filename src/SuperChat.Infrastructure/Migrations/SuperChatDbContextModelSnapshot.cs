@@ -87,13 +87,13 @@ namespace SuperChat.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("user_id");
 
-                    b.Property<DateTimeOffset?>("LastObservedIngestedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("last_observed_ingested_at");
-
                     b.Property<Guid?>("LastObservedMessageId")
                         .HasColumnType("uuid")
                         .HasColumnName("last_observed_message_id");
+
+                    b.Property<DateTimeOffset?>("LastObservedReceivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_observed_received_at");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -221,35 +221,6 @@ namespace SuperChat.Infrastructure.Migrations
                     b.HasIndex("UserId", "CreatedAt");
 
                     b.ToTable("feedback_events", (string)null);
-                });
-
-            modelBuilder.Entity("SuperChat.Infrastructure.Shared.Persistence.MatrixIdentityEntity", b =>
-                {
-                    b.Property<Guid>("UserId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.Property<string>("AccessToken")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("access_token");
-
-                    b.Property<string>("MatrixUserId")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("matrix_user_id");
-
-                    b.Property<DateTimeOffset>("ProvisionedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("provisioned_at");
-
-                    b.HasKey("UserId");
-
-                    b.HasIndex("MatrixUserId")
-                        .IsUnique();
-
-                    b.ToTable("matrix_identities", (string)null);
                 });
 
             modelBuilder.Entity("SuperChat.Infrastructure.Shared.Persistence.MeetingEntity", b =>
@@ -494,23 +465,23 @@ namespace SuperChat.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<DateTimeOffset>("IngestedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("ingested_at");
-
-                    b.Property<string>("MatrixEventId")
+                    b.Property<string>("ExternalChatId")
                         .IsRequired()
                         .HasColumnType("text")
-                        .HasColumnName("matrix_event_id");
+                        .HasColumnName("external_chat_id");
 
-                    b.Property<string>("MatrixRoomId")
+                    b.Property<string>("ExternalMessageId")
                         .IsRequired()
                         .HasColumnType("text")
-                        .HasColumnName("matrix_room_id");
+                        .HasColumnName("external_message_id");
 
                     b.Property<bool>("Processed")
                         .HasColumnType("boolean")
                         .HasColumnName("processed");
+
+                    b.Property<DateTimeOffset>("ReceivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("received_at");
 
                     b.Property<string>("SenderName")
                         .IsRequired()
@@ -539,7 +510,7 @@ namespace SuperChat.Infrastructure.Migrations
 
                     b.HasIndex("Processed");
 
-                    b.HasIndex("UserId", "MatrixRoomId", "MatrixEventId")
+                    b.HasIndex("UserId", "ExternalChatId", "ExternalMessageId")
                         .IsUnique();
 
                     b.ToTable("normalized_messages", (string)null);
@@ -621,26 +592,6 @@ namespace SuperChat.Infrastructure.Migrations
                     b.ToTable("retrieval_logs", (string)null);
                 });
 
-            modelBuilder.Entity("SuperChat.Infrastructure.Shared.Persistence.SyncCheckpointEntity", b =>
-                {
-                    b.Property<Guid>("UserId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.Property<string>("NextBatchToken")
-                        .HasColumnType("text")
-                        .HasColumnName("next_batch_token");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("UserId");
-
-                    b.ToTable("sync_checkpoints", (string)null);
-                });
-
             modelBuilder.Entity("SuperChat.Infrastructure.Shared.Persistence.TelegramConnectionEntity", b =>
                 {
                     b.Property<Guid>("UserId")
@@ -656,10 +607,6 @@ namespace SuperChat.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_synced_at");
 
-                    b.Property<string>("ManagementRoomId")
-                        .HasColumnType("text")
-                        .HasColumnName("management_room_id");
-
                     b.Property<string>("State")
                         .IsRequired()
                         .HasColumnType("text")
@@ -669,15 +616,50 @@ namespace SuperChat.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
 
-                    b.Property<string>("WebLoginUrl")
-                        .HasColumnType("text")
-                        .HasColumnName("web_login_url");
-
                     b.HasKey("UserId");
 
                     b.HasIndex("State");
 
                     b.ToTable("telegram_connections", (string)null);
+                });
+
+            modelBuilder.Entity("SuperChat.Infrastructure.Shared.Persistence.TelegramSessionEntity", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<byte[]>("AuthKeyEncrypted")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("auth_key_encrypted");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("DcId")
+                        .HasColumnType("integer")
+                        .HasColumnName("dc_id");
+
+                    b.Property<int>("Port")
+                        .HasColumnType("integer")
+                        .HasColumnName("port");
+
+                    b.Property<string>("ServerAddress")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("server_address");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("telegram_sessions", (string)null);
                 });
 
             modelBuilder.Entity("SuperChat.Infrastructure.Shared.Persistence.VerificationCodeEntity", b =>

@@ -60,17 +60,17 @@ public sealed class PipelineCommandSchedulerTests
             ConversationWindowSettlement.SettleDelay,
             Arg.Is<ProcessConversationAfterSettleCommand>(command =>
                 command.UserId == userId &&
-                command.MatrixRoomId == "!room:matrix.localhost" &&
+                command.ExternalChatId == "!room:matrix.localhost" &&
                 command.TriggerMessageId == messageId &&
-                command.TriggerMatrixEventId == "$evt-1"),
+                command.TriggerExternalMessageId == "$evt-1"),
             Arg.Any<IDictionary<string, string>?>());
         await routing.Received(1).Send(
             "superchat-pipeline",
             Arg.Is<RebuildConversationChunksCommand>(command =>
                 command.UserId == userId &&
-                command.MatrixRoomId == "!room:matrix.localhost" &&
+                command.ExternalChatId == "!room:matrix.localhost" &&
                 command.TriggerMessageId == messageId &&
-                command.TriggerMatrixEventId == "$evt-1" &&
+                command.TriggerExternalMessageId == "$evt-1" &&
                 command.RebuildFrom == sentAt.AddMinutes(-15)),
             Arg.Any<IDictionary<string, string>?>());
     }

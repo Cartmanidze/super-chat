@@ -29,11 +29,11 @@ public sealed class ChunkBuilderService(
         var latestMessagesByUser = await dbContext.NormalizedMessages
             .AsNoTracking()
             .GroupBy(item => item.UserId)
-            .Select(group => new UserLatestIngested(group.Key, group.Max(item => item.IngestedAt)))
+            .Select(group => new UserLatestIngested(group.Key, group.Max(item => item.ReceivedAt)))
             .ToListAsync(cancellationToken);
 
         var usersToProcess = latestMessagesByUser
-            .Where(item => ShouldProcessUser(item.LatestIngestedAt, checkpoints.GetValueOrDefault(item.UserId)))
+            .Where(item => ShouldProcessUser(item.LatestReceivedAt, checkpoints.GetValueOrDefault(item.UserId)))
             .Select(item => item.UserId)
             .ToList();
 
@@ -52,7 +52,7 @@ public sealed class ChunkBuilderService(
 
     public async Task<ChunkBuildRunResult> BuildConversationChunksAsync(
         Guid userId,
-        string matrixRoomId,
+        string externalChatId,
         DateTimeOffset rebuildFrom,
         CancellationToken cancellationToken)
     {
@@ -66,7 +66,7 @@ public sealed class ChunkBuilderService(
         var result = await RebuildRoomAsync(
             dbContext,
             userId,
-            matrixRoomId,
+            externalChatId,
             rebuildFrom,
             options,
             timeProvider.GetUtcNow(),
@@ -76,24 +76,24 @@ public sealed class ChunkBuilderService(
         return result;
     }
 
-    internal static bool ShouldProcessUser(DateTimeOffset latestIngestedAt, ChunkBuildCheckpointEntity? checkpoint)
+    internal static bool ShouldProcessUser(DateTimeOffset latestReceivedAt, ChunkBuildCheckpointEntity? checkpoint)
     {
-        return checkpoint?.LastObservedIngestedAt is not DateTimeOffset lastObservedIngestedAt ||
-               latestIngestedAt >= lastObservedIngestedAt;
+        return checkpoint?.LastObservedReceivedAt is not DateTimeOffset lastObservedReceivedAt ||
+               latestReceivedAt >= lastObservedReceivedAt;
     }
 
     internal static IReadOnlyList<NormalizedMessageEntity> FilterNewMessages(
         IReadOnlyList<NormalizedMessageEntity> candidateMessages,
         ChunkBuildCheckpointEntity? checkpoint)
     {
-        if (checkpoint?.LastObservedIngestedAt is not DateTimeOffset lastObservedIngestedAt)
+        if (checkpoint?.LastObservedReceivedAt is not DateTimeOffset lastObservedReceivedAt)
         {
             return candidateMessages;
         }
 
         return candidateMessages
-            .Where(item => item.IngestedAt > lastObservedIngestedAt ||
-                           (item.IngestedAt == lastObservedIngestedAt &&
+            .Where(item => item.ReceivedAt > lastObservedReceivedAt ||
+                           (item.ReceivedAt == lastObservedReceivedAt &&
                             (checkpoint.LastObservedMessageId is null || item.Id.CompareTo(checkpoint.LastObservedMessageId.Value) > 0)))
             .ToList();
     }
@@ -112,7 +112,7 @@ public sealed class ChunkBuilderService(
 
         var orderedMessages = messages
             .OrderBy(item => item.SentAt)
-            .ThenBy(item => item.IngestedAt)
+            .ThenBy(item => item.ReceivedAt)
             .ThenBy(item => item.Id)
             .ToList();
 
@@ -165,11 +165,11 @@ public sealed class ChunkBuilderService(
     {
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
-        var checkpointBoundary = checkpoint?.LastObservedIngestedAt ?? DateTimeOffset.MinValue;
+        var checkpointBoundary = checkpoint?.LastObservedReceivedAt ?? DateTimeOffset.MinValue;
         var candidateMessages = await dbContext.NormalizedMessages
             .AsNoTracking()
-            .Where(item => item.UserId == userId && item.IngestedAt >= checkpointBoundary)
-            .OrderBy(item => item.IngestedAt)
+            .Where(item => item.UserId == userId && item.ReceivedAt >= checkpointBoundary)
+            .OrderBy(item => item.ReceivedAt)
             .ThenBy(item => item.Id)
             .ToListAsync(cancellationToken);
 
@@ -180,7 +180,7 @@ public sealed class ChunkBuilderService(
         }
 
         var roomPlans = newMessages
-            .GroupBy(item => item.MatrixRoomId)
+            .GroupBy(item => item.ExternalChatId)
             .Select(group => new RoomRebuildPlan(
                 group.Key,
                 group.Min(item => item.SentAt).AddMinutes(-Math.Max(1, options.MaxGapMinutes))))
@@ -196,10 +196,10 @@ public sealed class ChunkBuilderService(
             var roomMessages = await dbContext.NormalizedMessages
                 .AsNoTracking()
                 .Where(item => item.UserId == userId &&
-                               item.MatrixRoomId == roomPlan.RoomId &&
+                               item.ExternalChatId == roomPlan.RoomId &&
                                item.SentAt >= roomPlan.RebuildFrom)
                 .OrderBy(item => item.SentAt)
-                .ThenBy(item => item.IngestedAt)
+                .ThenBy(item => item.ReceivedAt)
                 .ThenBy(item => item.Id)
                 .Select(item => item.ToDomain())
                 .ToListAsync(cancellationToken);
@@ -242,11 +242,11 @@ public sealed class ChunkBuilderService(
         }
 
         var lastMessage = newMessages
-            .OrderBy(item => item.IngestedAt)
+            .OrderBy(item => item.ReceivedAt)
             .ThenBy(item => item.Id)
             .Last();
 
-        storedCheckpoint.LastObservedIngestedAt = lastMessage.IngestedAt;
+        storedCheckpoint.LastObservedReceivedAt = lastMessage.ReceivedAt;
         storedCheckpoint.LastObservedMessageId = lastMessage.Id;
         storedCheckpoint.UpdatedAt = now;
 
@@ -271,10 +271,10 @@ public sealed class ChunkBuilderService(
         var roomMessages = await dbContext.NormalizedMessages
             .AsNoTracking()
             .Where(item => item.UserId == userId &&
-                           item.MatrixRoomId == roomId &&
+                           item.ExternalChatId == roomId &&
                            item.SentAt >= rebuildFrom)
             .OrderBy(item => item.SentAt)
-            .ThenBy(item => item.IngestedAt)
+            .ThenBy(item => item.ReceivedAt)
             .ThenBy(item => item.Id)
             .Select(item => item.ToDomain())
             .ToListAsync(cancellationToken);
@@ -364,7 +364,7 @@ public sealed class ChunkBuilderService(
         return Convert.ToHexString(hash).ToLowerInvariant();
     }
 
-    private sealed record UserLatestIngested(Guid UserId, DateTimeOffset LatestIngestedAt);
+    private sealed record UserLatestIngested(Guid UserId, DateTimeOffset LatestReceivedAt);
 
     private sealed record RoomRebuildPlan(string RoomId, DateTimeOffset RebuildFrom);
 }

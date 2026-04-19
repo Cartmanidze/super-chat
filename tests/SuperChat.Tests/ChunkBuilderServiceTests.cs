@@ -15,33 +15,33 @@ public sealed class ChunkBuilderServiceTests
         var checkpoint = new ChunkBuildCheckpointEntity
         {
             UserId = Guid.NewGuid(),
-            LastObservedIngestedAt = new DateTimeOffset(2026, 03, 13, 10, 00, 00, TimeSpan.Zero)
+            LastObservedReceivedAt = new DateTimeOffset(2026, 03, 13, 10, 00, 00, TimeSpan.Zero)
         };
 
         var result = ChunkBuilderService.ShouldProcessUser(
-            checkpoint.LastObservedIngestedAt.Value,
+            checkpoint.LastObservedReceivedAt.Value,
             checkpoint);
 
         Assert.True(result);
     }
 
     [Fact]
-    public void FilterNewMessages_UsesGuidTieBreakerForSameIngestedAt()
+    public void FilterNewMessages_UsesGuidTieBreakerForSameReceivedAt()
     {
-        var ingestedAt = new DateTimeOffset(2026, 03, 13, 10, 00, 00, TimeSpan.Zero);
+        var receivedAt = new DateTimeOffset(2026, 03, 13, 10, 00, 00, TimeSpan.Zero);
         var earlierId = Guid.Parse("11111111-1111-1111-1111-111111111111");
         var laterId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
         var messages = new List<NormalizedMessageEntity>
         {
-            CreateEntity(earlierId, ingestedAt),
-            CreateEntity(laterId, ingestedAt)
+            CreateEntity(earlierId, receivedAt),
+            CreateEntity(laterId, receivedAt)
         };
 
         var checkpoint = new ChunkBuildCheckpointEntity
         {
             UserId = Guid.NewGuid(),
-            LastObservedIngestedAt = ingestedAt,
+            LastObservedReceivedAt = receivedAt,
             LastObservedMessageId = earlierId
         };
 
@@ -128,7 +128,7 @@ public sealed class ChunkBuilderServiceTests
         Assert.Single(chunks);
         Assert.Equal(3, chunks[0].MessageCount);
         Assert.Contains("Message 3", chunks[0].Text, StringComparison.Ordinal);
-        Assert.Equal(normalizedMessages[^1].IngestedAt, checkpoint.LastObservedIngestedAt);
+        Assert.Equal(normalizedMessages[^1].ReceivedAt, checkpoint.LastObservedReceivedAt);
         Assert.Equal(normalizedMessages[^1].Id, checkpoint.LastObservedMessageId);
         Assert.All(normalizedMessages, item => Assert.False(item.Processed));
     }
@@ -214,12 +214,12 @@ public sealed class ChunkBuilderServiceTests
                 Id = Guid.NewGuid(),
                 UserId = userId,
                 Source = "telegram",
-                MatrixRoomId = roomId,
-                MatrixEventId = $"$evt-{messageIndex}",
+                ExternalChatId = roomId,
+                ExternalMessageId = $"$evt-{messageIndex}",
                 SenderName = messageIndex % 2 == 0 ? "You" : "Alice",
                 Text = $"Message {messageIndex}",
                 SentAt = sentAt,
-                IngestedAt = sentAt.AddSeconds(5),
+                ReceivedAt = sentAt.AddSeconds(5),
                 Processed = false
             });
         }
@@ -227,19 +227,19 @@ public sealed class ChunkBuilderServiceTests
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    private static NormalizedMessageEntity CreateEntity(Guid id, DateTimeOffset ingestedAt)
+    private static NormalizedMessageEntity CreateEntity(Guid id, DateTimeOffset receivedAt)
     {
         return new NormalizedMessageEntity
         {
             Id = id,
             UserId = Guid.NewGuid(),
             Source = "telegram",
-            MatrixRoomId = "!room:matrix.localhost",
-            MatrixEventId = "$evt",
+            ExternalChatId = "!room:matrix.localhost",
+            ExternalMessageId = "$evt",
             SenderName = "Alice",
             Text = "Hello",
-            SentAt = ingestedAt,
-            IngestedAt = ingestedAt,
+            SentAt = receivedAt,
+            ReceivedAt = receivedAt,
             Processed = false
         };
     }
@@ -251,7 +251,7 @@ public sealed class ChunkBuilderServiceTests
         string sender,
         string text,
         DateTimeOffset sentAt,
-        DateTimeOffset ingestedAt)
+        DateTimeOffset receivedAt)
     {
         return new NormalizedMessage(
             id,
@@ -262,7 +262,7 @@ public sealed class ChunkBuilderServiceTests
             sender,
             text,
             sentAt,
-            ingestedAt,
+            receivedAt,
             false);
     }
 

@@ -39,7 +39,6 @@ public sealed class DeadRepositoryCleanupTests
 
         services.AddSuperChatBootstrap(
             configuration,
-            enableMatrixSyncWorker: false,
             enablePipelineScheduling: false,
             enablePipelineConsumers: false);
 

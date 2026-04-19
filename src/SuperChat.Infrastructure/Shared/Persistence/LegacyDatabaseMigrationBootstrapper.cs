@@ -162,7 +162,7 @@ public static class LegacyDatabaseMigrationBootstrapper
 
             CREATE TABLE IF NOT EXISTS chunk_build_checkpoints (
                 user_id uuid PRIMARY KEY,
-                last_observed_ingested_at timestamptz NULL,
+                last_observed_received_at timestamptz NULL,
                 last_observed_message_id uuid NULL,
                 updated_at timestamptz NOT NULL
             );

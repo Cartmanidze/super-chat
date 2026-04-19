@@ -6,7 +6,7 @@ public interface IChunkIndexingService
 
     Task<ChunkIndexingRunResult> IndexConversationChunksAsync(
         Guid userId,
-        string matrixRoomId,
+        string externalChatId,
         CancellationToken cancellationToken);
 }
 

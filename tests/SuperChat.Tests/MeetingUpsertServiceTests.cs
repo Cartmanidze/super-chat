@@ -101,12 +101,12 @@ public sealed class MeetingUpsertServiceTests
                 Id = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
                 UserId = userId,
                 Source = "telegram",
-                MatrixRoomId = roomId,
-                MatrixEventId = rescheduleEventId,
+                ExternalChatId = roomId,
+                ExternalMessageId = rescheduleEventId,
                 SenderName = "glebov84",
                 Text = $"переносим на 19:00, ссылка всё та же {joinUrl}",
                 SentAt = observedAt,
-                IngestedAt = observedAt,
+                ReceivedAt = observedAt,
                 Processed = false
             });
 

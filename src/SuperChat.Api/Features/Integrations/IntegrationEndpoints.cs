@@ -3,7 +3,6 @@ using SuperChat.Api.Features.Auth;
 using SuperChat.Api.Security;
 using SuperChat.Contracts.Features.Auth;
 using SuperChat.Contracts.Features.Integrations;
-using SuperChat.Contracts.Features.Integrations.Matrix;
 using SuperChat.Domain.Features.Integrations;
 
 namespace SuperChat.Api.Features.Integrations;
@@ -19,15 +18,13 @@ public static class IntegrationEndpoints
         group.MapGet(string.Empty, async (
             HttpContext httpContext,
             IIntegrationConnectionService integrationConnectionService,
-            IMatrixProvisioningService matrixProvisioningService,
             CancellationToken cancellationToken) =>
         {
             var userId = httpContext.User.GetRequiredUserId();
-            var matrixIdentity = await matrixProvisioningService.GetIdentityAsync(userId, cancellationToken);
             var connections = await integrationConnectionService.GetConnectionsAsync(userId, cancellationToken);
 
             return Results.Ok(connections
-                .Select(connection => connection.ToIntegrationConnectionResponse(matrixIdentity?.MatrixUserId))
+                .Select(connection => connection.ToIntegrationConnectionResponse())
                 .ToList());
         });
 
@@ -35,7 +32,6 @@ public static class IntegrationEndpoints
             string provider,
             HttpContext httpContext,
             IIntegrationConnectionService integrationConnectionService,
-            IMatrixProvisioningService matrixProvisioningService,
             CancellationToken cancellationToken) =>
         {
             if (!IntegrationProviderExtensions.TryParseRouteSegment(provider, out var parsedProvider))
@@ -46,9 +42,8 @@ public static class IntegrationEndpoints
             try
             {
                 var userId = httpContext.User.GetRequiredUserId();
-                var matrixIdentity = await matrixProvisioningService.GetIdentityAsync(userId, cancellationToken);
                 var connection = await integrationConnectionService.GetStatusAsync(userId, parsedProvider, cancellationToken);
-                return Results.Ok(connection.ToIntegrationConnectionResponse(matrixIdentity?.MatrixUserId));
+                return Results.Ok(connection.ToIntegrationConnectionResponse());
             }
             catch (NotSupportedException ex)
             {
@@ -61,7 +56,6 @@ public static class IntegrationEndpoints
             HttpContext httpContext,
             IAuthFlowService authFlowService,
             IIntegrationConnectionService integrationConnectionService,
-            IMatrixProvisioningService matrixProvisioningService,
             CancellationToken cancellationToken) =>
         {
             if (!IntegrationProviderExtensions.TryParseRouteSegment(provider, out var parsedProvider))
@@ -78,8 +72,7 @@ public static class IntegrationEndpoints
             try
             {
                 var connection = await integrationConnectionService.StartAsync(user, parsedProvider, cancellationToken);
-                var matrixIdentity = await matrixProvisioningService.GetIdentityAsync(user.Id, cancellationToken);
-                return Results.Ok(connection.ToIntegrationConnectionResponse(matrixIdentity?.MatrixUserId));
+                return Results.Ok(connection.ToIntegrationConnectionResponse());
             }
             catch (NotSupportedException ex)
             {
@@ -91,7 +84,6 @@ public static class IntegrationEndpoints
             string provider,
             HttpContext httpContext,
             IIntegrationConnectionService integrationConnectionService,
-            IMatrixProvisioningService matrixProvisioningService,
             CancellationToken cancellationToken) =>
         {
             if (!IntegrationProviderExtensions.TryParseRouteSegment(provider, out var parsedProvider))
@@ -104,8 +96,7 @@ public static class IntegrationEndpoints
                 var userId = httpContext.User.GetRequiredUserId();
                 await integrationConnectionService.DisconnectAsync(userId, parsedProvider, cancellationToken);
                 var connection = await integrationConnectionService.GetStatusAsync(userId, parsedProvider, cancellationToken);
-                var matrixIdentity = await matrixProvisioningService.GetIdentityAsync(userId, cancellationToken);
-                return Results.Ok(connection.ToIntegrationConnectionResponse(matrixIdentity?.MatrixUserId));
+                return Results.Ok(connection.ToIntegrationConnectionResponse());
             }
             catch (NotSupportedException ex)
             {
@@ -121,7 +112,6 @@ public sealed record IntegrationConnectionResponse(
     string Provider,
     string Transport,
     string State,
-    string? MatrixUserId,
     Uri? ActionUrl,
     DateTimeOffset? LastSyncedAt,
     bool RequiresAction);

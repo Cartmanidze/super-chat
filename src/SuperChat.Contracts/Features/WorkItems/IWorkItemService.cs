@@ -4,7 +4,7 @@ namespace SuperChat.Contracts.Features.WorkItems;
 
 public interface IWorkItemService
 {
-    Task IngestRangeAsync(IEnumerable<ExtractedItem> items, CancellationToken cancellationToken);
+    Task AcceptRangeAsync(IEnumerable<ExtractedItem> items, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<WorkItemRecord>> GetForUserAsync(Guid userId, CancellationToken cancellationToken);
 

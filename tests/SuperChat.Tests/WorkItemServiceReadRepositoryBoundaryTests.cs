@@ -15,7 +15,7 @@ public sealed class WorkItemServiceReadRepositoryBoundaryTests
     {
         var constructor = typeof(WorkItemService).GetConstructor(
         [
-            typeof(WorkItemIngestionService),
+            typeof(WorkItemWriter),
             typeof(IWorkItemRepository),
             typeof(TimeProvider)
         ]);
@@ -62,7 +62,7 @@ public sealed class WorkItemServiceReadRepositoryBoundaryTests
     {
         var constructor = typeof(WorkItemService).GetConstructor(
         [
-            typeof(WorkItemIngestionService),
+            typeof(WorkItemWriter),
             typeof(IWorkItemRepository),
             typeof(TimeProvider)
         ]);
@@ -71,10 +71,10 @@ public sealed class WorkItemServiceReadRepositoryBoundaryTests
 
         return (WorkItemService)constructor.Invoke(
         [
-            new WorkItemIngestionService(
+            new WorkItemWriter(
                 Substitute.For<IDbContextFactory<SuperChatDbContext>>(),
                 Substitute.For<IMeetingService>(),
-                NullLogger<WorkItemIngestionService>.Instance),
+                NullLogger<WorkItemWriter>.Instance),
             repository,
             TimeProvider.System
         ]);

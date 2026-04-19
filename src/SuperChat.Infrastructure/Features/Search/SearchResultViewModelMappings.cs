@@ -26,7 +26,7 @@ internal static class SearchResultViewModelMappings
             message.SenderName,
             message.Text,
             "Message",
-            message.MatrixRoomId,
+            message.ExternalChatId,
             message.SentAt,
             null,
             null);

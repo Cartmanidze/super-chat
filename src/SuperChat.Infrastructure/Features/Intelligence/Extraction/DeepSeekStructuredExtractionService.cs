@@ -221,7 +221,7 @@ public sealed class DeepSeekStructuredExtractionService(
         return $$"""
             Dialogue metadata:
             - source: {{window.Source}}
-            - room_id: {{window.MatrixRoomId}}
+            - room_id: {{window.ExternalChatId}}
             - message_count: {{window.Messages.Count}}
             - ts_from_utc: {{window.TsFrom.UtcDateTime.ToString("O", CultureInfo.InvariantCulture)}}
             - ts_to_utc: {{window.TsTo.UtcDateTime.ToString("O", CultureInfo.InvariantCulture)}}

@@ -6,7 +6,7 @@ public interface IChunkBuilderService
 
     Task<ChunkBuildRunResult> BuildConversationChunksAsync(
         Guid userId,
-        string matrixRoomId,
+        string externalChatId,
         DateTimeOffset rebuildFrom,
         CancellationToken cancellationToken);
 }

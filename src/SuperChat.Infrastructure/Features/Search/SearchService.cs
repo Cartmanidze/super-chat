@@ -39,7 +39,7 @@ public sealed class SearchService(
             .Where(message =>
                 message.Text.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
                 message.SenderName.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
-                message.MatrixRoomId.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase))
+                message.ExternalChatId.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase))
             .Select(message => message.ToSearchResultViewModel())
             .ToList();
 

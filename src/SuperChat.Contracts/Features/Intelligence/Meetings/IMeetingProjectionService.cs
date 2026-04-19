@@ -6,7 +6,7 @@ public interface IMeetingProjectionService
 
     Task<MeetingProjectionRunResult> ProjectConversationMeetingsAsync(
         Guid userId,
-        string matrixRoomId,
+        string externalChatId,
         CancellationToken cancellationToken);
 }
 

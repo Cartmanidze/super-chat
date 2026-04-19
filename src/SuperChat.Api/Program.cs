@@ -30,7 +30,6 @@ builder.Services.AddValidatorsFromAssemblyContaining<SuperChat.Api.Program>();
 builder.Services.AddApiDocumentation();
 builder.Services.AddSuperChatBootstrap(
     builder.Configuration,
-    enableMatrixSyncWorker: false,
     enablePipelineScheduling: false,
     enablePipelineConsumers: false);
 

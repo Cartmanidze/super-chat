@@ -15,20 +15,20 @@ internal sealed class WorkItemAutoResolutionService(
 {
     public async Task ResolveAsync(Guid userId, CancellationToken cancellationToken)
     {
-        await ResolveCoreAsync(userId, matrixRoomId: null, cancellationToken);
+        await ResolveCoreAsync(userId, externalChatId: null, cancellationToken);
     }
 
     public async Task ResolveConversationAsync(
         Guid userId,
-        string matrixRoomId,
+        string externalChatId,
         CancellationToken cancellationToken)
     {
-        await ResolveCoreAsync(userId, matrixRoomId, cancellationToken);
+        await ResolveCoreAsync(userId, externalChatId, cancellationToken);
     }
 
     private async Task ResolveCoreAsync(
         Guid userId,
-        string? matrixRoomId,
+        string? externalChatId,
         CancellationToken cancellationToken)
     {
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -39,18 +39,18 @@ internal sealed class WorkItemAutoResolutionService(
                            item.ResolvedAt == null &&
                            item.ObservedAt <= cooldownThreshold);
 
-        if (!string.IsNullOrWhiteSpace(matrixRoomId))
+        if (!string.IsNullOrWhiteSpace(externalChatId))
         {
-            candidatesQuery = candidatesQuery.Where(item => item.SourceRoom == matrixRoomId);
+            candidatesQuery = candidatesQuery.Where(item => item.SourceRoom == externalChatId);
         }
 
         var candidates = await candidatesQuery
             .ToListAsync(cancellationToken);
 
         logger.LogInformation(
-            "Loaded work item auto-resolution candidates. CandidateCount={CandidateCount}, MatrixRoomId={MatrixRoomId}.",
+            "Loaded work item auto-resolution candidates. CandidateCount={CandidateCount}, ExternalChatId={ExternalChatId}.",
             candidates.Count,
-            matrixRoomId ?? "(all)");
+            externalChatId ?? "(all)");
 
         if (candidates.Count == 0)
         {
@@ -66,14 +66,14 @@ internal sealed class WorkItemAutoResolutionService(
         var messages = await dbContext.NormalizedMessages
             .AsNoTracking()
             .Where(item => item.UserId == userId &&
-                           roomIds.Contains(item.MatrixRoomId))
+                           roomIds.Contains(item.ExternalChatId))
             .ToListAsync(cancellationToken);
 
         var messagesByRoom = messages
             .Where(item => item.SentAt >= observedFrom)
             .OrderBy(item => item.SentAt)
-            .ThenBy(item => item.IngestedAt)
-            .GroupBy(item => item.MatrixRoomId, StringComparer.Ordinal)
+            .ThenBy(item => item.ReceivedAt)
+            .GroupBy(item => item.ExternalChatId, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => (IReadOnlyList<NormalizedMessageEntity>)group.ToList(), StringComparer.Ordinal);
 
         var changed = false;
@@ -124,6 +124,6 @@ internal sealed class WorkItemAutoResolutionService(
         }
 
         return message.SentAt == item.ObservedAt &&
-               !string.Equals(message.MatrixEventId, item.SourceEventId, StringComparison.Ordinal);
+               !string.Equals(message.ExternalMessageId, item.SourceEventId, StringComparison.Ordinal);
     }
 }

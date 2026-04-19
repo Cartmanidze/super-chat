@@ -31,55 +31,6 @@ services:
       timeout: 5s
       retries: 10
 
-  synapse:
-    image: matrixdotorg/synapse:v1.128.0
-    restart: unless-stopped
-    labels:
-      com.superchat.service: synapse
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      <<: *superchat-log-env
-      SYNAPSE_CONFIG_PATH: /data/homeserver.yaml
-    logging: *superchat-json-logging
-    volumes:
-      - ./synapse:/data
-
-  mautrix-telegram:
-    build:
-      context: ./mautrix-image
-    image: prod-mautrix-telegram:hotfix
-    restart: unless-stopped
-    labels:
-      com.superchat.service: mautrix-telegram
-    depends_on:
-      postgres:
-        condition: service_healthy
-      synapse:
-        condition: service_started
-    environment:
-      <<: *superchat-log-env
-    logging: *superchat-json-logging
-    volumes:
-      - ./mautrix:/data
-
-  mautrix-telegram-helper:
-    build:
-      context: ./mautrix-helper-image
-    image: prod-mautrix-telegram-helper:hotfix
-    restart: unless-stopped
-    labels:
-      com.superchat.service: mautrix-telegram-helper
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      <<: *superchat-log-env
-    logging: *superchat-json-logging
-    volumes:
-      - ./mautrix:/data
-
   qdrant:
     image: qdrant/qdrant:v1.15.4
     restart: unless-stopped
@@ -210,6 +161,41 @@ services:
       TEXT_ENRICHMENT_LOG_LEVEL: ${TEXT_ENRICHMENT_LOG_LEVEL:-INFO}
     logging: *superchat-json-logging
 
+  telegram-userbot-service:
+    build:
+      context: ../telegram-userbot-service
+    image: prod-superchat-telegram-userbot:hotfix
+    restart: unless-stopped
+    labels:
+      com.superchat.service: telegram-userbot-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      <<: *superchat-log-env
+      SERVICE_PORT: ${TELEGRAM_USERBOT_PORT:-7491}
+      LOG_LEVEL: ${TELEGRAM_USERBOT_LOG_LEVEL:-INFO}
+      DATABASE_URL: ${TELEGRAM_USERBOT_DATABASE_URL}
+      SUPERCHAT_API_URL: ${TELEGRAM_USERBOT_SUPERCHAT_API_URL:-http://superchat-worker:8080}
+      TELEGRAM_API_ID: ${TELEGRAM_API_ID}
+      TELEGRAM_API_HASH: ${TELEGRAM_API_HASH}
+      TELEGRAM_SESSION_ENCRYPTION_KEY: ${TELEGRAM_SESSION_ENCRYPTION_KEY}
+      HMAC_SECRET: ${TELEGRAM_USERBOT_HMAC_SECRET}
+    logging: *superchat-json-logging
+
+  max-userbot-service:
+    build:
+      context: ../max-userbot-service
+    image: prod-superchat-max-userbot:hotfix
+    restart: unless-stopped
+    labels:
+      com.superchat.service: max-userbot-service
+    environment:
+      <<: *superchat-log-env
+      SERVICE_PORT: ${MAX_USERBOT_PORT:-7591}
+      LOG_LEVEL: ${MAX_USERBOT_LOG_LEVEL:-INFO}
+    logging: *superchat-json-logging
+
   superchat-db-migrator:
     image: ${SUPERCHAT_DB_MIGRATOR_IMAGE:-ghcr.io/cartmanidze/superchat-db-migrator:main}
     profiles:
@@ -296,15 +282,17 @@ services:
       SuperChat__MaxVerificationAttempts: ${SUPERCHAT_MAX_VERIFICATION_ATTEMPTS:-5}
       SuperChat__ApiSessionDays: ${SUPERCHAT_API_SESSION_DAYS}
       SuperChat__DevSeedSampleData: ${SUPERCHAT_DEV_SEED_SAMPLE_DATA}
-      SuperChat__EnableGroupIngestion: ${SUPERCHAT_ENABLE_GROUP_INGESTION:-false}
-      SuperChat__MaxIngestedGroupMembers: ${SUPERCHAT_MAX_INGESTED_GROUP_MEMBERS:-30}
+      SuperChat__EnableGroupMessages: ${SUPERCHAT_ENABLE_GROUP_MESSAGES:-false}
+      SuperChat__MaxGroupMembers: ${SUPERCHAT_MAX_GROUP_MEMBERS:-30}
       SuperChat__TodayTimeZoneId: ${SUPERCHAT_TODAY_TIME_ZONE_ID:-Europe/Moscow}
-      Matrix__HomeserverUrl: ${MATRIX_INTERNAL_BASEURL:-http://synapse:8008}
-      Matrix__AdminAccessToken: ${MATRIX_ADMIN_ACCESS_TOKEN}
-      Matrix__UserIdPrefix: ${MATRIX_USER_ID_PREFIX}
-      TelegramBridge__BotUserId: ${TELEGRAM_BRIDGE_BOT_USER_ID}
-      TelegramBridge__WebLoginBaseUrl: ${TELEGRAM_BRIDGE_WEB_LOGIN_BASE_URL}
-      TelegramBridge__ParticipantCountBaseUrl: ${TELEGRAM_BRIDGE_PARTICIPANT_COUNT_BASE_URL:-http://mautrix-telegram-helper:29318}
+      TelegramUserbot__Enabled: ${TELEGRAM_USERBOT_ENABLED:-false}
+      TelegramUserbot__BaseUrl: ${TELEGRAM_USERBOT_BASE_URL:-http://telegram-userbot-service:7491}
+      TelegramUserbot__HmacSecret: ${TELEGRAM_USERBOT_HMAC_SECRET}
+      TelegramUserbot__TimeoutSeconds: ${TELEGRAM_USERBOT_TIMEOUT_SECONDS:-30}
+      MaxUserbot__Enabled: ${MAX_USERBOT_ENABLED:-false}
+      MaxUserbot__BaseUrl: ${MAX_USERBOT_BASE_URL:-http://max-userbot-service:7591}
+      MaxUserbot__HmacSecret: ${MAX_USERBOT_HMAC_SECRET}
+      MaxUserbot__TimeoutSeconds: ${MAX_USERBOT_TIMEOUT_SECONDS:-30}
       Email__FromSender: ${EMAIL_FROM}
       Email__SmtpHost: ${EMAIL_SMTP_HOST}
       Email__SmtpPort: ${EMAIL_SMTP_PORT}
@@ -386,15 +374,17 @@ services:
       SuperChat__MaxVerificationAttempts: ${SUPERCHAT_MAX_VERIFICATION_ATTEMPTS:-5}
       SuperChat__ApiSessionDays: ${SUPERCHAT_API_SESSION_DAYS}
       SuperChat__DevSeedSampleData: ${SUPERCHAT_DEV_SEED_SAMPLE_DATA}
-      SuperChat__EnableGroupIngestion: ${SUPERCHAT_ENABLE_GROUP_INGESTION:-false}
-      SuperChat__MaxIngestedGroupMembers: ${SUPERCHAT_MAX_INGESTED_GROUP_MEMBERS:-30}
+      SuperChat__EnableGroupMessages: ${SUPERCHAT_ENABLE_GROUP_MESSAGES:-false}
+      SuperChat__MaxGroupMembers: ${SUPERCHAT_MAX_GROUP_MEMBERS:-30}
       SuperChat__TodayTimeZoneId: ${SUPERCHAT_TODAY_TIME_ZONE_ID:-Europe/Moscow}
-      Matrix__HomeserverUrl: ${MATRIX_INTERNAL_BASEURL:-http://synapse:8008}
-      Matrix__AdminAccessToken: ${MATRIX_ADMIN_ACCESS_TOKEN}
-      Matrix__UserIdPrefix: ${MATRIX_USER_ID_PREFIX}
-      TelegramBridge__BotUserId: ${TELEGRAM_BRIDGE_BOT_USER_ID}
-      TelegramBridge__WebLoginBaseUrl: ${TELEGRAM_BRIDGE_WEB_LOGIN_BASE_URL}
-      TelegramBridge__ParticipantCountBaseUrl: ${TELEGRAM_BRIDGE_PARTICIPANT_COUNT_BASE_URL:-http://mautrix-telegram-helper:29318}
+      TelegramUserbot__Enabled: ${TELEGRAM_USERBOT_ENABLED:-false}
+      TelegramUserbot__BaseUrl: ${TELEGRAM_USERBOT_BASE_URL:-http://telegram-userbot-service:7491}
+      TelegramUserbot__HmacSecret: ${TELEGRAM_USERBOT_HMAC_SECRET}
+      TelegramUserbot__TimeoutSeconds: ${TELEGRAM_USERBOT_TIMEOUT_SECONDS:-30}
+      MaxUserbot__Enabled: ${MAX_USERBOT_ENABLED:-false}
+      MaxUserbot__BaseUrl: ${MAX_USERBOT_BASE_URL:-http://max-userbot-service:7591}
+      MaxUserbot__HmacSecret: ${MAX_USERBOT_HMAC_SECRET}
+      MaxUserbot__TimeoutSeconds: ${MAX_USERBOT_TIMEOUT_SECONDS:-30}
       Email__FromSender: ${EMAIL_FROM}
       Email__SmtpHost: ${EMAIL_SMTP_HOST}
       Email__SmtpPort: ${EMAIL_SMTP_PORT}
@@ -443,10 +433,6 @@ services:
       superchat-web:
         condition: service_started
       superchat-api:
-        condition: service_started
-      synapse:
-        condition: service_started
-      mautrix-telegram:
         condition: service_started
     environment:
       <<: *superchat-log-env

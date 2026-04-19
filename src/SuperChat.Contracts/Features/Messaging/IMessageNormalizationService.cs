@@ -6,8 +6,9 @@ public interface IMessageNormalizationService
 {
     Task<bool> TryStoreAsync(
         Guid userId,
-        string roomId,
-        string eventId,
+        string source,
+        string externalChatId,
+        string externalMessageId,
         string senderName,
         string text,
         DateTimeOffset sentAt,
@@ -18,7 +19,7 @@ public interface IMessageNormalizationService
     Task<IReadOnlyList<NormalizedMessage>> GetPendingMessagesForConversationAsync(
         Guid userId,
         string source,
-        string matrixRoomId,
+        string externalChatId,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyList<NormalizedMessage>> GetRecentMessagesAsync(Guid userId, int take, CancellationToken cancellationToken);

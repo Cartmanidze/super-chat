@@ -61,33 +61,34 @@
     ports:
       - "${TEXT_ENRICHMENT_PORT:-7391}:${TEXT_ENRICHMENT_PORT:-7391}"
 
-  synapse:
-    image: ${SYNAPSE_IMAGE:-matrixdotorg/synapse:v1.128.0}
-    user: "0:0"
+  telegram-userbot-service:
+    build:
+      context: ./telegram-userbot-service
     restart: unless-stopped
-    entrypoint:
-      - /bin/sh
-      - /data/start-with-registration.sh
     depends_on:
       postgres:
         condition: service_healthy
     environment:
-      SYNAPSE_CONFIG_PATH: /data/homeserver.yaml
-    volumes:
-      - ./synapse:/data
+      SERVICE_PORT: ${TELEGRAM_USERBOT_PORT:-7491}
+      LOG_LEVEL: ${TELEGRAM_USERBOT_LOG_LEVEL:-INFO}
+      DATABASE_URL: ${TELEGRAM_USERBOT_DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/superchat_app}
+      SUPERCHAT_API_URL: ${TELEGRAM_USERBOT_SUPERCHAT_API_URL:-http://superchat-worker:8080}
+      TELEGRAM_API_ID: ${TELEGRAM_API_ID}
+      TELEGRAM_API_HASH: ${TELEGRAM_API_HASH}
+      TELEGRAM_SESSION_ENCRYPTION_KEY: ${TELEGRAM_SESSION_ENCRYPTION_KEY}
+      HMAC_SECRET: ${TELEGRAM_USERBOT_HMAC_SECRET}
     ports:
-      - "${SYNAPSE_PORT:-8008}:8008"
+      - "${TELEGRAM_USERBOT_PORT:-7491}:${TELEGRAM_USERBOT_PORT:-7491}"
 
-  mautrix-telegram:
-    image: ${MAUTRIX_TELEGRAM_IMAGE:-dock.mau.dev/mautrix/telegram:latest}
+  max-userbot-service:
+    build:
+      context: ./max-userbot-service
     restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-      synapse:
-        condition: service_started
-    volumes:
-      - ./mautrix:/data
+    environment:
+      SERVICE_PORT: ${MAX_USERBOT_PORT:-7591}
+      LOG_LEVEL: ${MAX_USERBOT_LOG_LEVEL:-INFO}
+    ports:
+      - "${MAX_USERBOT_PORT:-7591}:${MAX_USERBOT_PORT:-7591}"
 
   superchat-db-migrator:
     build:
@@ -153,10 +154,6 @@
       SuperChat__MaxVerificationAttempts: 5
       SuperChat__DevSeedSampleData: "true"
       SuperChat__AdminEmails__0: pilot@example.com
-      Matrix__HomeserverUrl: http://synapse:8008
-      Matrix__UserIdPrefix: superchat
-      TelegramBridge__BotUserId: "@telegrambot:matrix.localhost"
-      TelegramBridge__WebLoginBaseUrl: http://bridge.localhost/public
       Email__FromSender: Super Chat <hello@superchat.local>
       Email__SmtpHost: mailpit
       Email__SmtpPort: 1025
@@ -196,10 +193,6 @@
       SuperChat__MaxVerificationAttempts: 5
       SuperChat__DevSeedSampleData: "true"
       SuperChat__AdminEmails__0: pilot@example.com
-      Matrix__HomeserverUrl: http://synapse:8008
-      Matrix__UserIdPrefix: superchat
-      TelegramBridge__BotUserId: "@telegrambot:matrix.localhost"
-      TelegramBridge__WebLoginBaseUrl: http://bridge.localhost/public
       Email__FromSender: Super Chat <hello@superchat.local>
       Email__SmtpHost: mailpit
       Email__SmtpPort: 1025
@@ -210,8 +203,6 @@
     image: caddy:2.8
     restart: unless-stopped
     depends_on:
-      synapse:
-        condition: service_started
       superchat-web:
         condition: service_started
       superchat-api:

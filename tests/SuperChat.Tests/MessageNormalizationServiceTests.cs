@@ -18,6 +18,7 @@ public sealed class MessageNormalizationServiceTests
 
         var stored = await service.TryStoreAsync(
             Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+            "telegram",
             "!room:matrix.localhost",
             "$evt-1",
             "Alice",
@@ -31,7 +32,7 @@ public sealed class MessageNormalizationServiceTests
         var dispatch = scheduler.Dispatches[0];
         Assert.Equal(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"), dispatch.UserId);
         Assert.Equal("telegram", dispatch.Source);
-        Assert.Equal("!room:matrix.localhost", dispatch.MatrixRoomId);
+        Assert.Equal("!room:matrix.localhost", dispatch.ExternalChatId);
         Assert.Equal(sentAt, dispatch.SentAt);
     }
 
@@ -46,6 +47,7 @@ public sealed class MessageNormalizationServiceTests
 
         await service.TryStoreAsync(
             userId,
+            "telegram",
             "!room:matrix.localhost",
             "$evt-1",
             "Alice",
@@ -55,6 +57,7 @@ public sealed class MessageNormalizationServiceTests
 
         var stored = await service.TryStoreAsync(
             userId,
+            "telegram",
             "!room:matrix.localhost",
             "$evt-1",
             "Alice",
@@ -88,13 +91,13 @@ public sealed class MessageNormalizationServiceTests
             SuperChatDbContext dbContext,
             Guid userId,
             string source,
-            string matrixRoomId,
+            string externalChatId,
             Guid normalizedMessageId,
-            string matrixEventId,
+            string externalMessageId,
             DateTimeOffset sentAt,
             CancellationToken cancellationToken)
         {
-            Dispatches.Add(new RecordedDispatch(userId, source, matrixRoomId, normalizedMessageId, matrixEventId, sentAt));
+            Dispatches.Add(new RecordedDispatch(userId, source, externalChatId, normalizedMessageId, externalMessageId, sentAt));
             return Task.CompletedTask;
         }
     }
@@ -102,9 +105,9 @@ public sealed class MessageNormalizationServiceTests
     private sealed record RecordedDispatch(
         Guid UserId,
         string Source,
-        string MatrixRoomId,
+        string ExternalChatId,
         Guid NormalizedMessageId,
-        string MatrixEventId,
+        string ExternalMessageId,
         DateTimeOffset SentAt);
 
     private sealed class TestDbContextFactory(DbContextOptions<SuperChatDbContext> options) : IDbContextFactory<SuperChatDbContext>

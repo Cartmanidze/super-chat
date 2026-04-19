@@ -27,25 +27,6 @@ ${SUPERCHAT_API_HOST} {
   reverse_proxy superchat-api:8080
 }
 
-${MATRIX_SERVER_NAME} {
-  log {
-    output stdout
-    format json
-  }
-
-  reverse_proxy synapse:8008
-}
-
-${TELEGRAM_BRIDGE_HOST} {
-  log {
-    output stdout
-    format json
-  }
-
-  redir / /public/ 308
-  reverse_proxy mautrix-telegram:29317
-}
-
 ${GRAFANA_HOST} {
   log {
     output stdout

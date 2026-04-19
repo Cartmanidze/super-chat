@@ -12,11 +12,9 @@ public sealed class SuperChatDbContext(DbContextOptions<SuperChatDbContext> opti
 
     internal DbSet<ApiSessionEntity> ApiSessions => Set<ApiSessionEntity>();
 
-    internal DbSet<MatrixIdentityEntity> MatrixIdentities => Set<MatrixIdentityEntity>();
-
     internal DbSet<TelegramConnectionEntity> TelegramConnections => Set<TelegramConnectionEntity>();
 
-    internal DbSet<SyncCheckpointEntity> SyncCheckpoints => Set<SyncCheckpointEntity>();
+    internal DbSet<TelegramSessionEntity> TelegramSessions => Set<TelegramSessionEntity>();
 
     internal DbSet<NormalizedMessageEntity> NormalizedMessages => Set<NormalizedMessageEntity>();
 

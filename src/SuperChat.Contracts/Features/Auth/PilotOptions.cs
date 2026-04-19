@@ -14,9 +14,9 @@ public sealed class PilotOptions
 
     public bool DevSeedSampleData { get; set; } = true;
 
-    public bool EnableGroupIngestion { get; set; } = false;
+    public bool EnableGroupMessages { get; set; } = false;
 
-    public int MaxIngestedGroupMembers { get; set; } = 30;
+    public int MaxGroupMembers { get; set; } = 30;
 
     public string TodayTimeZoneId { get; set; } = "Europe/Moscow";
 

@@ -16,4 +16,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="SuperChat.Worker.Tests" />
+  </ItemGroup>
+
 </Project>

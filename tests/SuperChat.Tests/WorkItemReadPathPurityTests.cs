@@ -38,12 +38,12 @@ public sealed class WorkItemReadPathPurityTests
                 Id = Guid.NewGuid(),
                 UserId = userId,
                 Source = "telegram",
-                MatrixRoomId = "!sales:matrix.localhost",
-                MatrixEventId = "$evt-reply",
+                ExternalChatId = "!sales:matrix.localhost",
+                ExternalMessageId = "$evt-reply",
                 SenderName = "You",
                 Text = "I will send the answer in an hour.",
                 SentAt = observedAt.AddMinutes(5),
-                IngestedAt = observedAt.AddMinutes(5),
+                ReceivedAt = observedAt.AddMinutes(5),
                 Processed = true
             });
 
@@ -66,7 +66,7 @@ public sealed class WorkItemReadPathPurityTests
     private static WorkItemService CreateService(IDbContextFactory<SuperChatDbContext> factory)
     {
         return new WorkItemService(
-            new WorkItemIngestionService(factory, CreateMeetingService(factory), NullLogger<WorkItemIngestionService>.Instance),
+            new WorkItemWriter(factory, CreateMeetingService(factory), NullLogger<WorkItemWriter>.Instance),
             new EfWorkItemRepository(factory),
             TimeProvider.System);
     }

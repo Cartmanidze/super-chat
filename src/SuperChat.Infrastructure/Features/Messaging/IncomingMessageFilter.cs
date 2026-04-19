@@ -4,58 +4,58 @@ using SuperChat.Contracts.Features.Operations;
 
 namespace SuperChat.Infrastructure.Features.Messaging;
 
-public sealed partial class IncomingMessageFilter(IOptions<MessageIngestionFilterOptions> options)
+public sealed partial class IncomingMessageFilter(IOptions<IncomingMessageFilterOptions> options)
 {
-    internal MessageIngestionFilterResult Evaluate(string messageType, string body, bool? senderIsBot)
+    internal IncomingMessageFilterResult Evaluate(string messageType, string body, bool? senderIsBot)
     {
         return Evaluate(options.Value, messageType, body, senderIsBot);
     }
 
-    internal static MessageIngestionFilterResult Evaluate(
-        MessageIngestionFilterOptions options,
+    internal static IncomingMessageFilterResult Evaluate(
+        IncomingMessageFilterOptions options,
         string messageType,
         string body,
         bool? senderIsBot)
     {
         if (!options.Enabled)
         {
-            return MessageIngestionFilterResult.Allow;
+            return IncomingMessageFilterResult.Allow;
         }
 
-        if (!ShouldIngestMessageBody(body))
+        if (!ShouldAcceptMessageBody(body))
         {
-            return MessageIngestionFilterResult.Reject("blocked_body");
+            return IncomingMessageFilterResult.Reject("blocked_body");
         }
 
         if (!IsAllowedMessageType(options, messageType))
         {
-            return MessageIngestionFilterResult.Reject("message_type");
+            return IncomingMessageFilterResult.Reject("message_type");
         }
 
         if (senderIsBot == true)
         {
-            return MessageIngestionFilterResult.Reject("automated_sender");
+            return IncomingMessageFilterResult.Reject("automated_sender");
         }
 
         if (ContainsInviteLink(body, options.InviteLinkFragments))
         {
-            return MessageIngestionFilterResult.Reject("invite_link");
+            return IncomingMessageFilterResult.Reject("invite_link");
         }
 
         if (HasTooManyUrls(body, options.MaxAllowedUrls))
         {
-            return MessageIngestionFilterResult.Reject("too_many_urls");
+            return IncomingMessageFilterResult.Reject("too_many_urls");
         }
 
         if (LooksLikeLinkOnlyMessage(body, options.MinTextCharactersWhenLinksPresent))
         {
-            return MessageIngestionFilterResult.Reject("link_only");
+            return IncomingMessageFilterResult.Reject("link_only");
         }
 
-        return MessageIngestionFilterResult.Allow;
+        return IncomingMessageFilterResult.Allow;
     }
 
-    internal static bool ShouldIngestMessageBody(string body)
+    internal static bool ShouldAcceptMessageBody(string body)
     {
         if (string.IsNullOrWhiteSpace(body))
         {
@@ -67,7 +67,7 @@ public sealed partial class IncomingMessageFilter(IOptions<MessageIngestionFilte
                !normalized.StartsWith("Переслано из канала ", StringComparison.OrdinalIgnoreCase);
     }
 
-    internal static bool IsAllowedMessageType(MessageIngestionFilterOptions options, string messageType)
+    internal static bool IsAllowedMessageType(IncomingMessageFilterOptions options, string messageType)
     {
         var allowedTypes = options.AllowedMessageTypes ?? [];
         if (allowedTypes.Length == 0)
@@ -131,9 +131,9 @@ public sealed partial class IncomingMessageFilter(IOptions<MessageIngestionFilte
     private static partial Regex UrlRegex();
 }
 
-internal readonly record struct MessageIngestionFilterResult(bool ShouldIngest, string? Reason)
+internal readonly record struct IncomingMessageFilterResult(bool ShouldAccept, string? Reason)
 {
-    internal static MessageIngestionFilterResult Allow { get; } = new(true, null);
+    internal static IncomingMessageFilterResult Allow { get; } = new(true, null);
 
-    internal static MessageIngestionFilterResult Reject(string reason) => new(false, reason);
+    internal static IncomingMessageFilterResult Reject(string reason) => new(false, reason);
 }

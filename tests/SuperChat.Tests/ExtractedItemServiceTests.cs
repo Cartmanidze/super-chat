@@ -24,7 +24,7 @@ public sealed class ExtractedItemServiceTests
         var userId = Guid.NewGuid();
         var service = CreateService(factory);
 
-        await service.IngestRangeAsync(
+        await service.AcceptRangeAsync(
         [
             new ExtractedItem(
                 Guid.NewGuid(),
@@ -101,7 +101,7 @@ public sealed class ExtractedItemServiceTests
         var service = CreateService(factory);
         var dueAt = new DateTimeOffset(2026, 03, 13, 11, 00, 00, TimeSpan.FromHours(6));
 
-        await service.IngestRangeAsync(
+        await service.AcceptRangeAsync(
         [
             new ExtractedItem(
                 Guid.NewGuid(),
@@ -144,7 +144,7 @@ public sealed class ExtractedItemServiceTests
         var dueAt = new DateTimeOffset(2026, 03, 13, 11, 00, 00, TimeSpan.FromHours(6));
         var joinUrl = new Uri("https://meet.google.com/abc-defg-hij");
 
-        await service.IngestRangeAsync(
+        await service.AcceptRangeAsync(
         [
             new ExtractedItem(
                 Guid.NewGuid(),
@@ -191,8 +191,8 @@ public sealed class ExtractedItemServiceTests
                 Id = Guid.NewGuid(),
                 UserId = userId,
                 Source = "telegram",
-                MatrixRoomId = "!interview:matrix.localhost",
-                MatrixEventId = "$evt-telemost",
+                ExternalChatId = "!interview:matrix.localhost",
+                ExternalMessageId = "$evt-telemost",
                 SenderName = "Stas",
                 Text = """
                     напоминаю про сегоднешнее собеседование в 18:00, ссылка на яндекс теелмост
@@ -204,14 +204,14 @@ public sealed class ExtractedItemServiceTests
                     По ссылке вы сможете подключиться к звонку
                     """,
                 SentAt = dueAt.AddHours(-5),
-                IngestedAt = dueAt.AddHours(-5),
+                ReceivedAt = dueAt.AddHours(-5),
                 Processed = true
             });
 
             await dbContext.SaveChangesAsync(CancellationToken.None);
         }
 
-        await service.IngestRangeAsync(
+        await service.AcceptRangeAsync(
         [
             new ExtractedItem(
                 Guid.NewGuid(),
@@ -264,12 +264,12 @@ public sealed class ExtractedItemServiceTests
                 Id = Guid.NewGuid(),
                 UserId = userId,
                 Source = "telegram",
-                MatrixRoomId = "!sales:matrix.localhost",
-                MatrixEventId = "$evt-reply",
+                ExternalChatId = "!sales:matrix.localhost",
+                ExternalMessageId = "$evt-reply",
                 SenderName = "You",
                 Text = "I will send the answer in an hour.",
                 SentAt = observedAt.AddMinutes(5),
-                IngestedAt = observedAt.AddMinutes(5),
+                ReceivedAt = observedAt.AddMinutes(5),
                 Processed = true
             });
 
@@ -317,12 +317,12 @@ public sealed class ExtractedItemServiceTests
                 Id = Guid.NewGuid(),
                 UserId = userId,
                 Source = "telegram",
-                MatrixRoomId = "!sales:matrix.localhost",
-                MatrixEventId = "$evt-done",
+                ExternalChatId = "!sales:matrix.localhost",
+                ExternalMessageId = "$evt-done",
                 SenderName = "You",
                 Text = "готово, отправил финальный дек",
                 SentAt = observedAt.AddMinutes(7),
-                IngestedAt = observedAt.AddMinutes(7),
+                ReceivedAt = observedAt.AddMinutes(7),
                 Processed = true
             });
 
@@ -372,12 +372,12 @@ public sealed class ExtractedItemServiceTests
                 Id = Guid.NewGuid(),
                 UserId = userId,
                 Source = "telegram",
-                MatrixRoomId = "!team:matrix.localhost",
-                MatrixEventId = "$evt-after-call",
+                ExternalChatId = "!team:matrix.localhost",
+                ExternalMessageId = "$evt-after-call",
                 SenderName = "Alex",
                 Text = "Thanks for the call, I will follow up with notes.",
                 SentAt = scheduledFor.AddMinutes(15),
-                IngestedAt = scheduledFor.AddMinutes(15),
+                ReceivedAt = scheduledFor.AddMinutes(15),
                 Processed = true
             });
 
@@ -439,12 +439,12 @@ public sealed class ExtractedItemServiceTests
                 Id = Guid.NewGuid(),
                 UserId = userId,
                 Source = "telegram",
-                MatrixRoomId = roomId,
-                MatrixEventId = "$evt-after-call",
+                ExternalChatId = roomId,
+                ExternalMessageId = "$evt-after-call",
                 SenderName = "Alex",
                 Text = "Thanks for the call, I will follow up with notes.",
                 SentAt = handlerNow.AddMinutes(-5),
-                IngestedAt = handlerNow.AddMinutes(-5),
+                ReceivedAt = handlerNow.AddMinutes(-5),
                 Processed = true
             });
 
@@ -652,7 +652,7 @@ public sealed class ExtractedItemServiceTests
     private static WorkItemService CreateService(IDbContextFactory<SuperChatDbContext> factory)
     {
         return new WorkItemService(
-            new WorkItemIngestionService(factory, CreateMeetingService(factory), NullLogger<WorkItemIngestionService>.Instance),
+            new WorkItemWriter(factory, CreateMeetingService(factory), NullLogger<WorkItemWriter>.Instance),
             new EfWorkItemRepository(factory),
             TimeProvider.System);
     }

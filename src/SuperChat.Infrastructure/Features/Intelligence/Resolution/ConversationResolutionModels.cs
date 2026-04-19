@@ -14,14 +14,14 @@ internal sealed record ConversationResolutionCandidate(
     ExtractedItemKind Kind,
     string Title,
     string Summary,
-    string MatrixRoomId,
+    string ExternalChatId,
     string? Person,
     DateTimeOffset ObservedAt,
     DateTimeOffset? DueAt,
     IReadOnlyList<ResolutionMessageSnippet> LaterMessages);
 
 internal sealed record ResolutionMessageSnippet(
-    string MatrixEventId,
+    string ExternalMessageId,
     string SenderName,
     string Text,
     DateTimeOffset SentAt);

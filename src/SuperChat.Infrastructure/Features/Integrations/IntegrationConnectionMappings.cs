@@ -12,7 +12,7 @@ internal static class IntegrationConnectionMappings
             IntegrationProvider.Telegram,
             IntegrationProvider.Telegram.GetDefaultTransport(),
             connection.State.ToIntegrationConnectionState(),
-            connection.WebLoginUrl,
+            ActionUrl: null,
             connection.UpdatedAt,
             connection.LastSyncedAt,
             connection.State.ToChatLoginStep());

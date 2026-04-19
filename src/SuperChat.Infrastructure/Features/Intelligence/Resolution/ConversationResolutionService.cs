@@ -23,11 +23,11 @@ internal sealed class ConversationResolutionService(
 
     public async Task ResolveConversationAsync(
         Guid userId,
-        string matrixRoomId,
+        string externalChatId,
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
-        var candidates = await LoadConversationCandidatesAsync(userId, matrixRoomId, now, cancellationToken);
+        var candidates = await LoadConversationCandidatesAsync(userId, externalChatId, now, cancellationToken);
         logger.LogInformation(
             "Loaded conversation resolution candidates. CandidateCount={CandidateCount}.",
             candidates.Count);
@@ -43,17 +43,17 @@ internal sealed class ConversationResolutionService(
                 appliedCount);
         }
 
-        await workItemAutoResolutionService.ResolveConversationAsync(userId, matrixRoomId, cancellationToken);
-        await meetingAutoResolutionService.ResolveConversationAsync(userId, matrixRoomId, now, cancellationToken);
+        await workItemAutoResolutionService.ResolveConversationAsync(userId, externalChatId, cancellationToken);
+        await meetingAutoResolutionService.ResolveConversationAsync(userId, externalChatId, now, cancellationToken);
     }
 
     public async Task ResolveDueMeetingsAsync(
         Guid userId,
-        string matrixRoomId,
+        string externalChatId,
         DateTimeOffset resolveAfter,
         CancellationToken cancellationToken)
     {
-        var candidates = await LoadDueMeetingCandidatesAsync(userId, matrixRoomId, resolveAfter, cancellationToken);
+        var candidates = await LoadDueMeetingCandidatesAsync(userId, externalChatId, resolveAfter, cancellationToken);
         logger.LogInformation(
             "Loaded due meeting resolution candidates. CandidateCount={CandidateCount}, ResolveAfter={ResolveAfter}.",
             candidates.Count,
@@ -70,12 +70,12 @@ internal sealed class ConversationResolutionService(
                 appliedCount);
         }
 
-        await meetingAutoResolutionService.ResolveDueMeetingsAsync(userId, matrixRoomId, resolveAfter, cancellationToken);
+        await meetingAutoResolutionService.ResolveDueMeetingsAsync(userId, externalChatId, resolveAfter, cancellationToken);
     }
 
     private async Task<IReadOnlyList<ConversationResolutionCandidate>> LoadConversationCandidatesAsync(
         Guid userId,
-        string matrixRoomId,
+        string externalChatId,
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
@@ -86,7 +86,7 @@ internal sealed class ConversationResolutionService(
         var workItems = await dbContext.WorkItems
             .AsNoTracking()
             .Where(item => item.UserId == userId &&
-                           item.SourceRoom == matrixRoomId &&
+                           item.SourceRoom == externalChatId &&
                            item.ResolvedAt == null &&
                            item.ObservedAt <= cooldownThreshold)
             .OrderBy(item => item.ObservedAt)
@@ -96,7 +96,7 @@ internal sealed class ConversationResolutionService(
         var meetings = await dbContext.Meetings
             .AsNoTracking()
             .Where(item => item.UserId == userId &&
-                           item.SourceRoom == matrixRoomId &&
+                           item.SourceRoom == externalChatId &&
                            item.ResolvedAt == null &&
                            item.ScheduledFor != null)
             .OrderBy(item => item.ScheduledFor)
@@ -118,10 +118,10 @@ internal sealed class ConversationResolutionService(
         var messages = await dbContext.NormalizedMessages
             .AsNoTracking()
             .Where(item => item.UserId == userId &&
-                           item.MatrixRoomId == matrixRoomId &&
+                           item.ExternalChatId == externalChatId &&
                            item.SentAt >= observedFrom)
             .OrderBy(item => item.SentAt)
-            .ThenBy(item => item.IngestedAt)
+            .ThenBy(item => item.ReceivedAt)
             .ToListAsync(cancellationToken);
 
         var result = new List<ConversationResolutionCandidate>(workItems.Count + meetings.Count);
@@ -133,7 +133,7 @@ internal sealed class ConversationResolutionService(
 
     private async Task<IReadOnlyList<ConversationResolutionCandidate>> LoadDueMeetingCandidatesAsync(
         Guid userId,
-        string matrixRoomId,
+        string externalChatId,
         DateTimeOffset resolveAfter,
         CancellationToken cancellationToken)
     {
@@ -143,7 +143,7 @@ internal sealed class ConversationResolutionService(
         var meetings = await dbContext.Meetings
             .AsNoTracking()
             .Where(item => item.UserId == userId &&
-                           item.SourceRoom == matrixRoomId &&
+                           item.SourceRoom == externalChatId &&
                            item.ResolvedAt == null &&
                            item.ScheduledFor != null &&
                            item.ScheduledFor <= resolveAfter)
@@ -160,10 +160,10 @@ internal sealed class ConversationResolutionService(
         var messages = await dbContext.NormalizedMessages
             .AsNoTracking()
             .Where(item => item.UserId == userId &&
-                           item.MatrixRoomId == matrixRoomId &&
+                           item.ExternalChatId == externalChatId &&
                            item.SentAt >= observedFrom)
             .OrderBy(item => item.SentAt)
-            .ThenBy(item => item.IngestedAt)
+            .ThenBy(item => item.ReceivedAt)
             .ToListAsync(cancellationToken);
 
         var candidates = meetings
@@ -312,11 +312,11 @@ internal sealed class ConversationResolutionService(
         return messages
             .Where(message => message.SentAt > observedAt ||
                               (message.SentAt == observedAt &&
-                               !string.Equals(message.MatrixEventId, sourceEventId, StringComparison.Ordinal)))
+                               !string.Equals(message.ExternalMessageId, sourceEventId, StringComparison.Ordinal)))
             .Where(message => !string.IsNullOrWhiteSpace(message.Text))
             .Take(Math.Max(1, maxMessages))
             .Select(message => new ResolutionMessageSnippet(
-                message.MatrixEventId,
+                message.ExternalMessageId,
                 message.SenderName,
                 message.Text.Trim(),
                 message.SentAt))

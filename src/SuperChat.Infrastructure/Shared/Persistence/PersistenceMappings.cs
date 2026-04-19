@@ -1,6 +1,5 @@
 using System.Text.Json;
 using SuperChat.Domain.Features.Auth;
-using SuperChat.Domain.Features.Integrations.Matrix;
 using SuperChat.Domain.Features.Integrations.Telegram;
 using SuperChat.Domain.Features.Intelligence;
 using SuperChat.Domain.Features.Messaging;
@@ -21,17 +20,11 @@ internal static class PersistenceMappings
         return new ApiSession(entity.UserId, entity.Token, entity.CreatedAt, entity.ExpiresAt);
     }
 
-    public static MatrixIdentity ToDomain(this MatrixIdentityEntity entity)
-    {
-        return new MatrixIdentity(entity.UserId, entity.MatrixUserId, entity.AccessToken, entity.ProvisionedAt);
-    }
-
     public static TelegramConnection ToDomain(this TelegramConnectionEntity entity)
     {
         return new TelegramConnection(
             entity.UserId,
             entity.State,
-            TryParseAbsoluteUri(entity.WebLoginUrl),
             entity.UpdatedAt,
             entity.LastSyncedAt);
     }
@@ -42,12 +35,12 @@ internal static class PersistenceMappings
             entity.Id,
             entity.UserId,
             entity.Source,
-            entity.MatrixRoomId,
-            entity.MatrixEventId,
+            entity.ExternalChatId,
+            entity.ExternalMessageId,
             entity.SenderName,
             entity.Text,
             entity.SentAt,
-            entity.IngestedAt,
+            entity.ReceivedAt,
             entity.Processed);
     }
 

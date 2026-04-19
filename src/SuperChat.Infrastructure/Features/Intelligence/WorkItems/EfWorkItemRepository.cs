@@ -67,12 +67,12 @@ internal sealed class EfWorkItemRepository(
             .ToList();
     }
 
-    public async Task<IReadOnlyList<WorkItemRecord>> GetUnresolvedByRoomAsync(Guid userId, string matrixRoomId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<WorkItemRecord>> GetUnresolvedByRoomAsync(Guid userId, string externalChatId, CancellationToken cancellationToken)
     {
         await using var db = await GetDbContextAsync(cancellationToken);
         var entities = await db.WorkItems
             .AsNoTracking()
-            .Where(w => w.UserId == userId && w.SourceRoom == matrixRoomId && w.ResolvedAt == null)
+            .Where(w => w.UserId == userId && w.SourceRoom == externalChatId && w.ResolvedAt == null)
             .OrderByDescending(w => w.ObservedAt)
             .ToListAsync(cancellationToken);
 

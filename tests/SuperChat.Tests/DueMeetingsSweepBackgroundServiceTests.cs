@@ -40,12 +40,12 @@ public sealed class DueMeetingsSweepBackgroundServiceTests
                 Id = Guid.NewGuid(),
                 UserId = userId,
                 Source = "telegram",
-                MatrixRoomId = roomId,
-                MatrixEventId = "$evt-after-call",
+                ExternalChatId = roomId,
+                ExternalMessageId = "$evt-after-call",
                 SenderName = "Alex",
                 Text = "Thanks for the call, I will follow up with notes.",
                 SentAt = scheduledFor.AddMinutes(40),
-                IngestedAt = scheduledFor.AddMinutes(40),
+                ReceivedAt = scheduledFor.AddMinutes(40),
                 Processed = true
             });
 

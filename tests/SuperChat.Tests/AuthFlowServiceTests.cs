@@ -2,9 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using SuperChat.Contracts.Features.Auth;
-using SuperChat.Contracts.Features.Integrations.Matrix;
 using SuperChat.Infrastructure.Features.Auth;
-using SuperChat.Infrastructure.Features.Integrations.Matrix;
 using SuperChat.Infrastructure.Shared.Persistence;
 
 namespace SuperChat.Tests;
@@ -116,9 +114,9 @@ public sealed class AuthFlowServiceTests
     // --- VerifyCode tests ---
 
     [Fact]
-    public async Task VerifyCode_CreatesUserAndMatrixIdentity()
+    public async Task VerifyCode_CreatesUser()
     {
-        var (service, sender) = await CreateServiceAsync(["pilot@example.com"], matrixPrefix: "superchat");
+        var (service, sender) = await CreateServiceAsync(["pilot@example.com"]);
 
         await service.SendCodeAsync("pilot@example.com", CancellationToken.None);
 
@@ -265,7 +263,6 @@ public sealed class AuthFlowServiceTests
     private async Task<(AuthFlowService Service, CapturingCodeSender Sender)> CreateServiceAsync(
         IReadOnlyList<string> invitedEmails,
         string[]? adminEmails = null,
-        string? matrixPrefix = null,
         int codeMinutes = 10,
         int maxAttempts = 5)
     {
@@ -278,10 +275,9 @@ public sealed class AuthFlowServiceTests
         };
 
         var factory = await CreateFactoryAsync(invitedEmails, CancellationToken.None);
-        var matrix = new BootstrapMatrixProvisioningService(factory, new MatrixOptions { UserIdPrefix = matrixPrefix ?? "superchat" }, _timeProvider);
         var codeSender = new CapturingCodeSender();
         var logger = NullLogger<AuthFlowService>.Instance;
-        var service = new AuthFlowService(factory, matrix, codeSender, options, _timeProvider, logger);
+        var service = new AuthFlowService(factory, codeSender, options, _timeProvider, logger);
         return (service, codeSender);
     }
 

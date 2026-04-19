@@ -29,17 +29,9 @@ while IFS= read -r line || [ -n "$line" ]; do
   fi
 done < "$ENV_FILE"
 
-mkdir -p "$ROOT_DIR/caddy" "$ROOT_DIR/synapse" "$ROOT_DIR/mautrix"
+mkdir -p "$ROOT_DIR/caddy"
 
 envsubst < "$ROOT_DIR/caddy/Caddyfile.template" > "$ROOT_DIR/caddy/Caddyfile"
-envsubst < "$ROOT_DIR/synapse/homeserver.yaml.template" > "$ROOT_DIR/synapse/homeserver.yaml"
-envsubst < "$ROOT_DIR/synapse/telegram-registration.yaml.template" > "$ROOT_DIR/synapse/telegram-registration.yaml"
-envsubst < "$ROOT_DIR/synapse/telegram-doublepuppet-registration.yaml.template" > "$ROOT_DIR/synapse/telegram-doublepuppet-registration.yaml"
-envsubst < "$ROOT_DIR/mautrix/config.yaml.template" > "$ROOT_DIR/mautrix/config.yaml"
 
 echo "Rendered production configs into:"
 echo "  $ROOT_DIR/caddy/Caddyfile"
-echo "  $ROOT_DIR/synapse/homeserver.yaml"
-echo "  $ROOT_DIR/synapse/telegram-registration.yaml"
-echo "  $ROOT_DIR/synapse/telegram-doublepuppet-registration.yaml"
-echo "  $ROOT_DIR/mautrix/config.yaml"

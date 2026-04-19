@@ -61,8 +61,8 @@ In development, the requested magic link is returned directly in responses and t
 
 Three pilot-specific knobs now live under `SuperChat` config as well:
 
-- `EnableGroupIngestion` controls whether group chats are ingested at all. Direct chats still work even when it is disabled. Default: `false`.
-- `MaxIngestedGroupMembers` controls which Telegram group rooms are ingested. Direct chats are still allowed, and group rooms are limited by participant count. Default: `30`.
+- `EnableGroupMessages` controls whether group chats are accepted at all. Direct chats still work even when it is disabled. Default: `false`.
+- `MaxGroupMembers` controls which Telegram group rooms are accepted. Direct chats are still allowed, and group rooms are limited by participant count. Default: `30`.
 - `TodayTimeZoneId` controls the day boundary for the `Today` digest. Default: `Europe/Moscow`.
 
 Stage-2 retrieval chunking is configured separately under `Chunking`:

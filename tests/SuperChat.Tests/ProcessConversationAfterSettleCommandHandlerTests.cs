@@ -57,18 +57,18 @@ public sealed class ProcessConversationAfterSettleCommandHandlerTests
             workItemService,
             bus,
             Options.Create(new ResolutionOptions()),
-            new FixedTimeProvider(message.IngestedAt.AddMinutes(5)),
+            new FixedTimeProvider(message.ReceivedAt.AddMinutes(5)),
             new TestHostApplicationLifetime(),
             NullLogger<ProcessConversationAfterSettleCommandHandler>.Instance);
 
         await handler.Handle(new ProcessConversationAfterSettleCommand(userId, "telegram", roomId));
 
         Assert.Equal([message.Id], normalizationService.MarkedProcessedIds);
-        Assert.Single(workItemService.IngestedItems);
-        Assert.Single(workItemService.IngestedItems[0]);
+        Assert.Single(workItemService.AcceptedItems);
+        Assert.Single(workItemService.AcceptedItems[0]);
         Assert.Contains(bus.SentMessages, item => item is ResolveConversationItemsCommand resolve &&
                                                   resolve.UserId == userId &&
-                                                  resolve.MatrixRoomId == roomId);
+                                                  resolve.ExternalChatId == roomId);
     }
 
     [Fact]
@@ -99,20 +99,20 @@ public sealed class ProcessConversationAfterSettleCommandHandlerTests
             workItemService,
             bus,
             Options.Create(new ResolutionOptions()),
-            new FixedTimeProvider(message.IngestedAt.AddSeconds(19)),
+            new FixedTimeProvider(message.ReceivedAt.AddSeconds(19)),
             new TestHostApplicationLifetime(),
             NullLogger<ProcessConversationAfterSettleCommandHandler>.Instance);
 
         await handler.Handle(new ProcessConversationAfterSettleCommand(userId, "telegram", roomId));
 
         Assert.Empty(normalizationService.MarkedProcessedIds);
-        Assert.Empty(workItemService.IngestedItems);
+        Assert.Empty(workItemService.AcceptedItems);
         Assert.Empty(bus.SentMessages);
 
         var retry = Assert.Single(bus.DeferredMessages);
         var retryCommand = Assert.IsType<ProcessConversationAfterSettleCommand>(retry.Message);
         Assert.Equal(userId, retryCommand.UserId);
-        Assert.Equal(roomId, retryCommand.MatrixRoomId);
+        Assert.Equal(roomId, retryCommand.ExternalChatId);
         Assert.True(retry.Delay > TimeSpan.Zero);
         Assert.True(retry.Delay <= TimeSpan.FromSeconds(5));
     }
@@ -144,7 +144,7 @@ public sealed class ProcessConversationAfterSettleCommandHandlerTests
             {
                 ScheduleDeferredConversationPass = true
             }),
-            new FixedTimeProvider(message.IngestedAt.AddMinutes(5)),
+            new FixedTimeProvider(message.ReceivedAt.AddMinutes(5)),
             new TestHostApplicationLifetime(),
             NullLogger<ProcessConversationAfterSettleCommandHandler>.Instance);
 
@@ -152,7 +152,7 @@ public sealed class ProcessConversationAfterSettleCommandHandlerTests
 
         Assert.Contains(bus.SentMessages, item => item is ResolveConversationItemsCommand resolve &&
                                                   resolve.UserId == userId &&
-                                                  resolve.MatrixRoomId == roomId);
+                                                  resolve.ExternalChatId == roomId);
         Assert.DoesNotContain(bus.DeferredMessages, item => item.Message is ResolveConversationItemsCommand);
     }
 
@@ -197,7 +197,7 @@ public sealed class ProcessConversationAfterSettleCommandHandlerTests
             {
                 ScheduleDeferredConversationPass = true
             }),
-            new FixedTimeProvider(message.IngestedAt.AddMinutes(5)),
+            new FixedTimeProvider(message.ReceivedAt.AddMinutes(5)),
             new TestHostApplicationLifetime(),
             NullLogger<ProcessConversationAfterSettleCommandHandler>.Instance);
 
@@ -205,10 +205,10 @@ public sealed class ProcessConversationAfterSettleCommandHandlerTests
 
         Assert.Contains(bus.SentMessages, item => item is ResolveConversationItemsCommand resolve &&
                                                   resolve.UserId == userId &&
-                                                  resolve.MatrixRoomId == roomId);
+                                                  resolve.ExternalChatId == roomId);
         Assert.Contains(bus.DeferredMessages, item => item.Message is ResolveConversationItemsCommand resolve &&
                                                       resolve.UserId == userId &&
-                                                      resolve.MatrixRoomId == roomId);
+                                                      resolve.ExternalChatId == roomId);
     }
 
     private sealed class RecordingMessageNormalizationService(IReadOnlyList<NormalizedMessage> pendingMessages) : IMessageNormalizationService
@@ -217,8 +217,9 @@ public sealed class ProcessConversationAfterSettleCommandHandlerTests
 
         public Task<bool> TryStoreAsync(
             Guid userId,
-            string roomId,
-            string eventId,
+            string source,
+            string externalChatId,
+            string externalMessageId,
             string senderName,
             string text,
             DateTimeOffset sentAt,
@@ -242,7 +243,7 @@ public sealed class ProcessConversationAfterSettleCommandHandlerTests
                 pendingMessages
                     .Where(item => item.UserId == userId &&
                                    item.Source == source &&
-                                   item.MatrixRoomId == matrixRoomId)
+                                   item.ExternalChatId == matrixRoomId)
                     .ToList() as IReadOnlyList<NormalizedMessage>);
         }
 
@@ -268,11 +269,11 @@ public sealed class ProcessConversationAfterSettleCommandHandlerTests
 
     private sealed class RecordingWorkItemService : IWorkItemService
     {
-        public List<IReadOnlyList<ExtractedItem>> IngestedItems { get; } = [];
+        public List<IReadOnlyList<ExtractedItem>> AcceptedItems { get; } = [];
 
-        public Task IngestRangeAsync(IEnumerable<ExtractedItem> items, CancellationToken cancellationToken)
+        public Task AcceptRangeAsync(IEnumerable<ExtractedItem> items, CancellationToken cancellationToken)
         {
-            IngestedItems.Add(items.ToList());
+            AcceptedItems.Add(items.ToList());
             return Task.CompletedTask;
         }
 
