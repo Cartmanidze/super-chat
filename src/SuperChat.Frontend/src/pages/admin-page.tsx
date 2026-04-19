@@ -4,17 +4,15 @@ import { useSessionStore } from "../features/auth/stores/session-store";
 import { adminGateway } from "../features/admin/gateways/admin-gateway";
 import { useAdminInvitesQuery } from "../features/admin/hooks/use-admin-invites-query";
 import { useMeQuery } from "../features/me/hooks/use-me-query";
+import { formatDateShort } from "../shared/lib/relative-time";
 import { PageSection } from "../shared/ui/page-section";
 
-function formatDate(value: string) {
-  return new Date(value).toLocaleString("ru-RU", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
+function formatTimestamp(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const day = formatDateShort(date);
+  const time = date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+  return `${day} · ${time}`;
 }
 
 export function AdminPage() {
@@ -45,7 +43,7 @@ export function AdminPage() {
     <PageSection
       eyebrow="Служебный раздел"
       title="Приглашения"
-      description="Здесь можно открыть служебный раздел и управлять приглашениями."
+      description="Здесь можно открыть служебный раздел и управлять списком пилотного доступа."
     >
       {!token ? (
         <article className="panel-card">
@@ -56,9 +54,9 @@ export function AdminPage() {
 
       {token && meQuery.isSuccess ? (
         <article className="panel-card">
-          <h3>Текущий пользователь</h3>
-          <p><strong>Email:</strong> {meQuery.data.email}</p>
-          <p className="form-note">Доступ проверяется по вашей почте и служебному паролю.</p>
+          <div className="eyebrow">Текущий пользователь</div>
+          <h3>{meQuery.data.email}</h3>
+          <p>Доступ проверяется по вашей почте и служебному паролю.</p>
         </article>
       ) : null}
 
@@ -71,19 +69,18 @@ export function AdminPage() {
           }}
         >
           <h3>Открыть раздел</h3>
-          <div className="field">
+          <label className="field">
             <span>Служебный пароль</span>
             <input
-              className="search-input"
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               placeholder="Введите пароль"
             />
-          </div>
+          </label>
           <div className="connection-actions">
-            <button className="primary-button" type="submit" disabled={unlockMutation.isPending}>
-              {unlockMutation.isPending ? "Проверяем..." : "Открыть"}
+            <button className="btn is-primary" type="submit" disabled={unlockMutation.isPending}>
+              {unlockMutation.isPending ? "Проверяем…" : "Открыть"}
             </button>
           </div>
           {unlockMutation.isError ? <p className="form-error">{String(unlockMutation.error.message)}</p> : null}
@@ -102,12 +99,19 @@ export function AdminPage() {
                 onChange={(event) => setInviteEmail(event.target.value)}
                 placeholder="name@example.com"
               />
-              <button className="primary-button" type="button" onClick={() => addInviteMutation.mutate()} disabled={addInviteMutation.isPending}>
+              <button
+                className="btn is-primary"
+                type="button"
+                onClick={() => addInviteMutation.mutate()}
+                disabled={addInviteMutation.isPending}
+              >
                 Добавить
               </button>
             </div>
             {addInviteMutation.isSuccess ? <p className="form-note">{addInviteMutation.data.message}</p> : null}
-            {addInviteMutation.isError ? <p className="form-error">{String(addInviteMutation.error.message)}</p> : null}
+            {addInviteMutation.isError ? (
+              <p className="form-error">{String(addInviteMutation.error.message)}</p>
+            ) : null}
           </article>
 
           {invitesQuery.isLoading ? (
@@ -138,10 +142,10 @@ export function AdminPage() {
                         <p className="form-note">Добавил: {invite.invitedBy}</p>
                       </div>
                       <div className="admin-list-meta">
-                        <span className={`status-badge${invite.isActive ? "" : " is-muted"}`}>
+                        <span className={invite.isActive ? "pill is-success" : "pill is-muted"}>
                           {invite.isActive ? "Активен" : "Выключен"}
                         </span>
-                        <span>{formatDate(invite.invitedAt)}</span>
+                        <span>{formatTimestamp(invite.invitedAt)}</span>
                       </div>
                     </div>
                   ))}

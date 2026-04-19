@@ -25,8 +25,8 @@ export function FeedbackPage() {
   return (
     <PageSection
       eyebrow="Отзыв"
-      title="Обратная связь"
-      description="Расскажите, что было полезно, а что стоит поправить."
+      title="Что улучшить?"
+      description="Короткий отзыв помогает нам понять, где AI шумит, а где полезен."
     >
       {!token ? (
         <article className="panel-card">
@@ -41,46 +41,61 @@ export function FeedbackPage() {
             feedbackMutation.mutate();
           }}
         >
-          <div className="field">
-            <span>Раздел</span>
-            <select
-              className="search-input"
-              value={area}
-              onChange={(event) => {
-                void navigate({
-                  to: "/feedback",
-                  search: { area: event.target.value, useful, note },
-                  replace: true,
-                });
-              }}
-            >
+          <div>
+            <span className="eyebrow">Раздел</span>
+            <div className="feedback-area-tabs" style={{ marginTop: 10 }}>
               {areaOptions.map((option) => (
-                <option key={option.value} value={option.value}>
+                <button
+                  key={option.value}
+                  type="button"
+                  className={area === option.value ? "is-active" : undefined}
+                  onClick={() => {
+                    void navigate({
+                      to: "/feedback",
+                      search: { area: option.value, useful, note },
+                      replace: true,
+                    });
+                  }}
+                >
                   {option.label}
-                </option>
+                </button>
               ))}
-            </select>
+            </div>
           </div>
 
-          <div className="field">
-            <span>Полезно?</span>
-            <select
-              className="search-input"
-              value={useful ? "true" : "false"}
-              onChange={(event) => {
-                void navigate({
-                  to: "/feedback",
-                  search: { area, useful: event.target.value === "true", note },
-                  replace: true,
-                });
-              }}
-            >
-              <option value="true">Да</option>
-              <option value="false">Нет</option>
-            </select>
+          <div>
+            <span className="eyebrow">Полезно?</span>
+            <div className="feedback-toggle" style={{ marginTop: 10 }}>
+              <button
+                type="button"
+                className={useful ? "is-active" : undefined}
+                onClick={() => {
+                  void navigate({
+                    to: "/feedback",
+                    search: { area, useful: true, note },
+                    replace: true,
+                  });
+                }}
+              >
+                Да, полезно
+              </button>
+              <button
+                type="button"
+                className={!useful ? "is-active" : undefined}
+                onClick={() => {
+                  void navigate({
+                    to: "/feedback",
+                    search: { area, useful: false, note },
+                    replace: true,
+                  });
+                }}
+              >
+                Нет
+              </button>
+            </div>
           </div>
 
-          <div className="field">
+          <label className="field" style={{ marginBottom: 0 }}>
             <span>Комментарий</span>
             <textarea
               className="feedback-textarea"
@@ -93,18 +108,31 @@ export function FeedbackPage() {
                   replace: true,
                 });
               }}
-              placeholder="Что было полезно или что сработало плохо?"
+              placeholder="Коротко опишите, что работает и что мешает."
             />
-          </div>
+          </label>
 
           <div className="connection-actions">
-            <button className="primary-button" type="submit" disabled={feedbackMutation.isPending}>
-              {feedbackMutation.isPending ? "Отправляем..." : "Отправить отзыв"}
+            <button className="btn is-primary" type="submit" disabled={feedbackMutation.isPending}>
+              {feedbackMutation.isPending ? "Отправляем…" : "Отправить отзыв"}
+            </button>
+            <button
+              type="button"
+              className="btn is-ghost"
+              onClick={() => {
+                void navigate({
+                  to: "/feedback",
+                  search: { area, useful, note: "" },
+                  replace: true,
+                });
+              }}
+            >
+              Очистить
             </button>
           </div>
 
           {feedbackMutation.isSuccess ? (
-            <p className="form-note">Спасибо, отзыв сохранен.</p>
+            <p className="form-note">Спасибо, отзыв сохранён.</p>
           ) : null}
           {feedbackMutation.isError ? (
             <p className="form-error">{String(feedbackMutation.error.message)}</p>

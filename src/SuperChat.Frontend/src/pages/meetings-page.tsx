@@ -1,27 +1,37 @@
 import { Link } from "@tanstack/react-router";
-import { PageSection } from "../shared/ui/page-section";
+import { useMemo } from "react";
 import { useSessionStore } from "../features/auth/stores/session-store";
 import { useMeQuery } from "../features/me/hooks/use-me-query";
-import { useMeetingsQuery } from "../features/meetings/hooks/use-meetings-query";
 import { MeetingCard } from "../features/meetings/components/meeting-card";
+import type { MeetingCard as MeetingCardModel } from "../features/meetings/gateways/meetings-gateway";
+import { useMeetingsQuery } from "../features/meetings/hooks/use-meetings-query";
+import { PageSection } from "../shared/ui/page-section";
+
+function autoResolvedCount(cards: ReadonlyArray<MeetingCardModel>): number {
+  return cards.filter((card) => card.status === "Confirmed").length;
+}
 
 export function MeetingsPage() {
   const token = useSessionStore((state) => state.accessToken);
   const meQuery = useMeQuery(token);
   const meetingsQuery = useMeetingsQuery(token);
 
+  const cards = useMemo(() => meetingsQuery.data ?? [], [meetingsQuery.data]);
+  const resolved = autoResolvedCount(cards);
+
   return (
     <PageSection
       eyebrow="Встречи"
       title="Ближайшие встречи"
-      description="Здесь собраны ближайшие договорённости, о которых стоит помнить."
+      description="Здесь собраны ближайшие договорённости — с контекстом, участниками и быстрыми действиями."
+      aside={resolved > 0 ? <span className="pill is-gold">● Auto-resolved: {resolved}</span> : null}
     >
       {!token ? (
         <article className="panel-card">
           <h3>Нужен вход</h3>
-          <p>После входа здесь появятся ваши встречи и короткие действия по ним.</p>
+          <p>После входа здесь появятся ваши встречи и быстрые действия по ним.</p>
           <div className="panel-actions">
-            <Link to="/auth" className="primary-button">
+            <Link to="/auth" className="btn is-primary">
               Открыть вход
             </Link>
           </div>
@@ -44,10 +54,10 @@ export function MeetingsPage() {
 
       {token && meQuery.isSuccess && meQuery.data.requiresTelegramAction ? (
         <article className="panel-card">
-          <h3>Нужно подключить Telegram</h3>
-          <p>После подключения здесь появятся встречи и новые договорённости.</p>
+          <h3>Сначала подключите Telegram</h3>
+          <p>После подключения здесь появятся встречи и новые договорённости из ваших чатов.</p>
           <div className="panel-actions">
-            <Link to="/settings/connections" className="primary-button">
+            <Link to="/settings/connections" className="btn is-primary">
               Открыть подключения
             </Link>
           </div>
@@ -56,13 +66,19 @@ export function MeetingsPage() {
 
       {token && meQuery.isSuccess && !meQuery.data.requiresTelegramAction ? (
         <>
-          <div className="card-grid">
+          <div className="summary-grid">
             <article className="panel-card">
-              <h3>Сводка</h3>
-              <p>Встреч: {meetingsQuery.data?.length ?? 0}</p>
+              <div className="eyebrow">Сводка</div>
+              <h3>Встреч: {cards.length}</h3>
+              <p>
+                {cards.length === 0
+                  ? "Пока ничего не пришло — как только найдём договорённость, появится здесь."
+                  : `Из них подтверждено: ${resolved}.`}
+              </p>
             </article>
             <article className="panel-card">
-              <h3>Подключение</h3>
+              <div className="eyebrow">Подключение</div>
+              <h3>Telegram</h3>
               <p>{meQuery.data.telegramState}</p>
             </article>
           </div>
@@ -81,17 +97,21 @@ export function MeetingsPage() {
             </article>
           ) : null}
 
-          {meetingsQuery.isSuccess && meetingsQuery.data.length === 0 ? (
+          {meetingsQuery.isSuccess && cards.length === 0 ? (
             <article className="panel-card">
               <h3>Пока пусто</h3>
               <p>Ближайших встреч сейчас нет.</p>
             </article>
           ) : null}
 
-          {meetingsQuery.isSuccess && meetingsQuery.data.length > 0 ? (
+          {meetingsQuery.isSuccess && cards.length > 0 ? (
             <div className="meeting-list">
-              {meetingsQuery.data.map((card) => (
-                <MeetingCard key={`${card.id ?? card.title}-${card.observedAt}`} token={token} card={card} />
+              {cards.map((card) => (
+                <MeetingCard
+                  key={`${card.id ?? card.title}-${card.observedAt}`}
+                  token={token}
+                  card={card}
+                />
               ))}
             </div>
           ) : null}

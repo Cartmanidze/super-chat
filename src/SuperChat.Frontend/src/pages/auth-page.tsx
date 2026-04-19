@@ -1,9 +1,33 @@
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { authGateway } from "../features/auth/gateways/auth-gateway";
 import { useSessionStore } from "../features/auth/stores/session-store";
-import { PageSection } from "../shared/ui/page-section";
+
+const OTP_LENGTH = 6;
+const RESEND_SECONDS = 42;
+
+function getBrowserTimeZone(): string | undefined {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    return undefined;
+  }
+}
+
+function padCells(code: string): string[] {
+  const cells = code.split("").slice(0, OTP_LENGTH);
+  while (cells.length < OTP_LENGTH) {
+    cells.push("");
+  }
+  return cells;
+}
+
+function formatCountdown(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
 
 export function AuthPage() {
   const navigate = useNavigate();
@@ -12,18 +36,32 @@ export function AuthPage() {
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [codeRequested, setCodeRequested] = useState(false);
+  const [resendSeconds, setResendSeconds] = useState(RESEND_SECONDS);
+  const otpInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!token) {
-      return;
+    if (token) {
+      void navigate({ to: "/" });
     }
-
-    void navigate({ to: "/" });
   }, [navigate, token]);
+
+  useEffect(() => {
+    if (!codeRequested) return;
+    if (resendSeconds <= 0) return;
+    const timer = setInterval(() => {
+      setResendSeconds((value) => Math.max(0, value - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [codeRequested, resendSeconds]);
 
   const sendCodeMutation = useMutation({
     mutationFn: () => authGateway.sendCode(email),
-    onSuccess: () => setCodeRequested(true),
+    onSuccess: () => {
+      setCodeRequested(true);
+      setResendSeconds(RESEND_SECONDS);
+      setCode("");
+      setTimeout(() => otpInputRef.current?.focus(), 0);
+    },
   });
 
   const verifyCodeMutation = useMutation({
@@ -34,84 +72,197 @@ export function AuthPage() {
     },
   });
 
-  return (
-    <PageSection
-      eyebrow="Вход"
-      title="Вход по коду"
-      description="Укажите почту, получите код и подтвердите вход."
-    >
-      <div className="auth-grid">
-        <form
-          className="panel-card auth-card"
-          onSubmit={(event) => {
-            event.preventDefault();
-            sendCodeMutation.mutate();
-          }}
-        >
-          <h3>Шаг 1. Получить код</h3>
-          <label className="field">
-            <span>Email</span>
-            <input
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="you@example.com"
-              required
-            />
-          </label>
-          <button className="primary-button" type="submit" disabled={sendCodeMutation.isPending}>
-            {sendCodeMutation.isPending ? "Отправляем..." : "Получить код"}
-          </button>
-          {sendCodeMutation.isSuccess ? <p className="form-note">Код отправлен. Теперь введите его справа.</p> : null}
-          {sendCodeMutation.isError ? <p className="form-error">{String(sendCodeMutation.error.message)}</p> : null}
-        </form>
+  const otpCells = useMemo(() => padCells(code), [code]);
+  const activeIndex = Math.min(code.length, OTP_LENGTH - 1);
+  const canSubmit = code.length === OTP_LENGTH && !verifyCodeMutation.isPending;
 
-        <form
-          className="panel-card auth-card"
-          onSubmit={(event) => {
-            event.preventDefault();
-            verifyCodeMutation.mutate();
-          }}
-        >
-          <h3>Шаг 2. Ввести код</h3>
-          <label className="field">
-            <span>Код</span>
-            <input
-              type="text"
-              value={code}
-              onChange={(event) => setCode(event.target.value)}
-              placeholder="123456"
-              required
-            />
-          </label>
-          <button
-            className="primary-button"
-            type="submit"
-            disabled={!codeRequested || verifyCodeMutation.isPending}
-          >
-            {verifyCodeMutation.isPending ? "Проверяем..." : "Войти"}
-          </button>
-          {!codeRequested ? <p className="form-note">Сначала запросите код слева.</p> : null}
-          {verifyCodeMutation.isError ? <p className="form-error">{String(verifyCodeMutation.error.message)}</p> : null}
-        </form>
+  return (
+    <>
+      <div className="section-head" style={{ marginBottom: 28 }}>
+        <h2>
+          Вход в Super Chat <em>· один код из почты</em>
+        </h2>
       </div>
 
-      <article className="panel-card helper-card">
-        <h3>Как это работает</h3>
-        <ul>
-          <li>Код приходит на указанную почту.</li>
-          <li>После входа откроются встречи, поиск и подключения.</li>
-          <li>Если письмо не пришло, проверьте папку со спамом.</li>
-        </ul>
-      </article>
-    </PageSection>
-  );
-}
+      <section className="auth">
+        <div className="auth-left">
+          <div className="auth-bolt" aria-hidden="true">
+            <svg width="28" height="28" viewBox="0 0 48 48" fill="none">
+              <defs>
+                <linearGradient id="auth-bolt-gradient" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stopColor="#ffe49a" />
+                  <stop offset="0.5" stopColor="#f3c96b" />
+                  <stop offset="1" stopColor="#a67c1e" />
+                </linearGradient>
+              </defs>
+              <path fill="url(#auth-bolt-gradient)" d="M28 4 L14 26 L21 26 L19 44 L34 20 L27 20 L28 4 Z" />
+            </svg>
+          </div>
 
-function getBrowserTimeZone() {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone;
-  } catch {
-    return undefined;
-  }
+          <div className="eyebrow auth-step-eye">{codeRequested ? "Шаг 2 из 2" : "Шаг 1 из 2"}</div>
+          {!codeRequested ? (
+            <>
+              <h3 className="auth-title">
+                Введите почту<br />
+                <span>для кода.</span>
+              </h3>
+              <p className="auth-sub">
+                Отправим 6-значный код на указанный адрес. Никаких паролей — только доступ к почте.
+              </p>
+
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  sendCodeMutation.mutate();
+                }}
+              >
+                <label className="field">
+                  <span>Email</span>
+                  <input
+                    type="email"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="you@example.com"
+                    required
+                  />
+                </label>
+
+                <div className="auth-row">
+                  <button
+                    className="btn is-primary"
+                    type="submit"
+                    disabled={!email || sendCodeMutation.isPending}
+                  >
+                    {sendCodeMutation.isPending ? "Отправляем…" : "Получить код"}
+                    <span className="kbd">↵</span>
+                  </button>
+                </div>
+
+                {sendCodeMutation.isError ? (
+                  <p className="form-error">{String(sendCodeMutation.error.message)}</p>
+                ) : null}
+              </form>
+            </>
+          ) : (
+            <>
+              <h3 className="auth-title">
+                Введите код<br />
+                <span>из письма.</span>
+              </h3>
+              <p className="auth-sub">
+                Мы отправили 6-значный код на <b>{email}</b>. Он действует 10 минут.
+              </p>
+
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (canSubmit) {
+                    verifyCodeMutation.mutate();
+                  }
+                }}
+              >
+                <div
+                  className="otp"
+                  onClick={() => otpInputRef.current?.focus()}
+                  role="group"
+                  aria-label="Код из письма"
+                >
+                  {otpCells.map((cell, index) => {
+                    const isFilled = Boolean(cell);
+                    const isActive = index === activeIndex && code.length < OTP_LENGTH;
+                    const className = `otp-cell${isFilled ? " is-filled" : ""}${isActive ? " is-active" : ""}`;
+                    return (
+                      <div key={index} className={className}>
+                        {cell || "·"}
+                      </div>
+                    );
+                  })}
+                  <input
+                    ref={otpInputRef}
+                    className="otp-input"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={OTP_LENGTH}
+                    value={code}
+                    onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, OTP_LENGTH))}
+                  />
+                </div>
+
+                <div className="auth-row">
+                  <button className="btn is-primary" type="submit" disabled={!canSubmit}>
+                    {verifyCodeMutation.isPending ? "Проверяем…" : "Войти"}
+                    <span className="kbd">↵</span>
+                  </button>
+                  <span className="resend">
+                    {resendSeconds > 0 ? (
+                      <>
+                        Отправить снова через <b>{formatCountdown(resendSeconds)}</b>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => sendCodeMutation.mutate()}
+                        disabled={sendCodeMutation.isPending}
+                      >
+                        Отправить снова
+                      </button>
+                    )}
+                  </span>
+                </div>
+
+                {verifyCodeMutation.isError ? (
+                  <p className="form-error">{String(verifyCodeMutation.error.message)}</p>
+                ) : null}
+              </form>
+
+              <div className="auth-foot">
+                <span>Нет доступа к почте?</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCodeRequested(false);
+                    setCode("");
+                  }}
+                >
+                  Ввести другой адрес
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
+        <aside className="auth-right">
+          <div className="auth-eye">Почему коды</div>
+          <h4>
+            Никаких паролей.<br />
+            Только доступ к почте.
+          </h4>
+          <ul className="auth-list">
+            <li>
+              <span className="auth-num">01</span>
+              <div>
+                <b>Ничего не хранится</b>
+                <em>Коды одноразовые, живут 10 минут.</em>
+              </div>
+            </li>
+            <li>
+              <span className="auth-num">02</span>
+              <div>
+                <b>Двухфакторка по умолчанию</b>
+                <em>Доступ привязан к вашему ящику.</em>
+              </div>
+            </li>
+            <li>
+              <span className="auth-num">03</span>
+              <div>
+                <b>Без лишних сессий</b>
+                <em>Войти нужно раз в 30 дней, потом — продление само.</em>
+              </div>
+            </li>
+          </ul>
+        </aside>
+      </section>
+    </>
+  );
 }

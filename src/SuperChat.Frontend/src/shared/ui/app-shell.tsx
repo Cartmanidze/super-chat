@@ -2,14 +2,17 @@ import { useMutation } from "@tanstack/react-query";
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { authGateway } from "../../features/auth/gateways/auth-gateway";
 import { useSessionStore } from "../../features/auth/stores/session-store";
+import { avatarInitials } from "../lib/avatar";
+import { BrandMark } from "./brand-mark";
+import { DateChip } from "./date-chip";
 
-const links = [
+const PRIMARY_LINKS = [
   { to: "/", label: "Главная" },
   { to: "/today", label: "Встречи" },
   { to: "/search", label: "Поиск" },
   { to: "/settings/connections", label: "Подключения" },
   { to: "/feedback", label: "Отзыв" },
-];
+] as const;
 
 export function AppShell() {
   const navigate = useNavigate();
@@ -23,7 +26,6 @@ export function AppShell() {
       if (!token) {
         return;
       }
-
       await authGateway.logout(token);
     },
     onSettled: async () => {
@@ -32,51 +34,68 @@ export function AppShell() {
     },
   });
 
-  const baseLinks = token ? links : [{ to: "/auth", label: "Вход" }];
-  const navLinks = location.startsWith("/admin")
-    ? [...baseLinks, { to: "/admin", label: "Админ" }]
-    : baseLinks;
+  const isAuthed = Boolean(token);
+  const showAdmin = location.startsWith("/admin");
+  const navLinks = isAuthed
+    ? showAdmin
+      ? [...PRIMARY_LINKS, { to: "/admin", label: "Админ" } as const]
+      : PRIMARY_LINKS
+    : [{ to: "/auth", label: "Вход" } as const];
+
+  const avatarInitialsValue = isAuthed ? avatarInitials(email, "Я") : "Гость";
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
-        <div className="brand-block">
-          <span className="brand-kicker">SuperChat</span>
-          <h1>Ваши договорённости</h1>
-          <p>{token ? "Встречи, поиск и подключения в одном месте." : "Войдите, чтобы увидеть свои встречи и разговоры."}</p>
-        </div>
-
-        <div className="session-panel">
+      <header className="topbar">
+        <Link to="/" className="topbar-brand" aria-label="Super Chat — на главную">
+          <BrandMark size={18} />
           <div>
-            <span className="eyebrow">Профиль</span>
-            <p className="session-email">{email ?? "Гость"}</p>
+            <div className="brand-word">
+              Super<em>Chat</em>
+            </div>
+            <div className="brand-sub">Встречи · Вовремя и в курсе</div>
           </div>
-          {token ? (
-            <button
-              className="ghost-button shell-button"
-              type="button"
-              onClick={() => logoutMutation.mutate()}
-              disabled={logoutMutation.isPending}
-            >
-              {logoutMutation.isPending ? "Выходим..." : "Выйти"}
-            </button>
-          ) : null}
-        </div>
+        </Link>
 
-        <nav className="nav-grid" aria-label="Основная навигация">
-          {navLinks.map((link) => (
-            <Link
-              key={link.to}
-              to={link.to}
-              className={`nav-link${location === link.to ? " is-active" : ""}`}
-            >
-              {link.label}
-            </Link>
-          ))}
+        <nav className="topbar-nav" aria-label="Основная навигация">
+          {navLinks.map((link) => {
+            const active =
+              link.to === "/"
+                ? location === "/"
+                : location === link.to || location.startsWith(`${link.to}/`);
+            return (
+              <Link key={link.to} to={link.to} className={active ? "is-active" : undefined}>
+                {link.label}
+              </Link>
+            );
+          })}
         </nav>
-      </aside>
 
-      <main className="content-panel">
+        <div className="topbar-right">
+          <DateChip />
+          {isAuthed ? (
+            <>
+              <div className="avatar" aria-label={email ?? "Профиль"} title={email ?? undefined}>
+                {avatarInitialsValue}
+              </div>
+              <button
+                type="button"
+                className="topbar-logout"
+                onClick={() => logoutMutation.mutate()}
+                disabled={logoutMutation.isPending}
+              >
+                {logoutMutation.isPending ? "Выходим..." : "Выйти"}
+              </button>
+            </>
+          ) : (
+            <div className="avatar is-ghost" aria-label="Гость">
+              ·
+            </div>
+          )}
+        </div>
+      </header>
+
+      <main className="app-shell-main">
         <Outlet />
       </main>
     </div>
