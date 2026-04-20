@@ -548,13 +548,12 @@ button {
 
 .hero h1 {
   margin: 0 0 18px;
-  font: 800 clamp(2rem, 3.6vw, 3.2rem) / 1 var(--heading);
+  font: 800 clamp(1.75rem, 2.8vw, 2.4rem) / 1.05 var(--heading);
   letter-spacing: -0.045em;
   background: linear-gradient(180deg, #fff 0%, var(--sc-bone-50) 40%, var(--sc-ash-400) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  text-wrap: balance;
   overflow-wrap: break-word;
 }
 
@@ -564,6 +563,14 @@ button {
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+  white-space: nowrap;
+}
+
+@media (max-width: 980px) {
+  .hero h1 .accent,
+  .hero h1 span {
+    white-space: normal;
+  }
 }
 
 .hero p {
