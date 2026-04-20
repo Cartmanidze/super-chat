@@ -77,8 +77,8 @@ export function AuthPage() {
   const canSubmit = code.length === OTP_LENGTH && !verifyCodeMutation.isPending;
 
   return (
-    <>
-      <div className="section-head" style={{ marginBottom: 28 }}>
+    <section className="page-section">
+      <div className="section-head">
         <h2>
           Вход в Super Chat <em>· один код из почты</em>
         </h2>
@@ -263,6 +263,6 @@ export function AuthPage() {
           </ul>
         </aside>
       </section>
-    </>
+    </section>
   );
 }
