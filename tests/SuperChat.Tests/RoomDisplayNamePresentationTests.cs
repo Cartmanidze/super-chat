@@ -219,6 +219,26 @@ public sealed class RoomDisplayNamePresentationTests
             return Task.FromResult(items.Where(item => item.UserId == userId).ToList() as IReadOnlyList<WorkItemRecord>);
         }
 
+        public Task<IReadOnlyList<WorkItemRecord>> SearchAsync(Guid userId, string query, int limit, CancellationToken cancellationToken)
+        {
+            if (limit <= 0 || string.IsNullOrWhiteSpace(query))
+            {
+                return Task.FromResult(Array.Empty<WorkItemRecord>() as IReadOnlyList<WorkItemRecord>);
+            }
+
+            var trimmed = query.Trim();
+            var matches = items
+                .Where(item => item.UserId == userId &&
+                    (item.Title.Contains(trimmed, StringComparison.OrdinalIgnoreCase) ||
+                     item.Summary.Contains(trimmed, StringComparison.OrdinalIgnoreCase) ||
+                     item.SourceRoom.Contains(trimmed, StringComparison.OrdinalIgnoreCase)))
+                .OrderByDescending(item => item.ObservedAt)
+                .Take(limit)
+                .ToList();
+
+            return Task.FromResult(matches as IReadOnlyList<WorkItemRecord>);
+        }
+
         public Task<bool> CompleteAsync(Guid userId, Guid workItemId, CancellationToken cancellationToken)
         {
             throw new NotSupportedException();
@@ -262,6 +282,26 @@ public sealed class RoomDisplayNamePresentationTests
         public Task<IReadOnlyList<NormalizedMessage>> GetRecentMessagesAsync(Guid userId, int take, CancellationToken cancellationToken)
         {
             return Task.FromResult(messages.Where(item => item.UserId == userId).Take(take).ToList() as IReadOnlyList<NormalizedMessage>);
+        }
+
+        public Task<IReadOnlyList<NormalizedMessage>> SearchRecentMessagesAsync(Guid userId, string query, int limit, CancellationToken cancellationToken)
+        {
+            if (limit <= 0 || string.IsNullOrWhiteSpace(query))
+            {
+                return Task.FromResult(Array.Empty<NormalizedMessage>() as IReadOnlyList<NormalizedMessage>);
+            }
+
+            var trimmed = query.Trim();
+            var matches = messages
+                .Where(message => message.UserId == userId &&
+                    (message.Text.Contains(trimmed, StringComparison.OrdinalIgnoreCase) ||
+                     message.SenderName.Contains(trimmed, StringComparison.OrdinalIgnoreCase) ||
+                     message.ExternalChatId.Contains(trimmed, StringComparison.OrdinalIgnoreCase)))
+                .OrderByDescending(message => message.SentAt)
+                .Take(limit)
+                .ToList();
+
+            return Task.FromResult(matches as IReadOnlyList<NormalizedMessage>);
         }
 
         public Task MarkProcessedAsync(IEnumerable<Guid> messageIds, CancellationToken cancellationToken)

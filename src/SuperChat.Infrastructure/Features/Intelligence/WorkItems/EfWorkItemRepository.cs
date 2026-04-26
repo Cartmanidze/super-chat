@@ -67,6 +67,58 @@ internal sealed class EfWorkItemRepository(
             .ToList();
     }
 
+    public async Task<IReadOnlyList<WorkItemRecord>> SearchAsync(
+        Guid userId,
+        string query,
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        if (limit <= 0 || string.IsNullOrWhiteSpace(query))
+        {
+            return [];
+        }
+
+        await using var db = await GetDbContextAsync(cancellationToken);
+        var baseQuery = db.WorkItems
+            .AsNoTracking()
+            .ApplySearchFilter(userId, query.Trim());
+
+        var pageSize = limit * 3;
+        var skip = 0;
+        var results = new List<WorkItemRecord>(limit);
+
+        while (results.Count < limit)
+        {
+            var page = await baseQuery
+                .Skip(skip)
+                .Take(pageSize)
+                .ToListAsync(cancellationToken);
+
+            foreach (var entity in page)
+            {
+                if (!ExtractedItemFilters.ShouldKeep(entity))
+                {
+                    continue;
+                }
+
+                results.Add(entity.ToDomain());
+                if (results.Count >= limit)
+                {
+                    break;
+                }
+            }
+
+            if (page.Count < pageSize)
+            {
+                break;
+            }
+
+            skip += pageSize;
+        }
+
+        return results;
+    }
+
     public async Task<IReadOnlyList<WorkItemRecord>> GetUnresolvedByRoomAsync(Guid userId, string externalChatId, CancellationToken cancellationToken)
     {
         await using var db = await GetDbContextAsync(cancellationToken);

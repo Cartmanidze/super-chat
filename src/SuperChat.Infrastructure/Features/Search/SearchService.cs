@@ -1,4 +1,4 @@
-﻿using SuperChat.Contracts.Features.Intelligence.Retrieval;
+using SuperChat.Contracts.Features.Intelligence.Retrieval;
 using SuperChat.Contracts.Features.Messaging;
 using SuperChat.Contracts.Features.Search;
 using SuperChat.Contracts.Features.WorkItems;
@@ -10,6 +10,8 @@ public sealed class SearchService(
     IMessageNormalizationService messageNormalizationService,
     IRoomDisplayNameService roomDisplayNameService) : ISearchService
 {
+    private const int ResultLimit = 20;
+
     public async Task<IReadOnlyList<SearchResultViewModel>> SearchAsync(Guid userId, string query, CancellationToken cancellationToken)
     {
         var normalizedQuery = query.Trim();
@@ -18,28 +20,18 @@ public sealed class SearchService(
             return [];
         }
 
-        var workItems = await workItemService.GetForUserAsync(userId, cancellationToken);
-        var results = workItems
-            .Where(item =>
-                item.Title.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
-                item.Summary.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
-                item.SourceRoom.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase))
-            .OrderByDescending(item => item.ObservedAt)
-            .Take(20)
-            .Select(item => item.ToSearchResultViewModel())
-            .ToList();
-
-        if (results.Count > 0)
+        var workItems = await workItemService.SearchAsync(userId, normalizedQuery, ResultLimit, cancellationToken);
+        if (workItems.Count > 0)
         {
+            var results = workItems
+                .Select(item => item.ToSearchResultViewModel())
+                .ToList();
+
             return await ResolveRoomNamesAsync(userId, results, cancellationToken);
         }
 
-        var recentMessages = await messageNormalizationService.GetRecentMessagesAsync(userId, 20, cancellationToken);
-        var messageResults = recentMessages
-            .Where(message =>
-                message.Text.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
-                message.SenderName.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
-                message.ExternalChatId.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase))
+        var messages = await messageNormalizationService.SearchRecentMessagesAsync(userId, normalizedQuery, ResultLimit, cancellationToken);
+        var messageResults = messages
             .Select(message => message.ToSearchResultViewModel())
             .ToList();
 

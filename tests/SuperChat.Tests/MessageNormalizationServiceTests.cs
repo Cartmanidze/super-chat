@@ -69,6 +69,161 @@ public sealed class MessageNormalizationServiceTests
         Assert.Single(scheduler.Dispatches);
     }
 
+    [Fact]
+    public async Task SearchRecentMessagesAsync_FiltersByQueryCaseInsensitivelyOrdersByRecencyAndAppliesLimit()
+    {
+        var scheduler = new RecordingPipelineCommandScheduler();
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        var service = new MessageNormalizationService(factory, scheduler, NullLogger<MessageNormalizationService>.Instance);
+        var userId = Guid.NewGuid();
+        var otherUserId = Guid.NewGuid();
+        var baseTime = new DateTimeOffset(2026, 04, 11, 10, 00, 00, TimeSpan.Zero);
+
+        await using (var dbContext = await factory.CreateDbContextAsync(CancellationToken.None))
+        {
+            dbContext.NormalizedMessages.AddRange(
+            [
+                new NormalizedMessageEntity
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    Source = "telegram",
+                    ExternalChatId = "!sales:matrix.localhost",
+                    ExternalMessageId = "$msg-text-newest",
+                    SenderName = "Anna",
+                    Text = "Please review the CONTRACT today",
+                    SentAt = baseTime.AddMinutes(5),
+                    ReceivedAt = baseTime,
+                    Processed = false
+                },
+                new NormalizedMessageEntity
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    Source = "telegram",
+                    ExternalChatId = "!sales:matrix.localhost",
+                    ExternalMessageId = "$msg-text-older",
+                    SenderName = "Boris",
+                    Text = "old contract reminder",
+                    SentAt = baseTime.AddMinutes(2),
+                    ReceivedAt = baseTime,
+                    Processed = false
+                },
+                new NormalizedMessageEntity
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    Source = "telegram",
+                    ExternalChatId = "!sales:matrix.localhost",
+                    ExternalMessageId = "$msg-text-oldest",
+                    SenderName = "Carl",
+                    Text = "talking about the Contract draft",
+                    SentAt = baseTime.AddMinutes(1),
+                    ReceivedAt = baseTime,
+                    Processed = false
+                },
+                new NormalizedMessageEntity
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    Source = "telegram",
+                    ExternalChatId = "!cafeteria:matrix.localhost",
+                    ExternalMessageId = "$msg-unrelated",
+                    SenderName = "Dora",
+                    Text = "lunch is ready",
+                    SentAt = baseTime.AddMinutes(10),
+                    ReceivedAt = baseTime,
+                    Processed = false
+                },
+                new NormalizedMessageEntity
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = otherUserId,
+                    Source = "telegram",
+                    ExternalChatId = "!sales:matrix.localhost",
+                    ExternalMessageId = "$msg-other-user",
+                    SenderName = "Eve",
+                    Text = "contract for someone else",
+                    SentAt = baseTime.AddMinutes(20),
+                    ReceivedAt = baseTime,
+                    Processed = false
+                }
+            ]);
+
+            await dbContext.SaveChangesAsync(CancellationToken.None);
+        }
+
+        var results = await service.SearchRecentMessagesAsync(userId, "contract", limit: 2, CancellationToken.None);
+
+        Assert.Equal(2, results.Count);
+        Assert.Equal("$msg-text-newest", results[0].ExternalMessageId);
+        Assert.Equal("$msg-text-older", results[1].ExternalMessageId);
+        Assert.DoesNotContain(results, message => message.ExternalMessageId == "$msg-unrelated");
+        Assert.DoesNotContain(results, message => message.ExternalMessageId == "$msg-other-user");
+    }
+
+    [Fact]
+    public async Task SearchRecentMessagesAsync_ReturnsEmpty_WhenQueryIsBlank()
+    {
+        var scheduler = new RecordingPipelineCommandScheduler();
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        var service = new MessageNormalizationService(factory, scheduler, NullLogger<MessageNormalizationService>.Instance);
+
+        var results = await service.SearchRecentMessagesAsync(Guid.NewGuid(), "   ", limit: 20, CancellationToken.None);
+
+        Assert.Empty(results);
+    }
+
+    [Fact]
+    public async Task SearchRecentMessagesAsync_EscapesLikeWildcards_SoLiteralPercentMatchesOnly()
+    {
+        var scheduler = new RecordingPipelineCommandScheduler();
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        var service = new MessageNormalizationService(factory, scheduler, NullLogger<MessageNormalizationService>.Instance);
+        var userId = Guid.NewGuid();
+        var baseTime = new DateTimeOffset(2026, 04, 11, 10, 00, 00, TimeSpan.Zero);
+
+        await using (var dbContext = await factory.CreateDbContextAsync(CancellationToken.None))
+        {
+            dbContext.NormalizedMessages.AddRange(
+            [
+                new NormalizedMessageEntity
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    Source = "telegram",
+                    ExternalChatId = "!sales:matrix.localhost",
+                    ExternalMessageId = "$msg-literal-percent",
+                    SenderName = "Anna",
+                    Text = "Discount is 50% today",
+                    SentAt = baseTime.AddMinutes(5),
+                    ReceivedAt = baseTime,
+                    Processed = false
+                },
+                new NormalizedMessageEntity
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    Source = "telegram",
+                    ExternalChatId = "!sales:matrix.localhost",
+                    ExternalMessageId = "$msg-no-percent",
+                    SenderName = "Boris",
+                    Text = "no discount today",
+                    SentAt = baseTime.AddMinutes(4),
+                    ReceivedAt = baseTime,
+                    Processed = false
+                }
+            ]);
+
+            await dbContext.SaveChangesAsync(CancellationToken.None);
+        }
+
+        var results = await service.SearchRecentMessagesAsync(userId, "50%", limit: 10, CancellationToken.None);
+
+        var match = Assert.Single(results);
+        Assert.Equal("$msg-literal-percent", match.ExternalMessageId);
+    }
+
     private static async Task<IDbContextFactory<SuperChatDbContext>> CreateFactoryAsync(CancellationToken cancellationToken)
     {
         var dbContextOptions = new DbContextOptionsBuilder<SuperChatDbContext>()

@@ -24,5 +24,7 @@ public interface IMessageNormalizationService
 
     Task<IReadOnlyList<NormalizedMessage>> GetRecentMessagesAsync(Guid userId, int take, CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<NormalizedMessage>> SearchRecentMessagesAsync(Guid userId, string query, int limit, CancellationToken cancellationToken);
+
     Task MarkProcessedAsync(IEnumerable<Guid> messageIds, CancellationToken cancellationToken);
 }

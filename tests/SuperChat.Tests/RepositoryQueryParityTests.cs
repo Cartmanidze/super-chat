@@ -255,6 +255,195 @@ public sealed class RepositoryQueryParityTests
             item => Assert.Equal("$pending-status", item.SourceEventId));
     }
 
+    [Fact]
+    public async Task WorkItemRepository_SearchAsync_FiltersFollowUpCandidatesAndStructuredArtifactsAndAppliesLimit()
+    {
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        var repository = new EfWorkItemRepository(factory);
+        var userId = Guid.NewGuid();
+        var baseTime = new DateTimeOffset(2026, 04, 10, 10, 00, 00, TimeSpan.Zero);
+        var artifactSummary =
+            """
+            Design a high-fidelity desktop web app for invite-only onboarding and daily review of contract handoffs.
+            1. Product Goal:
+            - connect telegram
+            - main today view
+            - search / ask
+            2. Target Users:
+            - founders
+            - operators
+            - analysts
+            3. Main Information Architecture:
+            - sidebar
+            - top navigation
+            - evidence snippet
+            4. Visual Style:
+            - wireframe
+            - responsive mobile
+            - screen 1
+            """;
+
+        await using (var dbContext = await factory.CreateDbContextAsync(CancellationToken.None))
+        {
+            dbContext.WorkItems.AddRange(
+            [
+                new WorkItemEntity
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    Kind = ExtractedItemKind.Task,
+                    Title = "Follow-up candidate",
+                    Summary = "Reminder about contract handoff",
+                    SourceRoom = "!sales:matrix.localhost",
+                    SourceEventId = "$evt-followup",
+                    ObservedAt = baseTime.AddMinutes(5),
+                    Confidence = 0.51,
+                    CreatedAt = baseTime,
+                    UpdatedAt = baseTime
+                },
+                new WorkItemEntity
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    Kind = ExtractedItemKind.Task,
+                    Title = "Generated artifact about contract",
+                    Summary = artifactSummary,
+                    SourceRoom = "!design:matrix.localhost",
+                    SourceEventId = "$evt-artifact",
+                    ObservedAt = baseTime.AddMinutes(4),
+                    Confidence = 0.63,
+                    CreatedAt = baseTime,
+                    UpdatedAt = baseTime
+                },
+                new WorkItemEntity
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    Kind = ExtractedItemKind.Task,
+                    Title = "Send CONTRACT to client",
+                    Summary = "Please send the contract tomorrow.",
+                    SourceRoom = "!sales:matrix.localhost",
+                    SourceEventId = "$evt-newest",
+                    ObservedAt = baseTime.AddMinutes(3),
+                    Confidence = 0.91,
+                    CreatedAt = baseTime,
+                    UpdatedAt = baseTime
+                },
+                new WorkItemEntity
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    Kind = ExtractedItemKind.Task,
+                    Title = "Old contract reminder",
+                    Summary = "Old contract follow-up",
+                    SourceRoom = "!sales:matrix.localhost",
+                    SourceEventId = "$evt-older",
+                    ObservedAt = baseTime.AddMinutes(2),
+                    Confidence = 0.83,
+                    CreatedAt = baseTime,
+                    UpdatedAt = baseTime
+                },
+                new WorkItemEntity
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    Kind = ExtractedItemKind.Task,
+                    Title = "Unrelated lunch order",
+                    Summary = "Lunch is ready",
+                    SourceRoom = "!cafeteria:matrix.localhost",
+                    SourceEventId = "$evt-unrelated",
+                    ObservedAt = baseTime.AddMinutes(10),
+                    Confidence = 0.45,
+                    CreatedAt = baseTime,
+                    UpdatedAt = baseTime
+                }
+            ]);
+
+            await dbContext.SaveChangesAsync(CancellationToken.None);
+        }
+
+        var items = await repository.SearchAsync(userId, "contract", limit: 2, CancellationToken.None);
+
+        Assert.Equal(2, items.Count);
+        Assert.Equal("$evt-newest", items[0].SourceEventId);
+        Assert.Equal("$evt-older", items[1].SourceEventId);
+        Assert.DoesNotContain(items, item => item.SourceEventId == "$evt-followup");
+        Assert.DoesNotContain(items, item => item.SourceEventId == "$evt-artifact");
+        Assert.DoesNotContain(items, item => item.SourceEventId == "$evt-unrelated");
+    }
+
+    [Fact]
+    public async Task WorkItemRepository_SearchAsync_PaginatesPastFilteredOutEntries_WhenFirstPageIsAllArtifacts()
+    {
+        var factory = await CreateFactoryAsync(CancellationToken.None);
+        var repository = new EfWorkItemRepository(factory);
+        var userId = Guid.NewGuid();
+        var baseTime = new DateTimeOffset(2026, 04, 12, 10, 00, 00, TimeSpan.Zero);
+        var artifactSummary =
+            """
+            Design a high-fidelity desktop web app for invite-only onboarding and daily review of contract handoffs.
+            1. Product Goal:
+            - connect telegram
+            - main today view
+            - search / ask
+            2. Target Users:
+            - founders
+            - operators
+            - analysts
+            3. Main Information Architecture:
+            - sidebar
+            - top navigation
+            - evidence snippet
+            4. Visual Style:
+            - wireframe
+            - responsive mobile
+            - screen 1
+            """;
+
+        await using (var dbContext = await factory.CreateDbContextAsync(CancellationToken.None))
+        {
+            for (var i = 0; i < 7; i++)
+            {
+                dbContext.WorkItems.Add(new WorkItemEntity
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    Kind = ExtractedItemKind.Task,
+                    Title = $"Generated artifact #{i} contract",
+                    Summary = artifactSummary,
+                    SourceRoom = "!design:matrix.localhost",
+                    SourceEventId = $"$evt-artifact-{i}",
+                    ObservedAt = baseTime.AddMinutes(20 - i),
+                    Confidence = 0.6,
+                    CreatedAt = baseTime,
+                    UpdatedAt = baseTime
+                });
+            }
+
+            dbContext.WorkItems.Add(new WorkItemEntity
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                Kind = ExtractedItemKind.Task,
+                Title = "Send contract to client",
+                Summary = "Real contract reminder to ship today.",
+                SourceRoom = "!sales:matrix.localhost",
+                SourceEventId = "$evt-real",
+                ObservedAt = baseTime.AddMinutes(1),
+                Confidence = 0.91,
+                CreatedAt = baseTime,
+                UpdatedAt = baseTime
+            });
+
+            await dbContext.SaveChangesAsync(CancellationToken.None);
+        }
+
+        var items = await repository.SearchAsync(userId, "contract", limit: 1, CancellationToken.None);
+
+        var item = Assert.Single(items);
+        Assert.Equal("$evt-real", item.SourceEventId);
+    }
+
     private static async Task<IDbContextFactory<SuperChatDbContext>> CreateFactoryAsync(CancellationToken cancellationToken)
     {
         var dbContextOptions = new DbContextOptionsBuilder<SuperChatDbContext>()

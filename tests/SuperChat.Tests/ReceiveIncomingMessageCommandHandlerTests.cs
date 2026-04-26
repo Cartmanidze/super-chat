@@ -117,6 +117,9 @@ public sealed class ReceiveIncomingMessageCommandHandlerTests
         public Task<IReadOnlyList<NormalizedMessage>> GetRecentMessagesAsync(Guid userId, int take, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<NormalizedMessage>>([]);
 
+        public Task<IReadOnlyList<NormalizedMessage>> SearchRecentMessagesAsync(Guid userId, string query, int limit, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<NormalizedMessage>>([]);
+
         public Task MarkProcessedAsync(IEnumerable<Guid> messageIds, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 

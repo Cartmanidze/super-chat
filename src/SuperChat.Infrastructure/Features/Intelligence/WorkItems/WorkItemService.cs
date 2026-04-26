@@ -24,6 +24,11 @@ internal sealed class WorkItemService(
         return workItemRepository.GetByUserAsync(userId, unresolvedOnly: true, cancellationToken);
     }
 
+    public Task<IReadOnlyList<WorkItemRecord>> SearchAsync(Guid userId, string query, int limit, CancellationToken cancellationToken)
+    {
+        return workItemRepository.SearchAsync(userId, query, limit, cancellationToken);
+    }
+
     public Task<bool> CompleteAsync(Guid userId, Guid workItemId, CancellationToken cancellationToken)
     {
         return ResolveAsync(userId, workItemId, WorkItemResolutionState.Completed, cancellationToken);

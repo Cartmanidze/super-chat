@@ -58,6 +58,26 @@ public sealed class MessageNormalizationService(
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<NormalizedMessage>> SearchRecentMessagesAsync(
+        Guid userId,
+        string query,
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        if (limit <= 0 || string.IsNullOrWhiteSpace(query))
+        {
+            return [];
+        }
+
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        return await dbContext.NormalizedMessages
+            .AsNoTracking()
+            .ApplySearchFilter(userId, query.Trim())
+            .Take(limit)
+            .Select(item => item.ToDomain())
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task MarkProcessedAsync(IEnumerable<Guid> messageIds, CancellationToken cancellationToken)
     {
         var ids = messageIds.Distinct().ToList();

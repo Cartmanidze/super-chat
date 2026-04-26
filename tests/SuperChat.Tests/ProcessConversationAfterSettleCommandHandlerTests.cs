@@ -252,6 +252,11 @@ public sealed class ProcessConversationAfterSettleCommandHandlerTests
             throw new NotSupportedException();
         }
 
+        public Task<IReadOnlyList<NormalizedMessage>> SearchRecentMessagesAsync(Guid userId, string query, int limit, CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
         public Task MarkProcessedAsync(IEnumerable<Guid> messageIds, CancellationToken cancellationToken)
         {
             MarkedProcessedIds.AddRange(messageIds);
@@ -283,6 +288,11 @@ public sealed class ProcessConversationAfterSettleCommandHandlerTests
         }
 
         public Task<IReadOnlyList<WorkItemRecord>> GetActiveForUserAsync(Guid userId, CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<IReadOnlyList<WorkItemRecord>> SearchAsync(Guid userId, string query, int limit, CancellationToken cancellationToken)
         {
             throw new NotSupportedException();
         }

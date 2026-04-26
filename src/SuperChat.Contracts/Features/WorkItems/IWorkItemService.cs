@@ -10,6 +10,8 @@ public interface IWorkItemService
 
     Task<IReadOnlyList<WorkItemRecord>> GetActiveForUserAsync(Guid userId, CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<WorkItemRecord>> SearchAsync(Guid userId, string query, int limit, CancellationToken cancellationToken);
+
     Task<bool> CompleteAsync(Guid userId, Guid workItemId, CancellationToken cancellationToken);
 
     Task<bool> DismissAsync(Guid userId, Guid workItemId, CancellationToken cancellationToken);
