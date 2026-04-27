@@ -17,17 +17,38 @@ public sealed class TelegramConnectionService(
     TimeProvider timeProvider,
     ILogger<TelegramConnectionService> logger) : ITelegramConnectionService
 {
-    public Task<TelegramConnection> StartAsync(AppUser user, CancellationToken cancellationToken)
-        => TransitionAsync(user.Id, TelegramConnectionState.LoginAwaitingPhone, cancellationToken);
+    public async Task<TelegramConnection> StartAsync(AppUser user, CancellationToken cancellationToken)
+    {
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var entity = await FindOrCreateAsync(dbContext, user.Id, cancellationToken);
+
+        // If the user is already connected, keep the live session and ignore the
+        // accidental re-click. This protects against the UI calling /connect after
+        // a successful login flow finished.
+        if (entity.State is TelegramConnectionState.Connected
+            or TelegramConnectionState.LoginAwaitingCode
+            or TelegramConnectionState.LoginAwaitingPassword)
+        {
+            return entity.ToDomain();
+        }
+
+        entity.State = TelegramConnectionState.LoginAwaitingPhone;
+        entity.UpdatedAt = timeProvider.GetUtcNow();
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return entity.ToDomain();
+    }
 
     public async Task<TelegramConnection> ReconnectAsync(AppUser user, CancellationToken cancellationToken)
     {
         await DisconnectAsync(user.Id, cancellationToken);
-        return await StartAsync(user, cancellationToken);
+        return await ForceStartAsync(user.Id, cancellationToken);
     }
 
     public Task<TelegramConnection> StartChatLoginAsync(AppUser user, CancellationToken cancellationToken)
         => StartAsync(user, cancellationToken);
+
+    private Task<TelegramConnection> ForceStartAsync(Guid userId, CancellationToken cancellationToken)
+        => TransitionAsync(userId, TelegramConnectionState.LoginAwaitingPhone, cancellationToken);
 
     public async Task<TelegramConnection> SubmitLoginInputAsync(AppUser user, string input, CancellationToken cancellationToken)
     {

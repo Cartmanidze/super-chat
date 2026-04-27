@@ -121,14 +121,17 @@ export function TelegramLoginScreen({ onClose }: TelegramLoginScreenProps) {
                   : "Не подключено"}
             </Text>
             <Text style={{ ...typography.body, fontSize: 13, color: colors.ash400, marginTop: 6 }}>
-              Super Chat читает чаты через защищённую сессию. Вход — по номеру телефона и одноразовому коду
-              из Telegram.
+              {data?.state === "Connected"
+                ? "Super Chat читает чаты через защищённую сессию. Можно отключить ниже."
+                : "Super Chat читает чаты через защищённую сессию. Вход — по номеру телефона и одноразовому коду из Telegram."}
             </Text>
-            <View style={{ flexDirection: "row", gap: 10, marginTop: 14 }}>
-              <Button variant="primary" full onPress={() => startConnect.mutate()}>
-                {startConnect.isPending ? "Открываем…" : "Подключить"}
-              </Button>
-            </View>
+            {data?.state !== "Connected" ? (
+              <View style={{ flexDirection: "row", gap: 10, marginTop: 14 }}>
+                <Button variant="primary" full onPress={() => startConnect.mutate()}>
+                  {startConnect.isPending ? "Открываем…" : "Подключить"}
+                </Button>
+              </View>
+            ) : null}
           </Card>
         ) : (
           <Card accent>

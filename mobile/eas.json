@@ -18,6 +18,9 @@
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://api.super-chat.org/api/v1"
       },
+      "android": {
+        "buildType": "apk"
+      },
       "ios": {
         "simulator": false
       }
