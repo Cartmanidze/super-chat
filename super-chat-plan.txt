@@ -100,7 +100,7 @@ DeepSeek API
 
 Для закрытого пилота:
 
-используй сервер tranify как staging, а сервер super-chat как production; ssh этого vps находится в C:\Users\PierDunn\.ssh
+используй сервер super-chat как production; ssh этого vps находится в C:\Users\PierDunn\.ssh
 
 Этого хватит, потому что ты пока не крутишь свою LLM локально на сервере — inference идёт во внешний DeepSeek.
 

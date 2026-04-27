@@ -16,7 +16,7 @@ HMAC-SHA256 signature in the `X-Superchat-Signature` header.
 If required credentials are missing (TELEGRAM_API_ID/HASH, encryption key,
 HMAC secret), the service boots in `disabled` mode: only /health responds
 OK; every `/sessions/*` endpoint returns 503 with `sidecar_disabled`.
-This lets the container run in staging before the pilot has wired up
+This lets the container run in production before the pilot has wired up
 secrets, without the restart-loop that a hard crash would cause.
 """
 from __future__ import annotations

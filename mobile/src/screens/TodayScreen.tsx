@@ -1,0 +1,459 @@
+import { useEffect, useMemo, useState } from "react";
+import { Alert, Linking, Pressable, Text, View } from "react-native";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { meetingsGateway, type MeetingCard } from "../api/meetings";
+import { useSessionStore } from "../store/session";
+import { Screen } from "../ui/Screen";
+import { Header } from "../ui/Header";
+import { Card } from "../ui/Card";
+import { Pill } from "../ui/Pill";
+import { Avatar } from "../ui/Avatar";
+import { Button } from "../ui/Button";
+import { Eyebrow } from "../ui/Eyebrow";
+import { colors, radii, typography } from "../theme/tokens";
+import { TODAY_TIME_ZONE, dayBoundsInTimeZone, formatClock, relativeTimeTo } from "../lib/time";
+
+function avatarInitials(value: string | null | undefined): string {
+  if (!value) return "·";
+  const cleaned = value.replace(/[#@]/g, "").trim();
+  const parts = cleaned.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "·";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
+function avatarVariant(value: string | null | undefined): "g1" | "g2" | "g3" | "g4" {
+  if (!value) return "g3";
+  const code = [...value].reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
+  return (["g1", "g2", "g3", "g4"] as const)[code % 4];
+}
+
+function pickNext(cards: MeetingCard[], now: Date): MeetingCard | null {
+  let best: MeetingCard | null = null;
+  let bestTs = Infinity;
+  for (const c of cards) {
+    const at = c.dueAt ?? c.observedAt;
+    if (!at) continue;
+    const t = new Date(at).getTime();
+    if (Number.isNaN(t)) continue;
+    if (t < now.getTime() - 15 * 60_000) continue;
+    if (t < bestTs) {
+      bestTs = t;
+      best = c;
+    }
+  }
+  return best;
+}
+
+export function TodayScreen() {
+  const queryClient = useQueryClient();
+  const token = useSessionStore((s) => s.accessToken);
+  const meetings = useQuery({
+    queryKey: ["meetings"],
+    queryFn: () => meetingsGateway.list(token!),
+    enabled: Boolean(token),
+  });
+
+  const invalidateMeetings = () =>
+    queryClient.invalidateQueries({ queryKey: ["meetings"] });
+
+  const confirmMeeting = useMutation({
+    mutationFn: (id: string) => meetingsGateway.confirm(token!, id),
+    onSuccess: invalidateMeetings,
+    onError: (e: Error) => Alert.alert("Не удалось подтвердить", e.message),
+  });
+
+  const dismissMeeting = useMutation({
+    mutationFn: (id: string) => meetingsGateway.dismiss(token!, id),
+    onSuccess: invalidateMeetings,
+    onError: (e: Error) => Alert.alert("Не удалось отклонить", e.message),
+  });
+
+  const openMeetingUrl = async (url: string) => {
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (!supported) {
+        Alert.alert("Не удалось открыть ссылку", url);
+        return;
+      }
+      await Linking.openURL(url);
+    } catch (e) {
+      Alert.alert("Не удалось открыть ссылку", String(e));
+    }
+  };
+
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+
+  const cards = meetings.data ?? [];
+  const next = useMemo(() => pickNext(cards, now), [cards, now]);
+  const pending = useMemo(() => cards.filter((c) => c.status === "PendingConfirmation"), [cards]);
+
+  const todayCount = useMemo(() => {
+    const { start, end } = dayBoundsInTimeZone(now, TODAY_TIME_ZONE);
+    return cards.filter((c) => {
+      const at = c.dueAt ?? c.observedAt;
+      if (!at) return false;
+      const t = new Date(at).getTime();
+      return t >= start && t < end;
+    }).length;
+  }, [cards, now]);
+
+  const headlineRel = next ? relativeTimeTo(next.dueAt ?? next.observedAt, now) : null;
+
+  return (
+    <Screen>
+      <Header
+        subtitle={`${formatWeekDay(now)} · ${formatClock(now)}`}
+        title={
+          <View>
+            <Text
+              style={{
+                ...typography.display,
+                fontFamily: "Manrope_800ExtraBold",
+                fontSize: 24,
+                lineHeight: 27,
+                color: colors.bone,
+                letterSpacing: -0.6,
+              }}
+            >
+              {todayCount > 0 ? `${todayCount} ${pluralMeetings(todayCount)} сегодня.` : "Сегодня тихо."}
+            </Text>
+            {headlineRel ? (
+              <Text
+                style={{
+                  ...typography.display,
+                  fontFamily: "Manrope_800ExtraBold",
+                  fontSize: 24,
+                  lineHeight: 27,
+                  color: colors.bolt400,
+                  letterSpacing: -0.6,
+                }}
+              >
+                Ближайшая — {headlineRel.label}
+              </Text>
+            ) : null}
+          </View>
+        }
+        right={<Avatar who="ИП" size={32} variant="g2" />}
+      />
+
+      <View style={{ paddingHorizontal: 16, gap: 14 }}>
+        {next ? (
+          <NextMeetingHero
+            card={next}
+            now={now}
+            onOpenUrl={openMeetingUrl}
+            onConfirm={(id) => confirmMeeting.mutate(id)}
+            onDismiss={(id) => dismissMeeting.mutate(id)}
+            isConfirming={confirmMeeting.isPending}
+            isDismissing={dismissMeeting.isPending}
+          />
+        ) : null}
+
+        {pending.length > 0 ? (
+          <>
+            <SectionHead title="Ждут подтверждения" count={pending.length} />
+            <View style={{ gap: 6 }}>
+              {pending.map((c) => (
+                <PendingRow
+                  key={c.id ?? c.title}
+                  card={c}
+                  onConfirm={(id) => confirmMeeting.mutate(id)}
+                  onDismiss={(id) => dismissMeeting.mutate(id)}
+                  isBusy={confirmMeeting.isPending || dismissMeeting.isPending}
+                />
+              ))}
+            </View>
+          </>
+        ) : null}
+
+        <SectionHead title="Расписание дня" count={todayCount} />
+        <View style={{ paddingHorizontal: 4 }}>
+          {cards.length === 0 && !meetings.isLoading ? (
+            <Card>
+              <Text style={{ ...typography.heading, fontFamily: "Manrope_700Bold", fontSize: 16, color: colors.bone }}>
+                Пока пусто
+              </Text>
+              <Text style={{ ...typography.body, fontSize: 13, color: colors.ash400, marginTop: 6 }}>
+                Когда Super Chat найдёт встречу в чатах, она появится здесь первой.
+              </Text>
+            </Card>
+          ) : null}
+          {cards.map((c) => (
+            <TimelineRow key={c.id ?? c.title} card={c} now={now} />
+          ))}
+        </View>
+      </View>
+    </Screen>
+  );
+}
+
+type NextMeetingHeroProps = {
+  card: MeetingCard;
+  now: Date;
+  onOpenUrl: (url: string) => void;
+  onConfirm: (id: string) => void;
+  onDismiss: (id: string) => void;
+  isConfirming: boolean;
+  isDismissing: boolean;
+};
+
+function NextMeetingHero({
+  card,
+  now,
+  onOpenUrl,
+  onConfirm,
+  onDismiss,
+  isConfirming,
+  isDismissing,
+}: NextMeetingHeroProps) {
+  const rel = relativeTimeTo(card.dueAt ?? card.observedAt, now);
+  const at = card.dueAt ?? card.observedAt;
+  const isPending = card.status === "PendingConfirmation";
+  const hasActions = Boolean(card.id) || Boolean(card.meetingJoinUrl);
+  return (
+    <Card accent>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }}>
+        <Pill kind="kind">⚡ {rel.phase === "live" ? "Сейчас" : rel.label}</Pill>
+        <Pill kind="gold">{Math.round(card.confidence * 100)}%</Pill>
+      </View>
+      <Text
+        style={{
+          ...typography.heading,
+          fontFamily: "Manrope_700Bold",
+          fontSize: 19,
+          color: colors.bone,
+          letterSpacing: -0.4,
+          marginBottom: 6,
+        }}
+      >
+        {card.title}
+      </Text>
+      <Text style={{ ...typography.body, fontSize: 12, color: colors.ash400, lineHeight: 18, marginBottom: 12 }}>
+        <Text style={{ color: colors.bolt400 }}>{card.sourceRoom}</Text>
+        {card.summary ? ` · ${card.summary}` : ""}
+      </Text>
+      <View style={{ flexDirection: "row", alignItems: "baseline", gap: 10, marginBottom: 14 }}>
+        <Text
+          style={{
+            ...typography.display,
+            fontFamily: "Manrope_800ExtraBold",
+            fontSize: 34,
+            lineHeight: 34,
+            color: colors.bone,
+            letterSpacing: -1,
+          }}
+        >
+          {formatClock(at)}
+        </Text>
+        <Text style={{ ...typography.mono, fontSize: 10, color: colors.bolt400, letterSpacing: 1.4, textTransform: "uppercase" }}>
+          {card.meetingProvider ?? "Встреча"}
+        </Text>
+      </View>
+      {hasActions ? (
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          {card.meetingJoinUrl ? (
+            <Button
+              variant="primary"
+              style={{ flex: 1, minHeight: 42 }}
+              onPress={() => onOpenUrl(card.meetingJoinUrl!)}
+            >
+              Открыть ссылку
+            </Button>
+          ) : null}
+          {card.id && isPending ? (
+            <Button
+              variant="ghost"
+              style={{ flex: 1, minHeight: 42 }}
+              disabled={isConfirming}
+              onPress={() => onConfirm(card.id!)}
+            >
+              {isConfirming ? "..." : "Подтвердить"}
+            </Button>
+          ) : null}
+          {card.id && isPending ? (
+            <Button
+              variant="ghost"
+              style={{ flex: 1, minHeight: 42 }}
+              disabled={isDismissing}
+              onPress={() => onDismiss(card.id!)}
+            >
+              {isDismissing ? "..." : "Отклонить"}
+            </Button>
+          ) : null}
+        </View>
+      ) : null}
+    </Card>
+  );
+}
+
+type PendingRowProps = {
+  card: MeetingCard;
+  onConfirm: (id: string) => void;
+  onDismiss: (id: string) => void;
+  isBusy: boolean;
+};
+
+function PendingRow({ card, onConfirm, onDismiss, isBusy }: PendingRowProps) {
+  const canAct = card.id != null && !isBusy;
+  return (
+    <View
+      style={{
+        padding: 12,
+        borderRadius: radii.md,
+        backgroundColor: colors.ink850,
+        borderWidth: 1,
+        borderColor: "rgba(230,181,74,0.2)",
+        flexDirection: "row",
+        gap: 10,
+        alignItems: "center",
+      }}
+    >
+      <View style={{ flex: 1 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4 }}>
+          <Pill kind="pending">? {Math.round(card.confidence * 100)}%</Pill>
+          {card.dueAt ? (
+            <Text style={{ ...typography.mono, fontSize: 10, color: colors.ash500, letterSpacing: 0.8 }}>
+              {formatClock(card.dueAt)}
+            </Text>
+          ) : null}
+        </View>
+        <Text style={{ ...typography.heading, fontFamily: "Manrope_700Bold", fontSize: 14, color: colors.bone, letterSpacing: -0.3 }}>
+          {card.title}
+        </Text>
+        <Text style={{ ...typography.body, fontSize: 11, color: colors.ash400, marginTop: 2 }}>
+          из <Text style={{ color: colors.bolt400 }}>{card.sourceRoom}</Text>
+        </Text>
+      </View>
+      {card.id != null ? (
+        <View style={{ flexDirection: "row", gap: 6 }}>
+          <Pressable
+            disabled={!canAct}
+            onPress={() => onConfirm(card.id!)}
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 10,
+              borderWidth: 1,
+              borderColor: colors.successBorder,
+              backgroundColor: colors.successBg,
+              alignItems: "center",
+              justifyContent: "center",
+              opacity: canAct ? 1 : 0.5,
+            }}
+          >
+            <Text style={{ color: colors.success, fontSize: 16 }}>✓</Text>
+          </Pressable>
+          <Pressable
+            disabled={!canAct}
+            onPress={() => onDismiss(card.id!)}
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 10,
+              borderWidth: 1,
+              borderColor: colors.borderLine,
+              backgroundColor: colors.surfaceLow,
+              alignItems: "center",
+              justifyContent: "center",
+              opacity: canAct ? 1 : 0.5,
+            }}
+          >
+            <Text style={{ color: colors.ash400, fontSize: 16 }}>✕</Text>
+          </Pressable>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function TimelineRow({ card, now }: { card: MeetingCard; now: Date }) {
+  const at = card.dueAt ?? card.observedAt;
+  const rel = relativeTimeTo(at, now);
+  const isPast = rel.phase === "past";
+  const isLive = rel.phase === "live";
+  return (
+    <View style={{ flexDirection: "row", gap: 10, paddingVertical: 12, opacity: isPast ? 0.55 : 1 }}>
+      <View
+        style={{
+          width: 48,
+          paddingTop: 4,
+          borderRightWidth: 1,
+          borderRightColor: colors.borderSoft,
+          paddingRight: 10,
+        }}
+      >
+        <Text
+          style={{
+            ...typography.mono,
+            fontSize: 10,
+            color: isLive ? colors.bolt400 : colors.ash500,
+            letterSpacing: 0.8,
+            textTransform: "uppercase",
+          }}
+        >
+          {formatClock(at)}
+        </Text>
+      </View>
+      <View style={{ flex: 1, gap: 4 }}>
+        <Text
+          style={{
+            ...typography.heading,
+            fontFamily: "Manrope_700Bold",
+            fontSize: 15,
+            color: colors.bone,
+            letterSpacing: -0.3,
+          }}
+        >
+          {card.title}
+        </Text>
+        <Text style={{ ...typography.body, fontSize: 12, color: colors.ash400, lineHeight: 18 }}>{card.summary}</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 }}>
+          <Avatar who={avatarInitials(card.sourceRoom)} size={20} variant={avatarVariant(card.sourceRoom)} />
+          <Text style={{ ...typography.mono, fontSize: 10, color: colors.bolt400, letterSpacing: 0.8 }}>
+            {card.sourceRoom}
+          </Text>
+          <Text style={{ ...typography.mono, fontSize: 10, color: colors.ash500, letterSpacing: 0.8 }}>
+            · {isPast ? "прошла" : isLive ? "идёт" : rel.label}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function SectionHead({ title, count }: { title: string; count: number }) {
+  return (
+    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", paddingHorizontal: 4, paddingTop: 4 }}>
+      <Text
+        style={{
+          ...typography.heading,
+          fontFamily: "Manrope_800ExtraBold",
+          fontSize: 16,
+          color: colors.bone,
+          letterSpacing: -0.4,
+        }}
+      >
+        {title}
+      </Text>
+      <Eyebrow color={colors.ash500}>{String(count)}</Eyebrow>
+    </View>
+  );
+}
+
+function formatWeekDay(d: Date): string {
+  const wd = d.toLocaleDateString("ru-RU", { weekday: "short" });
+  return wd.charAt(0).toUpperCase() + wd.slice(1);
+}
+
+function pluralMeetings(n: number): string {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return "встреча";
+  if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return "встречи";
+  return "встреч";
+}
