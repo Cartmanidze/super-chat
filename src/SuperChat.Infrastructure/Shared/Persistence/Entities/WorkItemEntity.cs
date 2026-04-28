@@ -9,7 +9,7 @@ internal sealed class WorkItemEntity
     public ExtractedItemKind Kind { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Summary { get; set; } = string.Empty;
-    public string SourceRoom { get; set; } = string.Empty;
+    public string ExternalChatId { get; set; } = string.Empty;
     public string SourceEventId { get; set; } = string.Empty;
     public string? Person { get; set; }
     public DateTimeOffset ObservedAt { get; set; }

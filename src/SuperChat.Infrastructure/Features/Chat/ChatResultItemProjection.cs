@@ -6,7 +6,7 @@ internal sealed record ChatResultItemProjection(
     Guid? Id,
     string Title,
     string Summary,
-    string SourceRoom,
+    string ChatTitle,
     DateTimeOffset? Timestamp,
     string? Kind = null,
     WorkItemType? Type = null,

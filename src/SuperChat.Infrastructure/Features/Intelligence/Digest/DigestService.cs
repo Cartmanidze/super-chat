@@ -10,7 +10,7 @@ namespace SuperChat.Infrastructure.Features.Intelligence.Digest;
 
 public sealed class DigestService(
     IMeetingService meetingService,
-    IRoomDisplayNameService roomDisplayNameService,
+    IChatTitleService chatTitleService,
     TimeProvider timeProvider,
     PilotOptions pilotOptions,
     ILogger<DigestService> logger) : IDigestService
@@ -23,18 +23,18 @@ public sealed class DigestService(
             .Select(item => item.ToWorkItemCardViewModel(now))
             .ToList();
 
-        return await ResolveRoomNamesAsync(userId, cards, cancellationToken);
+        return await ResolveChatTitlesAsync(userId, cards, cancellationToken);
     }
 
-    private async Task<IReadOnlyList<WorkItemCardViewModel>> ResolveRoomNamesAsync(
+    private async Task<IReadOnlyList<WorkItemCardViewModel>> ResolveChatTitlesAsync(
         Guid userId,
         IReadOnlyList<WorkItemCardViewModel> cards,
         CancellationToken cancellationToken)
     {
-        var roomNames = await roomDisplayNameService.ResolveManyAsync(userId, cards.Select(item => item.SourceRoom), cancellationToken);
+        var chatTitles = await chatTitleService.ResolveManyAsync(userId, cards.Select(item => item.ChatTitle), cancellationToken);
 
         return cards
-            .Select(card => card.WithResolvedSourceRoom(roomNames))
+            .Select(card => card.WithResolvedChatTitle(chatTitles))
             .ToList();
     }
 }

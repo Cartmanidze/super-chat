@@ -18,14 +18,14 @@ public sealed class DeadRepositoryCleanupTests
             "SuperChat.Domain.Features.Auth.IAppUserRepository",
             "SuperChat.Domain.Features.Integrations.Matrix.IMatrixIdentityRepository",
             "SuperChat.Domain.Features.Integrations.Telegram.ITelegramConnectionRepository",
-            "SuperChat.Domain.Features.Messaging.INormalizedMessageRepository"
+            "SuperChat.Domain.Features.Messaging.IChatMessageRepository"
         ]);
         AssertLegacyTypesAbsent(infrastructureAssembly,
         [
             "SuperChat.Infrastructure.Features.Auth.EfAppUserRepository",
             "SuperChat.Infrastructure.Features.Integrations.Matrix.EfMatrixIdentityRepository",
             "SuperChat.Infrastructure.Features.Integrations.Telegram.EfTelegramConnectionRepository",
-            "SuperChat.Infrastructure.Features.Messaging.EfNormalizedMessageRepository"
+            "SuperChat.Infrastructure.Features.Messaging.EfChatMessageRepository"
         ]);
     }
 
@@ -64,10 +64,10 @@ public sealed class DeadRepositoryCleanupTests
             "SuperChat.Domain.Features.Auth.IAppUserRepository" or
             "SuperChat.Domain.Features.Integrations.Matrix.IMatrixIdentityRepository" or
             "SuperChat.Domain.Features.Integrations.Telegram.ITelegramConnectionRepository" or
-            "SuperChat.Domain.Features.Messaging.INormalizedMessageRepository" or
+            "SuperChat.Domain.Features.Messaging.IChatMessageRepository" or
             "SuperChat.Infrastructure.Features.Auth.EfAppUserRepository" or
             "SuperChat.Infrastructure.Features.Integrations.Matrix.EfMatrixIdentityRepository" or
             "SuperChat.Infrastructure.Features.Integrations.Telegram.EfTelegramConnectionRepository" or
-            "SuperChat.Infrastructure.Features.Messaging.EfNormalizedMessageRepository";
+            "SuperChat.Infrastructure.Features.Messaging.EfChatMessageRepository";
     }
 }

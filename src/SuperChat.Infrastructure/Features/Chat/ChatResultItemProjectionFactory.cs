@@ -24,7 +24,7 @@ internal static class ChatResultItemProjectionFactory
             card.Id,
             titleMatchesGenericTitle ? card.Summary : card.Title,
             titleMatchesGenericTitle ? string.Empty : card.Summary,
-            card.SourceRoom,
+            card.ChatTitle,
             timestamp,
             Type: card.Type,
             Status: card.Status,
@@ -52,7 +52,7 @@ internal static class ChatResultItemProjectionFactory
             null,
             result.Title,
             result.Summary,
-            result.SourceRoom,
+            result.ChatTitle,
             result.ObservedAt,
             result.Kind,
             type,
@@ -70,14 +70,14 @@ internal static class ChatResultItemProjectionFactory
             joinLink?.Url);
     }
 
-    public static ChatResultItemProjection FromMessage(NormalizedMessage message, string sourceRoom)
+    public static ChatResultItemProjection FromMessage(ChatMessage message, string chatTitle)
     {
         var joinLink = MeetingJoinLinkParser.TryParse(message.Text);
         return new ChatResultItemProjection(
             null,
-            MessagePresentationFormatter.ResolveDisplaySenderName(message.SenderName, sourceRoom),
+            MessagePresentationFormatter.ResolveDisplaySenderName(message.SenderName, chatTitle),
             message.Text,
-            sourceRoom,
+            chatTitle,
             message.SentAt,
             Source: WorkItemSource.Chat,
             UpdatedAt: message.SentAt,
@@ -92,7 +92,7 @@ internal static class ChatResultItemProjectionFactory
             null,
             context.Title,
             context.Summary,
-            context.SourceRoom,
+            context.ExternalChatId,
             context.ObservedAt,
             Source: WorkItemSource.Chat,
             UpdatedAt: context.ObservedAt,
@@ -109,7 +109,7 @@ internal static class ChatResultItemProjectionFactory
             null,
             item.Title,
             item.Summary,
-            context.SourceRoom,
+            context.ExternalChatId,
             context.ObservedAt,
             Source: WorkItemSource.Chat,
             UpdatedAt: context.ObservedAt,
@@ -125,7 +125,7 @@ internal static class ChatResultItemProjectionFactory
             sourceItem.Id,
             item.Title,
             item.Summary,
-            sourceItem.SourceRoom,
+            sourceItem.ChatTitle,
             sourceItem.Timestamp,
             null,
             sourceItem.Type,

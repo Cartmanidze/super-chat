@@ -32,7 +32,7 @@ public sealed class ChunkBuilderServiceTests
         var earlierId = Guid.Parse("11111111-1111-1111-1111-111111111111");
         var laterId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
-        var messages = new List<NormalizedMessageEntity>
+        var messages = new List<ChatMessageEntity>
         {
             CreateEntity(earlierId, receivedAt),
             CreateEntity(laterId, receivedAt)
@@ -64,7 +64,7 @@ public sealed class ChunkBuilderServiceTests
             MaxChunkCharacters = 1600
         };
 
-        var messages = new List<NormalizedMessage>
+        var messages = new List<ChatMessage>
         {
             CreateDomainMessage(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"), userId, roomId, "Alice", "Первое", baseTime, baseTime),
             CreateDomainMessage(Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"), userId, roomId, "You", "Второе", baseTime.AddMinutes(5), baseTime.AddMinutes(5)),
@@ -121,7 +121,7 @@ public sealed class ChunkBuilderServiceTests
         var checkpoint = await dbContext.ChunkBuildCheckpoints
             .SingleAsync(item => item.UserId == userId, CancellationToken.None);
 
-        var normalizedMessages = await dbContext.NormalizedMessages
+        var normalizedMessages = await dbContext.ChatMessages
             .OrderBy(item => item.SentAt)
             .ToListAsync(CancellationToken.None);
 
@@ -209,7 +209,7 @@ public sealed class ChunkBuilderServiceTests
         {
             var messageIndex = startingIndex + index;
             var sentAt = startTime.AddMinutes(index);
-            dbContext.NormalizedMessages.Add(new NormalizedMessageEntity
+            dbContext.ChatMessages.Add(new ChatMessageEntity
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
@@ -227,9 +227,9 @@ public sealed class ChunkBuilderServiceTests
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    private static NormalizedMessageEntity CreateEntity(Guid id, DateTimeOffset receivedAt)
+    private static ChatMessageEntity CreateEntity(Guid id, DateTimeOffset receivedAt)
     {
-        return new NormalizedMessageEntity
+        return new ChatMessageEntity
         {
             Id = id,
             UserId = Guid.NewGuid(),
@@ -244,7 +244,7 @@ public sealed class ChunkBuilderServiceTests
         };
     }
 
-    private static NormalizedMessage CreateDomainMessage(
+    private static ChatMessage CreateDomainMessage(
         Guid id,
         Guid userId,
         string roomId,
@@ -253,7 +253,7 @@ public sealed class ChunkBuilderServiceTests
         DateTimeOffset sentAt,
         DateTimeOffset receivedAt)
     {
-        return new NormalizedMessage(
+        return new ChatMessage(
             id,
             userId,
             "telegram",

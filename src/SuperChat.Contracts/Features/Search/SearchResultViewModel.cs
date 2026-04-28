@@ -4,7 +4,7 @@ public sealed record SearchResultViewModel(
     string Title,
     string Summary,
     string Kind,
-    string SourceRoom,
+    string ChatTitle,
     DateTimeOffset ObservedAt,
     string? ResolutionNote = null,
     double? ResolutionConfidence = null);

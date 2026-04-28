@@ -164,7 +164,7 @@ public sealed class ChatAnswerGenerationService(
             contextItems.Select(item => new
             {
                 reference_key = item.ReferenceKey,
-                source_room = item.SourceRoom,
+                chat_title = item.ChatTitle,
                 timestamp = item.Timestamp?.ToUniversalTime().ToString("O"),
                 text = item.Text
             }),

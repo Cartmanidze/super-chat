@@ -4,7 +4,7 @@ namespace SuperChat.Domain.Features.Intelligence;
 
 public static class WaitingOnTurnDetector
 {
-    public static NormalizedMessage? GetLatestMeaningfulMessage(ConversationWindow window)
+    public static ChatMessage? GetLatestMeaningfulMessage(ConversationWindow window)
     {
         for (var index = window.Messages.Count - 1; index >= 0; index--)
         {
@@ -18,7 +18,7 @@ public static class WaitingOnTurnDetector
         return null;
     }
 
-    public static NormalizedMessage? GetUnansweredExternalMessage(ConversationWindow window)
+    public static ChatMessage? GetUnansweredExternalMessage(ConversationWindow window)
     {
         var latestMeaningfulMessage = GetLatestMeaningfulMessage(window);
         if (latestMeaningfulMessage is null)
@@ -36,7 +36,7 @@ public static class WaitingOnTurnDetector
         return GetUnansweredExternalMessage(window) is not null;
     }
 
-    public static bool IsOwnMessage(NormalizedMessage message)
+    public static bool IsOwnMessage(ChatMessage message)
     {
         return IsOwnSender(message.SenderName);
     }
@@ -46,7 +46,7 @@ public static class WaitingOnTurnDetector
         return string.Equals(senderName?.Trim(), "You", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool LooksMeaningful(NormalizedMessage message)
+    private static bool LooksMeaningful(ChatMessage message)
     {
         return !string.IsNullOrWhiteSpace(message.Text);
     }

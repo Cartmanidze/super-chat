@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SuperChat.Infrastructure.Shared.Persistence;
@@ -11,9 +12,11 @@ using SuperChat.Infrastructure.Shared.Persistence;
 namespace SuperChat.Infrastructure.Migrations
 {
     [DbContext(typeof(SuperChatDbContext))]
-    partial class SuperChatDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260428070441_RenameNormalizedMessagesToChatMessages")]
+    partial class RenameNormalizedMessagesToChatMessages
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -181,11 +184,6 @@ namespace SuperChat.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("due_at");
 
-                    b.Property<string>("ExternalChatId")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("external_chat_id");
-
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasColumnType("text")
@@ -227,6 +225,11 @@ namespace SuperChat.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("source_event_id");
+
+                    b.Property<string>("SourceRoom")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("source_room");
 
                     b.Property<string>("Summary")
                         .IsRequired()
@@ -300,11 +303,6 @@ namespace SuperChat.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
-                    b.Property<string>("ExternalChatId")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("external_chat_id");
-
                     b.Property<string>("MeetingJoinUrl")
                         .HasColumnType("text")
                         .HasColumnName("meeting_join_url");
@@ -353,6 +351,11 @@ namespace SuperChat.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("source_event_id");
+
+                    b.Property<string>("SourceRoom")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("source_room");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -738,11 +741,6 @@ namespace SuperChat.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("due_at");
 
-                    b.Property<string>("ExternalChatId")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("external_chat_id");
-
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasColumnType("text")
@@ -784,6 +782,11 @@ namespace SuperChat.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("source_event_id");
+
+                    b.Property<string>("SourceRoom")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("source_room");
 
                     b.Property<string>("Summary")
                         .IsRequired()

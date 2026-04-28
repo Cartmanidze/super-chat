@@ -3,10 +3,10 @@ using SuperChat.Infrastructure.Shared.Persistence;
 
 namespace SuperChat.Infrastructure.Features.Messaging;
 
-internal static class NormalizedMessageSearchQueryExtensions
+internal static class ChatMessageSearchQueryExtensions
 {
-    public static IQueryable<NormalizedMessageEntity> ApplySearchFilter(
-        this IQueryable<NormalizedMessageEntity> source,
+    public static IQueryable<ChatMessageEntity> ApplySearchFilter(
+        this IQueryable<ChatMessageEntity> source,
         Guid userId,
         string normalizedQuery)
     {

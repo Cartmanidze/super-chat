@@ -12,24 +12,19 @@ internal static class WorkItemCardViewModelMappings
         return MeetingWorkItemCardViewModelMapper.Map(meeting, metadata);
     }
 
-    public static WorkItemCardViewModel WithResolvedSourceRoom(
+    public static WorkItemCardViewModel WithResolvedChatTitle(
         this WorkItemCardViewModel card,
-        IReadOnlyDictionary<string, string> roomNames)
+        IReadOnlyDictionary<string, string> chatTitles)
     {
-        if (roomNames.TryGetValue(card.SourceRoom, out var roomName))
+        if (chatTitles.TryGetValue(card.ChatTitle, out var resolvedTitle))
         {
-            return card with { SourceRoom = roomName };
+            return card with { ChatTitle = resolvedTitle };
         }
 
-        return card.SourceRoom.LooksLikeMatrixRoomId()
-            ? card with { SourceRoom = string.Empty }
+        // Если читаемого имени нет, а текущее значение это сырой идентификатор чата
+        // (числовой Telegram chat id или legacy Matrix room id), не отдаём его в UI.
+        return ChatTitleHeuristics.LooksLikeRawChatId(card.ChatTitle)
+            ? card with { ChatTitle = string.Empty }
             : card;
-    }
-
-    private static bool LooksLikeMatrixRoomId(this string value)
-    {
-        return !string.IsNullOrWhiteSpace(value) &&
-               value.StartsWith("!", StringComparison.Ordinal) &&
-               value.Contains(':', StringComparison.Ordinal);
     }
 }

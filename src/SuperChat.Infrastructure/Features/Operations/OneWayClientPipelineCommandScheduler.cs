@@ -25,7 +25,7 @@ internal sealed class OneWayClientPipelineCommandScheduler(
     public bool RequiresTransactionalDispatch =>
         string.Equals(persistenceOptions.Value.Provider, "Postgres", StringComparison.OrdinalIgnoreCase);
 
-    public async Task DispatchNormalizedMessageStoredAsync(
+    public async Task DispatchChatMessageStoredAsync(
         SuperChatDbContext dbContext,
         Guid userId,
         string source,
@@ -41,7 +41,7 @@ internal sealed class OneWayClientPipelineCommandScheduler(
         var rebuildFrom = sentAt.AddMinutes(-Math.Max(1, chunkingOptions.Value.MaxGapMinutes));
 
         logger.LogInformation(
-            "Dispatching one-way pipeline commands for normalized message. Queue={Queue}, Source={Source}, SentAt={SentAt}, RebuildFrom={RebuildFrom}, SettleDelaySeconds={SettleDelaySeconds}.",
+            "Dispatching one-way pipeline commands for chat message. Queue={Queue}, Source={Source}, SentAt={SentAt}, RebuildFrom={RebuildFrom}, SettleDelaySeconds={SettleDelaySeconds}.",
             queueName,
             source,
             sentAt,

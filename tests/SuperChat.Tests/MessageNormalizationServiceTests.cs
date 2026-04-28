@@ -6,14 +6,14 @@ using SuperChat.Infrastructure.Shared.Persistence;
 
 namespace SuperChat.Tests;
 
-public sealed class MessageNormalizationServiceTests
+public sealed class ChatMessageStoreTests
 {
     [Fact]
     public async Task TryStoreAsync_DispatchesPipelineCommands_WhenMessageIsNew()
     {
         var scheduler = new RecordingPipelineCommandScheduler();
         var factory = await CreateFactoryAsync(CancellationToken.None);
-        var service = new MessageNormalizationService(factory, scheduler, NullLogger<MessageNormalizationService>.Instance);
+        var service = new ChatMessageStore(factory, scheduler, NullLogger<ChatMessageStore>.Instance);
         var sentAt = new DateTimeOffset(2026, 03, 13, 10, 00, 00, TimeSpan.Zero);
 
         var stored = await service.TryStoreAsync(
@@ -41,7 +41,7 @@ public sealed class MessageNormalizationServiceTests
     {
         var scheduler = new RecordingPipelineCommandScheduler();
         var factory = await CreateFactoryAsync(CancellationToken.None);
-        var service = new MessageNormalizationService(factory, scheduler, NullLogger<MessageNormalizationService>.Instance);
+        var service = new ChatMessageStore(factory, scheduler, NullLogger<ChatMessageStore>.Instance);
         var sentAt = new DateTimeOffset(2026, 03, 13, 10, 00, 00, TimeSpan.Zero);
         var userId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
 
@@ -74,16 +74,16 @@ public sealed class MessageNormalizationServiceTests
     {
         var scheduler = new RecordingPipelineCommandScheduler();
         var factory = await CreateFactoryAsync(CancellationToken.None);
-        var service = new MessageNormalizationService(factory, scheduler, NullLogger<MessageNormalizationService>.Instance);
+        var service = new ChatMessageStore(factory, scheduler, NullLogger<ChatMessageStore>.Instance);
         var userId = Guid.NewGuid();
         var otherUserId = Guid.NewGuid();
         var baseTime = new DateTimeOffset(2026, 04, 11, 10, 00, 00, TimeSpan.Zero);
 
         await using (var dbContext = await factory.CreateDbContextAsync(CancellationToken.None))
         {
-            dbContext.NormalizedMessages.AddRange(
+            dbContext.ChatMessages.AddRange(
             [
-                new NormalizedMessageEntity
+                new ChatMessageEntity
                 {
                     Id = Guid.NewGuid(),
                     UserId = userId,
@@ -96,7 +96,7 @@ public sealed class MessageNormalizationServiceTests
                     ReceivedAt = baseTime,
                     Processed = false
                 },
-                new NormalizedMessageEntity
+                new ChatMessageEntity
                 {
                     Id = Guid.NewGuid(),
                     UserId = userId,
@@ -109,7 +109,7 @@ public sealed class MessageNormalizationServiceTests
                     ReceivedAt = baseTime,
                     Processed = false
                 },
-                new NormalizedMessageEntity
+                new ChatMessageEntity
                 {
                     Id = Guid.NewGuid(),
                     UserId = userId,
@@ -122,7 +122,7 @@ public sealed class MessageNormalizationServiceTests
                     ReceivedAt = baseTime,
                     Processed = false
                 },
-                new NormalizedMessageEntity
+                new ChatMessageEntity
                 {
                     Id = Guid.NewGuid(),
                     UserId = userId,
@@ -135,7 +135,7 @@ public sealed class MessageNormalizationServiceTests
                     ReceivedAt = baseTime,
                     Processed = false
                 },
-                new NormalizedMessageEntity
+                new ChatMessageEntity
                 {
                     Id = Guid.NewGuid(),
                     UserId = otherUserId,
@@ -167,7 +167,7 @@ public sealed class MessageNormalizationServiceTests
     {
         var scheduler = new RecordingPipelineCommandScheduler();
         var factory = await CreateFactoryAsync(CancellationToken.None);
-        var service = new MessageNormalizationService(factory, scheduler, NullLogger<MessageNormalizationService>.Instance);
+        var service = new ChatMessageStore(factory, scheduler, NullLogger<ChatMessageStore>.Instance);
 
         var results = await service.SearchRecentMessagesAsync(Guid.NewGuid(), "   ", limit: 20, CancellationToken.None);
 
@@ -179,15 +179,15 @@ public sealed class MessageNormalizationServiceTests
     {
         var scheduler = new RecordingPipelineCommandScheduler();
         var factory = await CreateFactoryAsync(CancellationToken.None);
-        var service = new MessageNormalizationService(factory, scheduler, NullLogger<MessageNormalizationService>.Instance);
+        var service = new ChatMessageStore(factory, scheduler, NullLogger<ChatMessageStore>.Instance);
         var userId = Guid.NewGuid();
         var baseTime = new DateTimeOffset(2026, 04, 11, 10, 00, 00, TimeSpan.Zero);
 
         await using (var dbContext = await factory.CreateDbContextAsync(CancellationToken.None))
         {
-            dbContext.NormalizedMessages.AddRange(
+            dbContext.ChatMessages.AddRange(
             [
-                new NormalizedMessageEntity
+                new ChatMessageEntity
                 {
                     Id = Guid.NewGuid(),
                     UserId = userId,
@@ -200,7 +200,7 @@ public sealed class MessageNormalizationServiceTests
                     ReceivedAt = baseTime,
                     Processed = false
                 },
-                new NormalizedMessageEntity
+                new ChatMessageEntity
                 {
                     Id = Guid.NewGuid(),
                     UserId = userId,
@@ -242,7 +242,7 @@ public sealed class MessageNormalizationServiceTests
 
         public bool RequiresTransactionalDispatch => false;
 
-        public Task DispatchNormalizedMessageStoredAsync(
+        public Task DispatchChatMessageStoredAsync(
             SuperChatDbContext dbContext,
             Guid userId,
             string source,
@@ -261,7 +261,7 @@ public sealed class MessageNormalizationServiceTests
         Guid UserId,
         string Source,
         string ExternalChatId,
-        Guid NormalizedMessageId,
+        Guid ChatMessageId,
         string ExternalMessageId,
         DateTimeOffset SentAt);
 

@@ -38,7 +38,7 @@ internal sealed class MeetingAutoResolutionService(
             .Where(item => item.ResolvedAt == null &&
                            item.ScheduledFor != null &&
                            item.ScheduledFor <= dueBeforeInclusive)
-            .Select(item => new { item.UserId, item.SourceRoom })
+            .Select(item => new { item.UserId, item.ExternalChatId })
             .Distinct()
             .ToListAsync(cancellationToken);
 
@@ -50,7 +50,7 @@ internal sealed class MeetingAutoResolutionService(
         foreach (var scope in staleScopes)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await ResolveCoreAsync(scope.UserId, scope.SourceRoom, dueBeforeInclusive, dueBeforeInclusive, cancellationToken);
+            await ResolveCoreAsync(scope.UserId, scope.ExternalChatId, dueBeforeInclusive, dueBeforeInclusive, cancellationToken);
         }
     }
 
@@ -69,7 +69,7 @@ internal sealed class MeetingAutoResolutionService(
 
         if (!string.IsNullOrWhiteSpace(externalChatId))
         {
-            unresolvedMeetingsQuery = unresolvedMeetingsQuery.Where(item => item.SourceRoom == externalChatId);
+            unresolvedMeetingsQuery = unresolvedMeetingsQuery.Where(item => item.ExternalChatId == externalChatId);
         }
 
         if (dueBeforeInclusive is not null)
@@ -102,12 +102,12 @@ internal sealed class MeetingAutoResolutionService(
         }
 
         var roomIds = candidates
-            .Select(item => item.SourceRoom)
+            .Select(item => item.ExternalChatId)
             .Distinct(StringComparer.Ordinal)
             .ToList();
         var observedFrom = candidates.Min(item => item.ObservedAt);
 
-        var messages = await dbContext.NormalizedMessages
+        var messages = await dbContext.ChatMessages
             .AsNoTracking()
             .Where(item => item.UserId == userId &&
                            roomIds.Contains(item.ExternalChatId))
@@ -118,13 +118,13 @@ internal sealed class MeetingAutoResolutionService(
             .OrderBy(item => item.SentAt)
             .ThenBy(item => item.ReceivedAt)
             .GroupBy(item => item.ExternalChatId, StringComparer.Ordinal)
-            .ToDictionary(group => group.Key, group => (IReadOnlyList<NormalizedMessageEntity>)group.ToList(), StringComparer.Ordinal);
+            .ToDictionary(group => group.Key, group => (IReadOnlyList<ChatMessageEntity>)group.ToList(), StringComparer.Ordinal);
 
         var changed = false;
         var resolvedCount = 0;
         foreach (var meeting in candidates)
         {
-            var roomMessages = messagesByRoom.GetValueOrDefault(meeting.SourceRoom);
+            var roomMessages = messagesByRoom.GetValueOrDefault(meeting.ExternalChatId);
             if (roomMessages is null || roomMessages.Count == 0)
             {
                 continue;

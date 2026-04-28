@@ -8,7 +8,7 @@ public static class ConversationWindowSettlement
     public static readonly TimeSpan SettleDelay = TimeSpan.FromSeconds(20);
 
     public static IReadOnlyList<ConversationWindow> BuildReadyConversationWindows(
-        IReadOnlyList<NormalizedMessage> pendingMessages,
+        IReadOnlyList<ChatMessage> pendingMessages,
         DateTimeOffset now)
     {
         if (pendingMessages.Count == 0)
@@ -26,7 +26,7 @@ public static class ConversationWindowSettlement
                 .ThenBy(message => message.Id)
                 .ToList();
 
-            var buffer = new List<NormalizedMessage>();
+            var buffer = new List<ChatMessage>();
             foreach (var message in orderedMessages)
             {
                 if (buffer.Count > 0)
@@ -49,7 +49,7 @@ public static class ConversationWindowSettlement
     }
 
     public static TimeSpan? GetNextRetryDelay(
-        IReadOnlyList<NormalizedMessage> pendingMessages,
+        IReadOnlyList<ChatMessage> pendingMessages,
         DateTimeOffset now)
     {
         if (pendingMessages.Count == 0)
@@ -67,7 +67,7 @@ public static class ConversationWindowSettlement
                 .ThenBy(message => message.Id)
                 .ToList();
 
-            var buffer = new List<NormalizedMessage>();
+            var buffer = new List<ChatMessage>();
             foreach (var message in orderedMessages)
             {
                 if (buffer.Count > 0)
@@ -90,7 +90,7 @@ public static class ConversationWindowSettlement
     }
 
     private static void TryAddWindow(
-        IReadOnlyList<NormalizedMessage> messages,
+        IReadOnlyList<ChatMessage> messages,
         DateTimeOffset now,
         ICollection<ConversationWindow> windows)
     {
@@ -113,7 +113,7 @@ public static class ConversationWindowSettlement
     }
 
     private static void TryUpdateNextDelay(
-        IReadOnlyList<NormalizedMessage> messages,
+        IReadOnlyList<ChatMessage> messages,
         DateTimeOffset now,
         ref TimeSpan? nextDelay)
     {

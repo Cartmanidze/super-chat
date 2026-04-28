@@ -148,12 +148,12 @@ public sealed class MeetingProjectionService(
 
             var existingChunkMeetings = await dbContext.Meetings
                 .Where(item => item.UserId == userId &&
-                               item.SourceRoom == roomId &&
+                               item.ExternalChatId == roomId &&
                                EF.Functions.Like(item.SourceEventId, "chunk:%"))
                 .ToListAsync(cancellationToken);
 
             var allRoomMeetings = await dbContext.Meetings
-                .Where(item => item.UserId == userId && item.SourceRoom == roomId)
+                .Where(item => item.UserId == userId && item.ExternalChatId == roomId)
                 .ToListAsync(cancellationToken);
 
             var existingBySourceEventId = existingChunkMeetings.ToDictionary(
@@ -199,7 +199,7 @@ public sealed class MeetingProjectionService(
                     UserId = meeting.UserId,
                     Title = meeting.Title,
                     Summary = meeting.Summary,
-                    SourceRoom = meeting.SourceRoom,
+                    ExternalChatId = meeting.ExternalChatId,
                     SourceEventId = meeting.SourceEventId,
                     Person = meeting.Person,
                     ObservedAt = MeetingTimeSupport.NormalizeToUtc(meeting.ObservedAt),
@@ -284,12 +284,12 @@ public sealed class MeetingProjectionService(
 
         var existingChunkMeetings = await dbContext.Meetings
             .Where(item => item.UserId == userId &&
-                           item.SourceRoom == roomId &&
+                           item.ExternalChatId == roomId &&
                            EF.Functions.Like(item.SourceEventId, "chunk:%"))
             .ToListAsync(cancellationToken);
 
         var allRoomMeetings = await dbContext.Meetings
-            .Where(item => item.UserId == userId && item.SourceRoom == roomId)
+            .Where(item => item.UserId == userId && item.ExternalChatId == roomId)
             .ToListAsync(cancellationToken);
 
         var existingBySourceEventId = existingChunkMeetings.ToDictionary(
@@ -335,7 +335,7 @@ public sealed class MeetingProjectionService(
                 UserId = meeting.UserId,
                 Title = meeting.Title,
                 Summary = meeting.Summary,
-                SourceRoom = meeting.SourceRoom,
+                ExternalChatId = meeting.ExternalChatId,
                 SourceEventId = meeting.SourceEventId,
                 Person = meeting.Person,
                 ObservedAt = MeetingTimeSupport.NormalizeToUtc(meeting.ObservedAt),

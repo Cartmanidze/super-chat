@@ -26,7 +26,7 @@ public sealed class MeetingUpsertServiceTests
                 UserId = userId,
                 Title = "Upcoming meeting",
                 Summary = "Приглашение на интервью в пятницу, 10 апреля, с 15:30 до 16:30 по Мск.",
-                SourceRoom = roomId,
+                ExternalChatId = roomId,
                 SourceEventId = originalEventId,
                 Person = "Глеб",
                 ObservedAt = observedAt.AddDays(-1),
@@ -87,7 +87,7 @@ public sealed class MeetingUpsertServiceTests
                 UserId = userId,
                 Title = "Upcoming meeting",
                 Summary = "напоминаю про сегодняшнее собеседование в 18:00",
-                SourceRoom = roomId,
+                ExternalChatId = roomId,
                 SourceEventId = originalEventId,
                 ObservedAt = originalScheduledFor.AddHours(-5),
                 ScheduledFor = originalScheduledFor,
@@ -96,7 +96,7 @@ public sealed class MeetingUpsertServiceTests
                 UpdatedAt = observedAt.AddHours(-1)
             });
 
-            dbContext.NormalizedMessages.Add(new NormalizedMessageEntity
+            dbContext.ChatMessages.Add(new ChatMessageEntity
             {
                 Id = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
                 UserId = userId,
@@ -132,7 +132,7 @@ public sealed class MeetingUpsertServiceTests
 
         await using var verificationDbContext = await factory.CreateDbContextAsync(CancellationToken.None);
         var meetings = await verificationDbContext.Meetings
-            .Where(item => item.UserId == userId && item.SourceRoom == roomId)
+            .Where(item => item.UserId == userId && item.ExternalChatId == roomId)
             .OrderBy(item => item.CreatedAt)
             .ToListAsync(CancellationToken.None);
 
@@ -189,7 +189,7 @@ public sealed class MeetingUpsertServiceTests
 
         await using var verificationDbContext = await factory.CreateDbContextAsync(CancellationToken.None);
         var meetings = await verificationDbContext.Meetings
-            .Where(item => item.UserId == userId && item.SourceRoom == roomId)
+            .Where(item => item.UserId == userId && item.ExternalChatId == roomId)
             .ToListAsync(CancellationToken.None);
 
         Assert.Single(meetings);
@@ -217,7 +217,7 @@ public sealed class MeetingUpsertServiceTests
                 UserId = userId,
                 Title = "Existing meeting",
                 Summary = summary,
-                SourceRoom = roomId,
+                ExternalChatId = roomId,
                 SourceEventId = existingEventId,
                 ObservedAt = observedAt.AddMinutes(-20),
                 ScheduledFor = scheduledForUtc,
@@ -248,7 +248,7 @@ public sealed class MeetingUpsertServiceTests
 
         await using var verificationDbContext = await factory.CreateDbContextAsync(CancellationToken.None);
         var meetings = await verificationDbContext.Meetings
-            .Where(item => item.UserId == userId && item.SourceRoom == roomId)
+            .Where(item => item.UserId == userId && item.ExternalChatId == roomId)
             .OrderBy(item => item.CreatedAt)
             .ToListAsync(CancellationToken.None);
 
@@ -281,7 +281,7 @@ public sealed class MeetingUpsertServiceTests
                 UserId = userId,
                 Title = "Chunk title",
                 Summary = summary,
-                SourceRoom = roomId,
+                ExternalChatId = roomId,
                 SourceEventId = chunkSourceEventId,
                 Person = "Chunk person",
                 ObservedAt = observedAt.AddMinutes(-15),
@@ -296,7 +296,7 @@ public sealed class MeetingUpsertServiceTests
                 UserId = userId,
                 Title = "Extraction title",
                 Summary = summary,
-                SourceRoom = roomId,
+                ExternalChatId = roomId,
                 SourceEventId = extractionSourceEventId,
                 Person = "Extraction person",
                 ObservedAt = observedAt.AddMinutes(-10),
@@ -328,7 +328,7 @@ public sealed class MeetingUpsertServiceTests
 
         await using var verificationDbContext = await factory.CreateDbContextAsync(CancellationToken.None);
         var meetings = await verificationDbContext.Meetings
-            .Where(item => item.UserId == userId && item.SourceRoom == roomId)
+            .Where(item => item.UserId == userId && item.ExternalChatId == roomId)
             .OrderBy(item => item.CreatedAt)
             .ToListAsync(CancellationToken.None);
 

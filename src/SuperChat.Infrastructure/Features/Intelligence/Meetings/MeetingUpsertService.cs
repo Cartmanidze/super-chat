@@ -35,7 +35,7 @@ internal sealed class MeetingUpsertService(
 
         var userIds = meetingItems.Select(item => item.UserId).Distinct().ToList();
         var sourceEventIds = meetingItems.Select(item => item.SourceEventId).Distinct(StringComparer.Ordinal).ToList();
-        var sourceRooms = meetingItems.Select(item => item.SourceRoom).Distinct(StringComparer.Ordinal).ToList();
+        var externalChatIds = meetingItems.Select(item => item.ExternalChatId).Distinct(StringComparer.Ordinal).ToList();
         var now = DateTimeOffset.UtcNow;
 
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -44,10 +44,10 @@ internal sealed class MeetingUpsertService(
             .ToListAsync(cancellationToken);
         var unresolvedRoomMeetings = await dbContext.Meetings
             .Where(item => userIds.Contains(item.UserId) &&
-                           sourceRooms.Contains(item.SourceRoom) &&
+                           externalChatIds.Contains(item.ExternalChatId) &&
                            item.ResolvedAt == null)
             .ToListAsync(cancellationToken);
-        var sourceMessageTexts = await dbContext.NormalizedMessages
+        var sourceMessageTexts = await dbContext.ChatMessages
             .Where(item => userIds.Contains(item.UserId) && sourceEventIds.Contains(item.ExternalMessageId))
             .Select(item => new
             {
@@ -115,11 +115,11 @@ internal sealed class MeetingUpsertService(
             if (item.DueAt is null)
             {
                 logger.LogInformation(
-                    "Skipping meeting upsert — no DueAt and no correlated meeting. ItemId={ItemId}, UserId={UserId}, SourceEventId={SourceEventId}, SourceRoom={SourceRoom}.",
+                    "Skipping meeting upsert — no DueAt and no correlated meeting. ItemId={ItemId}, UserId={UserId}, SourceEventId={SourceEventId}, ExternalChatId={ExternalChatId}.",
                     item.Id,
                     item.UserId,
                     item.SourceEventId,
-                    item.SourceRoom);
+                    item.ExternalChatId);
                 continue;
             }
 
@@ -138,7 +138,7 @@ internal sealed class MeetingUpsertService(
                 UserId = item.UserId,
                 Title = item.Title,
                 Summary = item.Summary,
-                SourceRoom = item.SourceRoom,
+                ExternalChatId = item.ExternalChatId,
                 SourceEventId = item.SourceEventId,
                 Person = item.Person,
                 ObservedAt = MeetingTimeSupport.NormalizeToUtc(item.ObservedAt),
@@ -166,7 +166,7 @@ internal sealed class MeetingUpsertService(
     {
         existing.Title = item.Title;
         existing.Summary = item.Summary;
-        existing.SourceRoom = item.SourceRoom;
+        existing.ExternalChatId = item.ExternalChatId;
         existing.Person = item.Person;
         existing.ObservedAt = MeetingTimeSupport.NormalizeToUtc(item.ObservedAt);
         existing.ScheduledFor = MeetingTimeSupport.NormalizeToUtc(item.DueAt);
@@ -191,7 +191,7 @@ internal sealed class MeetingUpsertService(
 
         var roomCandidates = unresolvedRoomMeetings
             .Where(candidate => candidate.UserId == item.UserId &&
-                                candidate.SourceRoom == item.SourceRoom &&
+                                candidate.ExternalChatId == item.ExternalChatId &&
                                 !string.Equals(candidate.SourceEventId, item.SourceEventId, StringComparison.Ordinal))
             .OrderByDescending(candidate => candidate.ObservedAt)
             .ToList();
@@ -235,7 +235,7 @@ internal sealed class MeetingUpsertService(
     private static string BuildDedupKey(ExtractedItem item)
     {
         return MeetingRecordMappings.BuildDeduplicationKey(
-            item.SourceRoom,
+            item.ExternalChatId,
             MeetingTimeSupport.NormalizeToUtc(item.DueAt)!.Value.UtcDateTime,
             item.Summary);
     }

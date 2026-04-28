@@ -82,7 +82,7 @@ public sealed class MeetingProjectionServiceTests
                     UserId = userId,
                     Title = "Upcoming meeting",
                     Summary = "old chunk projection",
-                    SourceRoom = roomId,
+                    ExternalChatId = roomId,
                     SourceEventId = "chunk:stale-hash",
                     ObservedAt = now.AddMinutes(-20),
                     ScheduledFor = now.AddHours(1),
@@ -96,7 +96,7 @@ public sealed class MeetingProjectionServiceTests
                     UserId = userId,
                     Title = "Upcoming meeting",
                     Summary = "Message-level meeting",
-                    SourceRoom = roomId,
+                    ExternalChatId = roomId,
                     SourceEventId = "$evt-message",
                     ObservedAt = now.AddMinutes(-15),
                     ScheduledFor = now.AddHours(2),
@@ -169,7 +169,7 @@ public sealed class MeetingProjectionServiceTests
 
         await using var verificationDbContext = await factory.CreateDbContextAsync(CancellationToken.None);
         var meeting = await verificationDbContext.Meetings
-            .SingleAsync(item => item.UserId == userId && item.SourceRoom == roomId, CancellationToken.None);
+            .SingleAsync(item => item.UserId == userId && item.ExternalChatId == roomId, CancellationToken.None);
 
         Assert.Equal("в 20 не могу давай завтра в 19", meeting.Summary);
         Assert.Equal(new DateTimeOffset(2026, 03, 14, 16, 00, 00, TimeSpan.Zero), meeting.ScheduledFor);
@@ -210,7 +210,7 @@ public sealed class MeetingProjectionServiceTests
 
         await using var verificationDbContext = await factory.CreateDbContextAsync(CancellationToken.None);
         var meeting = await verificationDbContext.Meetings
-            .SingleAsync(item => item.UserId == userId && item.SourceRoom == roomId, CancellationToken.None);
+            .SingleAsync(item => item.UserId == userId && item.ExternalChatId == roomId, CancellationToken.None);
 
         Assert.Equal("Zoom", meeting.MeetingProvider);
         Assert.Equal(joinUrl.ToString(), meeting.MeetingJoinUrl);
@@ -241,7 +241,7 @@ public sealed class MeetingProjectionServiceTests
                 UserId = userId,
                 Title = "Upcoming meeting",
                 Summary = "old chunk projection",
-                SourceRoom = roomId,
+                ExternalChatId = roomId,
                 SourceEventId = "chunk:stale-hash",
                 ObservedAt = now.AddMinutes(-20),
                 ScheduledFor = now.AddHours(1),
@@ -260,7 +260,7 @@ public sealed class MeetingProjectionServiceTests
 
         await using var verificationDbContext = await factory.CreateDbContextAsync(CancellationToken.None);
         var remainingChunkMeetings = await verificationDbContext.Meetings
-            .Where(item => item.UserId == userId && item.SourceRoom == roomId)
+            .Where(item => item.UserId == userId && item.ExternalChatId == roomId)
             .ToListAsync(CancellationToken.None);
 
         Assert.Empty(remainingChunkMeetings);
@@ -310,11 +310,11 @@ public sealed class MeetingProjectionServiceTests
 
         await using var verificationDbContext = await factory.CreateDbContextAsync(CancellationToken.None);
         var meetings = await verificationDbContext.Meetings
-            .OrderBy(item => item.SourceRoom)
+            .OrderBy(item => item.ExternalChatId)
             .ToListAsync(CancellationToken.None);
 
         Assert.Single(meetings);
-        Assert.Equal("!target:matrix.localhost", meetings[0].SourceRoom);
+        Assert.Equal("!target:matrix.localhost", meetings[0].ExternalChatId);
     }
 
     [Fact]
@@ -343,7 +343,7 @@ public sealed class MeetingProjectionServiceTests
                 UserId = userId,
                 Title = "Upcoming meeting",
                 Summary = "созвон сегодня в 20:00 по мск",
-                SourceRoom = roomId,
+                ExternalChatId = roomId,
                 SourceEventId = "$evt-extraction",
                 ObservedAt = now.AddMinutes(-15),
                 ScheduledFor = scheduledFor,
@@ -360,7 +360,7 @@ public sealed class MeetingProjectionServiceTests
 
         await using var verificationDbContext = await factory.CreateDbContextAsync(CancellationToken.None);
         var meetings = await verificationDbContext.Meetings
-            .Where(item => item.UserId == userId && item.SourceRoom == roomId)
+            .Where(item => item.UserId == userId && item.ExternalChatId == roomId)
             .ToListAsync(CancellationToken.None);
 
         Assert.Single(meetings);
@@ -395,7 +395,7 @@ public sealed class MeetingProjectionServiceTests
                 UserId = userId,
                 Title = "Upcoming meeting",
                 Summary = "созвон сегодня в 20:00 по мск",
-                SourceRoom = roomId,
+                ExternalChatId = roomId,
                 SourceEventId = "chunk:old-hash",
                 ObservedAt = now.AddMinutes(-20),
                 ScheduledFor = new DateTimeOffset(2026, 04, 07, 17, 00, 00, TimeSpan.Zero),
@@ -419,7 +419,7 @@ public sealed class MeetingProjectionServiceTests
 
         await using var verificationDbContext = await factory.CreateDbContextAsync(CancellationToken.None);
         var meetings = await verificationDbContext.Meetings
-            .Where(item => item.UserId == userId && item.SourceRoom == roomId)
+            .Where(item => item.UserId == userId && item.ExternalChatId == roomId)
             .ToListAsync(CancellationToken.None);
 
         var meeting = Assert.Single(meetings);
@@ -456,7 +456,7 @@ public sealed class MeetingProjectionServiceTests
                     UserId = userId,
                     Title = "Upcoming meeting",
                     Summary = "созвон сегодня в 20:00 по мск",
-                    SourceRoom = roomId,
+                    ExternalChatId = roomId,
                     SourceEventId = "chunk:old-hash",
                     ObservedAt = now.AddMinutes(-20),
                     ScheduledFor = new DateTimeOffset(2026, 04, 07, 17, 00, 00, TimeSpan.Zero),
@@ -470,7 +470,7 @@ public sealed class MeetingProjectionServiceTests
                     UserId = userId,
                     Title = "Upcoming meeting",
                     Summary = "созвон сегодня в 20:00 по мск",
-                    SourceRoom = roomId,
+                    ExternalChatId = roomId,
                     SourceEventId = "$evt-extraction",
                     ObservedAt = now.AddMinutes(-19),
                     ScheduledFor = new DateTimeOffset(2026, 04, 07, 17, 00, 00, TimeSpan.Zero),
@@ -495,7 +495,7 @@ public sealed class MeetingProjectionServiceTests
 
         await using var verificationDbContext = await factory.CreateDbContextAsync(CancellationToken.None);
         var meetings = await verificationDbContext.Meetings
-            .Where(item => item.UserId == userId && item.SourceRoom == roomId)
+            .Where(item => item.UserId == userId && item.ExternalChatId == roomId)
             .OrderBy(item => item.SourceEventId)
             .ToListAsync(CancellationToken.None);
 

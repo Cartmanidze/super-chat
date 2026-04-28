@@ -8,15 +8,15 @@ using SuperChat.Infrastructure.Shared.Persistence;
 
 namespace SuperChat.Infrastructure.Features.Messaging;
 
-public sealed class MessageNormalizationService(
+public sealed class ChatMessageStore(
     IDbContextFactory<SuperChatDbContext> dbContextFactory,
     IPipelineCommandScheduler pipelineCommandScheduler,
-    ILogger<MessageNormalizationService> logger) : IMessageNormalizationService
+    ILogger<ChatMessageStore> logger) : IChatMessageStore
 {
-    public async Task<IReadOnlyList<NormalizedMessage>> GetPendingMessagesAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<ChatMessage>> GetPendingMessagesAsync(CancellationToken cancellationToken)
     {
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-        return await dbContext.NormalizedMessages
+        return await dbContext.ChatMessages
             .AsNoTracking()
             .Where(item => !item.Processed)
             .OrderBy(item => item.SentAt)
@@ -26,14 +26,14 @@ public sealed class MessageNormalizationService(
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<NormalizedMessage>> GetPendingMessagesForConversationAsync(
+    public async Task<IReadOnlyList<ChatMessage>> GetPendingMessagesForConversationAsync(
         Guid userId,
         string source,
         string externalChatId,
         CancellationToken cancellationToken)
     {
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-        return await dbContext.NormalizedMessages
+        return await dbContext.ChatMessages
             .AsNoTracking()
             .Where(item => item.UserId == userId &&
                            item.Source == source &&
@@ -46,10 +46,10 @@ public sealed class MessageNormalizationService(
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<NormalizedMessage>> GetRecentMessagesAsync(Guid userId, int take, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<ChatMessage>> GetRecentMessagesAsync(Guid userId, int take, CancellationToken cancellationToken)
     {
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-        return await dbContext.NormalizedMessages
+        return await dbContext.ChatMessages
             .AsNoTracking()
             .Where(item => item.UserId == userId)
             .OrderByDescending(item => item.SentAt)
@@ -58,7 +58,7 @@ public sealed class MessageNormalizationService(
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<NormalizedMessage>> SearchRecentMessagesAsync(
+    public async Task<IReadOnlyList<ChatMessage>> SearchRecentMessagesAsync(
         Guid userId,
         string query,
         int limit,
@@ -70,7 +70,7 @@ public sealed class MessageNormalizationService(
         }
 
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-        return await dbContext.NormalizedMessages
+        return await dbContext.ChatMessages
             .AsNoTracking()
             .ApplySearchFilter(userId, query.Trim())
             .Take(limit)
@@ -87,7 +87,7 @@ public sealed class MessageNormalizationService(
         }
 
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-        var messages = await dbContext.NormalizedMessages
+        var messages = await dbContext.ChatMessages
             .Where(item => ids.Contains(item.Id))
             .ToListAsync(cancellationToken);
 
@@ -107,10 +107,11 @@ public sealed class MessageNormalizationService(
         string senderName,
         string text,
         DateTimeOffset sentAt,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? chatTitle = null)
     {
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-        var exists = await dbContext.NormalizedMessages
+        var exists = await dbContext.ChatMessages
             .AsNoTracking()
             .AnyAsync(item => item.UserId == userId && item.ExternalChatId == externalChatId && item.ExternalMessageId == externalMessageId, cancellationToken);
 
@@ -118,26 +119,27 @@ public sealed class MessageNormalizationService(
         {
             using var duplicateScope = MessagePipelineTrace.BeginScope(logger, userId, externalChatId, triggerExternalMessageId: externalMessageId);
             logger.LogInformation(
-                "Skipped normalized message because it already exists. Source={Source}, SenderName={SenderName}, SentAt={SentAt}, TextLength={TextLength}, Preview={Preview}.",
+                "Skipped chat message because it already exists. Source={Source}, SenderName={SenderName}, SentAt={SentAt}, TextLength={TextLength}, Preview={Preview}.",
                 source,
                 senderName,
                 sentAt,
                 text.Length,
                 MessagePipelineTrace.CreatePreview(text));
-            SuperChatMetrics.NormalizedMessagesDuplicateTotal.WithLabels(source).Inc();
+            SuperChatMetrics.ChatMessagesDuplicateTotal.WithLabels(source).Inc();
             return false;
         }
 
         var normalizedMessageId = Guid.NewGuid();
         using var scope = MessagePipelineTrace.BeginScope(logger, userId, externalChatId, normalizedMessageId, externalMessageId);
 
-        dbContext.NormalizedMessages.Add(new NormalizedMessageEntity
+        dbContext.ChatMessages.Add(new ChatMessageEntity
         {
             Id = normalizedMessageId,
             UserId = userId,
             Source = source,
             ExternalChatId = externalChatId,
             ExternalMessageId = externalMessageId,
+            ChatTitle = string.IsNullOrWhiteSpace(chatTitle) ? null : chatTitle,
             SenderName = senderName,
             Text = text,
             SentAt = sentAt,
@@ -146,7 +148,7 @@ public sealed class MessageNormalizationService(
         });
 
         logger.LogInformation(
-            "Persisting normalized message. Source={Source}, SenderName={SenderName}, SentAt={SentAt}, TextLength={TextLength}, Preview={Preview}.",
+            "Persisting chat message. Source={Source}, SenderName={SenderName}, SentAt={SentAt}, TextLength={TextLength}, Preview={Preview}.",
             source,
             senderName,
             sentAt,
@@ -160,7 +162,7 @@ public sealed class MessageNormalizationService(
             try
             {
                 await dbContext.SaveChangesAsync(cancellationToken);
-                await pipelineCommandScheduler.DispatchNormalizedMessageStoredAsync(
+                await pipelineCommandScheduler.DispatchChatMessageStoredAsync(
                     dbContext,
                     userId,
                     source,
@@ -171,17 +173,17 @@ public sealed class MessageNormalizationService(
                     cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
                 logger.LogInformation(
-                    "Stored normalized message and dispatched pipeline commands transactionally. SentAt={SentAt}.",
+                    "Stored chat message and dispatched pipeline commands transactionally. SentAt={SentAt}.",
                     sentAt);
-                SuperChatMetrics.NormalizedMessagesStoredTotal.WithLabels(source).Inc();
+                SuperChatMetrics.ChatMessagesStoredTotal.WithLabels(source).Inc();
                 return true;
             }
             catch (DbUpdateException)
             {
                 logger.LogInformation(
-                    "Skipped normalized message after transactional save attempt because it was already written concurrently. SentAt={SentAt}.",
+                    "Skipped chat message after transactional save attempt because it was already written concurrently. SentAt={SentAt}.",
                     sentAt);
-                SuperChatMetrics.NormalizedMessagesDuplicateTotal.WithLabels(source).Inc();
+                SuperChatMetrics.ChatMessagesDuplicateTotal.WithLabels(source).Inc();
                 return false;
             }
         }
@@ -189,7 +191,7 @@ public sealed class MessageNormalizationService(
         try
         {
             await dbContext.SaveChangesAsync(cancellationToken);
-            await pipelineCommandScheduler.DispatchNormalizedMessageStoredAsync(
+            await pipelineCommandScheduler.DispatchChatMessageStoredAsync(
                 dbContext,
                 userId,
                 source,
@@ -199,17 +201,17 @@ public sealed class MessageNormalizationService(
                 sentAt,
                 cancellationToken);
             logger.LogInformation(
-                "Stored normalized message and dispatched pipeline commands. SentAt={SentAt}.",
+                "Stored chat message and dispatched pipeline commands. SentAt={SentAt}.",
                 sentAt);
-            SuperChatMetrics.NormalizedMessagesStoredTotal.WithLabels(source).Inc();
+            SuperChatMetrics.ChatMessagesStoredTotal.WithLabels(source).Inc();
             return true;
         }
         catch (DbUpdateException)
         {
             logger.LogInformation(
-                "Skipped normalized message after save attempt because it was already written concurrently. SentAt={SentAt}.",
+                "Skipped chat message after save attempt because it was already written concurrently. SentAt={SentAt}.",
                 sentAt);
-            SuperChatMetrics.NormalizedMessagesDuplicateTotal.WithLabels(source).Inc();
+            SuperChatMetrics.ChatMessagesDuplicateTotal.WithLabels(source).Inc();
             return false;
         }
     }

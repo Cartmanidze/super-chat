@@ -79,7 +79,7 @@ internal sealed class EfMeetingRepository(
                     UserId = meeting.UserId,
                     Title = meeting.Title,
                     Summary = meeting.Summary,
-                    SourceRoom = meeting.SourceRoom,
+                    ExternalChatId = meeting.ExternalChatId,
                     SourceEventId = meeting.SourceEventId,
                     Person = meeting.Person,
                     ObservedAt = meeting.ObservedAt,
@@ -97,7 +97,7 @@ internal sealed class EfMeetingRepository(
             {
                 entity.Title = meeting.Title;
                 entity.Summary = meeting.Summary;
-                entity.SourceRoom = meeting.SourceRoom;
+                entity.ExternalChatId = meeting.ExternalChatId;
                 entity.Person = meeting.Person;
                 entity.ObservedAt = meeting.ObservedAt;
                 entity.ScheduledFor = meeting.ScheduledFor;

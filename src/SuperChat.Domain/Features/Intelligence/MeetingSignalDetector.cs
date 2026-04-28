@@ -44,7 +44,7 @@ public static partial class MeetingSignalDetector
     private static readonly string[] FridayKeywords = ["friday", "пятниц"];
 
     public static MeetingSignal? TryFromMessage(
-        NormalizedMessage message,
+        ChatMessage message,
         TimeZoneInfo referenceTimeZone)
     {
         var text = StripSenderPrefix(message.Text);

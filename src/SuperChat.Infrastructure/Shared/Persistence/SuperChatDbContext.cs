@@ -16,7 +16,7 @@ public sealed class SuperChatDbContext(DbContextOptions<SuperChatDbContext> opti
 
     internal DbSet<TelegramSessionEntity> TelegramSessions => Set<TelegramSessionEntity>();
 
-    internal DbSet<NormalizedMessageEntity> NormalizedMessages => Set<NormalizedMessageEntity>();
+    internal DbSet<ChatMessageEntity> ChatMessages => Set<ChatMessageEntity>();
 
     internal DbSet<ExtractedItemEntity> ExtractedItems => Set<ExtractedItemEntity>();
 

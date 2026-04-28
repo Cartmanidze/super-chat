@@ -13,10 +13,10 @@ public sealed class ShadowModeDeduplicationTests
     {
         var factory = await CreateFactoryAsync();
         var scheduler = new RecordingScheduler();
-        var service = new MessageNormalizationService(
+        var service = new ChatMessageStore(
             factory,
             scheduler,
-            NullLogger<MessageNormalizationService>.Instance);
+            NullLogger<ChatMessageStore>.Instance);
 
         var userId = Guid.NewGuid();
         var externalChatId = "tg:chat:shadow";
@@ -35,7 +35,7 @@ public sealed class ShadowModeDeduplicationTests
         Assert.False(storedUserbot);
 
         await using var dbContext = await factory.CreateDbContextAsync();
-        var rows = await dbContext.NormalizedMessages
+        var rows = await dbContext.ChatMessages
             .Where(m => m.UserId == userId && m.ExternalMessageId == externalMessageId)
             .ToListAsync();
 
@@ -48,10 +48,10 @@ public sealed class ShadowModeDeduplicationTests
     {
         var factory = await CreateFactoryAsync();
         var scheduler = new RecordingScheduler();
-        var service = new MessageNormalizationService(
+        var service = new ChatMessageStore(
             factory,
             scheduler,
-            NullLogger<MessageNormalizationService>.Instance);
+            NullLogger<ChatMessageStore>.Instance);
 
         var userId = Guid.NewGuid();
         var externalChatId = "tg:chat:shadow-2";
@@ -70,7 +70,7 @@ public sealed class ShadowModeDeduplicationTests
         Assert.False(storedMatrix);
 
         await using var dbContext = await factory.CreateDbContextAsync();
-        var rows = await dbContext.NormalizedMessages
+        var rows = await dbContext.ChatMessages
             .Where(m => m.UserId == userId && m.ExternalMessageId == externalMessageId)
             .ToListAsync();
 
@@ -102,7 +102,7 @@ public sealed class ShadowModeDeduplicationTests
     {
         public bool RequiresTransactionalDispatch => false;
 
-        public Task DispatchNormalizedMessageStoredAsync(
+        public Task DispatchChatMessageStoredAsync(
             SuperChatDbContext dbContext,
             Guid userId,
             string source,

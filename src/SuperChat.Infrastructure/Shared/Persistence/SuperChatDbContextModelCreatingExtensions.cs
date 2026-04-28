@@ -66,9 +66,9 @@ internal static class SuperChatDbContextModelCreatingExtensions
             b.Property(item => item.ServerAddress).HasMaxLength(255);
         });
 
-        builder.Entity<NormalizedMessageEntity>(b =>
+        builder.Entity<ChatMessageEntity>(b =>
         {
-            b.ToTable(SuperChatConsts.DbTablePrefix + "normalized_messages", SuperChatConsts.DbSchema);
+            b.ToTable(SuperChatConsts.DbTablePrefix + "chat_messages", SuperChatConsts.DbSchema);
             b.HasKey(item => item.Id);
             b.ConfigureByConvention();
             b.HasIndex(item => item.Processed);

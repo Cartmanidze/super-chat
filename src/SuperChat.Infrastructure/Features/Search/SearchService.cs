@@ -7,8 +7,8 @@ namespace SuperChat.Infrastructure.Features.Search;
 
 public sealed class SearchService(
     IWorkItemService workItemService,
-    IMessageNormalizationService messageNormalizationService,
-    IRoomDisplayNameService roomDisplayNameService) : ISearchService
+    IChatMessageStore messageNormalizationService,
+    IChatTitleService chatTitleService) : ISearchService
 {
     private const int ResultLimit = 20;
 
@@ -27,7 +27,7 @@ public sealed class SearchService(
                 .Select(item => item.ToSearchResultViewModel())
                 .ToList();
 
-            return await ResolveRoomNamesAsync(userId, results, cancellationToken);
+            return await ResolveChatTitlesAsync(userId, results, cancellationToken);
         }
 
         var messages = await messageNormalizationService.SearchRecentMessagesAsync(userId, normalizedQuery, ResultLimit, cancellationToken);
@@ -35,18 +35,18 @@ public sealed class SearchService(
             .Select(message => message.ToSearchResultViewModel())
             .ToList();
 
-        return await ResolveRoomNamesAsync(userId, messageResults, cancellationToken);
+        return await ResolveChatTitlesAsync(userId, messageResults, cancellationToken);
     }
 
-    private async Task<IReadOnlyList<SearchResultViewModel>> ResolveRoomNamesAsync(
+    private async Task<IReadOnlyList<SearchResultViewModel>> ResolveChatTitlesAsync(
         Guid userId,
         IReadOnlyList<SearchResultViewModel> results,
         CancellationToken cancellationToken)
     {
-        var roomNames = await roomDisplayNameService.ResolveManyAsync(userId, results.Select(item => item.SourceRoom), cancellationToken);
+        var chatTitles = await chatTitleService.ResolveManyAsync(userId, results.Select(item => item.ChatTitle), cancellationToken);
 
         return results
-            .Select(result => result.WithResolvedSourceRoom(roomNames))
+            .Select(result => result.WithResolvedChatTitle(chatTitles))
             .ToList();
     }
 }

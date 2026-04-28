@@ -1,9 +1,9 @@
 namespace SuperChat.Contracts.Features.Intelligence.Retrieval;
 
-public interface IRoomDisplayNameService
+public interface IChatTitleService
 {
     Task<IReadOnlyDictionary<string, string>> ResolveManyAsync(
         Guid userId,
-        IEnumerable<string> sourceRooms,
+        IEnumerable<string> externalChatIds,
         CancellationToken cancellationToken);
 }

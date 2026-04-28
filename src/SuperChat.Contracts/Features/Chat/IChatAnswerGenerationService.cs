@@ -10,7 +10,7 @@ public interface IChatAnswerGenerationService
 
 public sealed record ChatAnswerContextItem(
     string ReferenceKey,
-    string SourceRoom,
+    string ChatTitle,
     DateTimeOffset? Timestamp,
     string Text);
 

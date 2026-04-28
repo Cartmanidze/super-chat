@@ -4,16 +4,16 @@ internal static class MessagePresentationFormatter
 {
     private const string TelegramSuffix = " (Telegram)";
 
-    internal static string ResolveDisplaySenderName(string senderName, string? roomDisplayName)
+    internal static string ResolveDisplaySenderName(string senderName, string? chatTitle)
     {
         if (LooksLikeHumanReadableSenderName(senderName))
         {
             return senderName;
         }
 
-        if (!string.IsNullOrWhiteSpace(roomDisplayName))
+        if (!string.IsNullOrWhiteSpace(chatTitle))
         {
-            return StripTelegramSuffix(roomDisplayName);
+            return StripTelegramSuffix(chatTitle);
         }
 
         return senderName;
@@ -36,10 +36,10 @@ internal static class MessagePresentationFormatter
         return trimmed.Length < 6 || !trimmed.All(char.IsDigit);
     }
 
-    private static string StripTelegramSuffix(string roomDisplayName)
+    private static string StripTelegramSuffix(string chatTitle)
     {
-        return roomDisplayName.EndsWith(TelegramSuffix, StringComparison.Ordinal)
-            ? roomDisplayName[..^TelegramSuffix.Length]
-            : roomDisplayName;
+        return chatTitle.EndsWith(TelegramSuffix, StringComparison.Ordinal)
+            ? chatTitle[..^TelegramSuffix.Length]
+            : chatTitle;
     }
 }

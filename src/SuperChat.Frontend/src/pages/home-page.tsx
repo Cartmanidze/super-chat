@@ -22,8 +22,8 @@ function formatConfidence(value: number) {
 
 function participantsFromCard(card: MeetingCard): string[] {
   const names = new Set<string>();
-  if (card.sourceRoom) {
-    names.add(card.sourceRoom);
+  if (card.chatTitle) {
+    names.add(card.chatTitle);
   }
   return Array.from(names);
 }
@@ -161,9 +161,6 @@ export function HomePage() {
             <Link to="/today" className="btn is-primary">
               Открыть встречи
             </Link>
-            <Link to="/search" search={{ q: "" }} className="btn is-ghost">
-              Поиск по чатам
-            </Link>
           </div>
         </div>
 
@@ -229,7 +226,7 @@ function NextMeetingCard({ entry, now }: { entry: ReturnType<typeof pickNextMeet
       </div>
       <h3>{entry.card.title}</h3>
       <p className="meta">
-        {entry.card.sourceRoom} · {entry.card.summary}
+        {entry.card.chatTitle} · {entry.card.summary}
       </p>
       <div className="when">
         <span className="when-big">{formatClockTime(entry.at)}</span>
@@ -291,7 +288,7 @@ function TimelineRow({ entry, now }: { entry: ReturnType<typeof filterForBucket>
             <h4>{entry.card.title}</h4>
             <p>{entry.card.summary}</p>
             <div className="tl-meta">
-              <span className="src">{entry.card.sourceRoom}</span>
+              <span className="src">{entry.card.chatTitle}</span>
               {entry.card.meetingProvider ? (
                 <>
                   <span className="dot" />

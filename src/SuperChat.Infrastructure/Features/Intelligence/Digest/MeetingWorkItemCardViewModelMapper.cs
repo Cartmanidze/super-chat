@@ -16,7 +16,7 @@ internal static class MeetingWorkItemCardViewModelMapper
             meeting.Summary,
             meeting.ObservedAt,
             meeting.ScheduledFor,
-            meeting.SourceRoom,
+            meeting.ExternalChatId,
             metadata.Status.ToMeetingStatus() ?? MeetingCardStatus.PendingConfirmation,
             meeting.Confidence,
             metadata.Priority,

@@ -187,7 +187,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(superchat_normalized_messages_stored_total[5m]))",
+          "expr": "sum(rate(superchat_chat_messages_stored_total[5m]))",
           "legendFormat": "stored",
           "refId": "A"
         },
@@ -196,7 +196,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(superchat_normalized_messages_duplicate_total[5m]))",
+          "expr": "sum(rate(superchat_chat_messages_duplicate_total[5m]))",
           "legendFormat": "duplicates",
           "refId": "B"
         }

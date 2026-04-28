@@ -8,7 +8,7 @@
 - Separate `/api/v1/*` host for future mobile clients
 - Hidden Matrix identity bootstrap per user
 - Telegram connection bootstrap flow with a development bridge stub
-- PostgreSQL-backed auth, connection state, message normalization, extraction, digest, search, and feedback paths
+- PostgreSQL-backed auth, connection state, message normalization, extraction, digest, and feedback paths
 - Stage-1 retrieval foundation with PostgreSQL chunk/log tables and Qdrant collection bootstrap
 - Docker Compose skeleton for Postgres, Qdrant, an optional embedding sidecar, Synapse, mautrix-telegram, Caddy, and Mailpit
 - Production bootstrap under `infra/prod/` for VPS pilot deployment
@@ -53,11 +53,10 @@ Key API routes in bootstrap mode:
 - `GET /api/v1/me`
 - `GET|POST|DELETE /api/v1/integrations/telegram`
 - `GET /api/v1/work-items/meetings`
-- `GET /api/v1/search?q=...`
 - `POST /api/v1/feedback`
 - `GET /api/v1/health`
 
-In development, the requested magic link is returned directly in responses and the Telegram connect flow can seed demo messages so the meetings and search surfaces show product value before the real bridge is wired. The checked-in local Docker stack now starts the React frontend, API, worker, Postgres, Qdrant, Synapse, mautrix-telegram, Mailpit, and the helper Python services together.
+In development, the requested magic link is returned directly in responses and the Telegram connect flow can seed demo messages so the meetings surface shows product value before the real bridge is wired. The checked-in local Docker stack now starts the React frontend, API, worker, Postgres, Qdrant, Synapse, mautrix-telegram, Mailpit, and the helper Python services together.
 
 Three pilot-specific knobs now live under `SuperChat` config as well:
 

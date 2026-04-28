@@ -27,13 +27,13 @@ public sealed class WorkItemReadPathPurityTests
                 Kind = ExtractedItemKind.WaitingOn,
                 Title = "Need to reply",
                 Summary = "Marina is waiting for the answer.",
-                SourceRoom = "!sales:matrix.localhost",
+                ExternalChatId = "!sales:matrix.localhost",
                 SourceEventId = "$evt-waiting",
                 ObservedAt = observedAt,
                 Confidence = 0.91
             });
 
-            dbContext.NormalizedMessages.Add(new NormalizedMessageEntity
+            dbContext.ChatMessages.Add(new ChatMessageEntity
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,

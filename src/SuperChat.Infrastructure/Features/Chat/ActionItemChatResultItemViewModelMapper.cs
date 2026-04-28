@@ -10,7 +10,7 @@ internal static class ActionItemChatResultItemViewModelMapper
         var item = new ActionItemChatResultItemViewModel(
             Title: projection.Title,
             Summary: projection.Summary,
-            SourceRoom: projection.SourceRoom,
+            ChatTitle: projection.ChatTitle,
             Timestamp: projection.Timestamp,
             ActionItemStatus: projection.Status.ToActionItemStatus() ?? ActionItemStatus.ToDo,
             PriorityValue: projection.Priority ?? WorkItemPriority.Normal,

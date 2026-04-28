@@ -29,7 +29,7 @@ public static class MaxIncomingEndpoint
     private static async Task<IResult> HandleAsync(
         HttpContext httpContext,
         [FromServices] IOptions<MaxUserbotOptions> optionsAccessor,
-        [FromServices] IMessageNormalizationService normalizationService,
+        [FromServices] IChatMessageStore normalizationService,
         [FromServices] ILogger<IncomingPayload> logger,
         CancellationToken cancellationToken)
     {
@@ -88,9 +88,10 @@ public static class MaxIncomingEndpoint
             payload.SenderName,
             payload.Text,
             payload.SentAt,
-            cancellationToken);
+            cancellationToken,
+            chatTitle: payload.ChatTitle);
 
-        SuperChatMetrics.NormalizedMessagesByPathTotal
+        SuperChatMetrics.ChatMessagesByPathTotal
             .WithLabels("max", stored ? "stored" : "duplicate")
             .Inc();
 
@@ -145,5 +146,6 @@ public static class MaxIncomingEndpoint
         [property: JsonPropertyName("external_message_id")] string ExternalMessageId,
         [property: JsonPropertyName("sender_name")] string SenderName,
         [property: JsonPropertyName("text")] string Text,
-        [property: JsonPropertyName("sent_at")] DateTimeOffset SentAt);
+        [property: JsonPropertyName("sent_at")] DateTimeOffset SentAt,
+        [property: JsonPropertyName("chat_title")] string? ChatTitle = null);
 }

@@ -10,7 +10,7 @@ internal static class RequestChatResultItemViewModelMapper
         var item = new RequestChatResultItemViewModel(
             Title: projection.Title,
             Summary: projection.Summary,
-            SourceRoom: projection.SourceRoom,
+            ChatTitle: projection.ChatTitle,
             Timestamp: projection.Timestamp,
             RequestStatus: projection.Status.ToRequestStatus() ?? RequestStatus.AwaitingResponse,
             PriorityValue: projection.Priority ?? WorkItemPriority.Normal,

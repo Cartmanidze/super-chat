@@ -64,7 +64,7 @@ public sealed class ExtractedItemServiceTests
                     Kind = ExtractedItemKind.Task,
                     Title = "Follow-up candidate",
                     Summary = "Обманул",
-                    SourceRoom = "!room:matrix.localhost",
+                    ExternalChatId = "!room:matrix.localhost",
                     SourceEventId = "$evt-legacy",
                     ObservedAt = DateTimeOffset.UtcNow,
                     Confidence = 0.51
@@ -76,7 +76,7 @@ public sealed class ExtractedItemServiceTests
                     Kind = ExtractedItemKind.Task,
                     Title = "Send contract",
                     Summary = "Please send the contract tomorrow.",
-                    SourceRoom = "!sales:matrix.localhost",
+                    ExternalChatId = "!sales:matrix.localhost",
                     SourceEventId = "$evt-real",
                     ObservedAt = DateTimeOffset.UtcNow.AddMinutes(1),
                     Confidence = 0.91
@@ -186,7 +186,7 @@ public sealed class ExtractedItemServiceTests
 
         await using (var dbContext = await factory.CreateDbContextAsync(CancellationToken.None))
         {
-            dbContext.NormalizedMessages.Add(new NormalizedMessageEntity
+            dbContext.ChatMessages.Add(new ChatMessageEntity
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
@@ -252,14 +252,14 @@ public sealed class ExtractedItemServiceTests
                 Kind = ExtractedItemKind.WaitingOn,
                 Title = "Need to reply",
                 Summary = "Marina is waiting for the answer.",
-                SourceRoom = "!sales:matrix.localhost",
+                ExternalChatId = "!sales:matrix.localhost",
                 SourceEventId = "$evt-waiting",
                 Person = "Marina",
                 ObservedAt = observedAt,
                 Confidence = 0.91
             });
 
-            dbContext.NormalizedMessages.Add(new NormalizedMessageEntity
+            dbContext.ChatMessages.Add(new ChatMessageEntity
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
@@ -306,13 +306,13 @@ public sealed class ExtractedItemServiceTests
                 Kind = ExtractedItemKind.Commitment,
                 Title = "You promised to send the deck",
                 Summary = "Need to send the final deck.",
-                SourceRoom = "!sales:matrix.localhost",
+                ExternalChatId = "!sales:matrix.localhost",
                 SourceEventId = "$evt-commitment",
                 ObservedAt = observedAt,
                 Confidence = 0.88
             });
 
-            dbContext.NormalizedMessages.Add(new NormalizedMessageEntity
+            dbContext.ChatMessages.Add(new ChatMessageEntity
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
@@ -358,7 +358,7 @@ public sealed class ExtractedItemServiceTests
                 UserId = userId,
                 Title = "Sync",
                 Summary = "Call at noon",
-                SourceRoom = "!team:matrix.localhost",
+                ExternalChatId = "!team:matrix.localhost",
                 SourceEventId = "$evt-meeting-finished",
                 ObservedAt = scheduledFor.AddHours(-1),
                 ScheduledFor = scheduledFor,
@@ -367,7 +367,7 @@ public sealed class ExtractedItemServiceTests
                 UpdatedAt = scheduledFor.AddHours(-1)
             });
 
-            dbContext.NormalizedMessages.Add(new NormalizedMessageEntity
+            dbContext.ChatMessages.Add(new ChatMessageEntity
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
@@ -434,7 +434,7 @@ public sealed class ExtractedItemServiceTests
                 UpdatedAt = chunkObservedAt
             });
 
-            dbContext.NormalizedMessages.Add(new NormalizedMessageEntity
+            dbContext.ChatMessages.Add(new ChatMessageEntity
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
@@ -495,7 +495,7 @@ public sealed class ExtractedItemServiceTests
                 UserId = userId,
                 Title = "Intro call",
                 Summary = "Call with product team",
-                SourceRoom = "!team:matrix.localhost",
+                ExternalChatId = "!team:matrix.localhost",
                 SourceEventId = sourceEventId,
                 ObservedAt = scheduledFor.AddHours(-2),
                 ScheduledFor = scheduledFor,
@@ -599,7 +599,7 @@ public sealed class ExtractedItemServiceTests
                     UserId = userId,
                     Title = "Lower confidence duplicate",
                     Summary = "Sync with product",
-                    SourceRoom = "!team:matrix.localhost",
+                    ExternalChatId = "!team:matrix.localhost",
                     SourceEventId = "$meeting-low",
                     ObservedAt = scheduledFor.AddHours(-3),
                     ScheduledFor = scheduledFor,
@@ -613,7 +613,7 @@ public sealed class ExtractedItemServiceTests
                     UserId = userId,
                     Title = "Higher confidence duplicate",
                     Summary = "Sync with product",
-                    SourceRoom = "!team:matrix.localhost",
+                    ExternalChatId = "!team:matrix.localhost",
                     SourceEventId = "$meeting-high",
                     ObservedAt = scheduledFor.AddHours(-2),
                     ScheduledFor = scheduledFor,

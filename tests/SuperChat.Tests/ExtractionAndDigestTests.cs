@@ -17,7 +17,7 @@ public sealed class ExtractionAndDigestTests
     [Fact]
     public async Task HeuristicExtraction_RecognizesTaskAndWaiting()
     {
-        var message = new NormalizedMessage(
+        var message = new ChatMessage(
             Guid.NewGuid(),
             Guid.NewGuid(),
             "telegram",
@@ -39,7 +39,7 @@ public sealed class ExtractionAndDigestTests
     [Fact]
     public async Task HeuristicExtraction_DoesNotCreateGenericFollowUpCandidate()
     {
-        var message = new NormalizedMessage(
+        var message = new ChatMessage(
             Guid.NewGuid(),
             Guid.NewGuid(),
             "telegram",
@@ -80,7 +80,7 @@ public sealed class ExtractionAndDigestTests
             └────────────────────────────────────────────┘
             """;
 
-        var message = new NormalizedMessage(
+        var message = new ChatMessage(
             Guid.NewGuid(),
             Guid.NewGuid(),
             "telegram",
@@ -102,7 +102,7 @@ public sealed class ExtractionAndDigestTests
     public async Task HeuristicExtraction_RecognizesMeetingWithExplicitTime()
     {
         var sentAt = new DateTimeOffset(2026, 03, 13, 10, 04, 38, TimeSpan.FromHours(6));
-        var message = new NormalizedMessage(
+        var message = new ChatMessage(
             Guid.NewGuid(),
             Guid.NewGuid(),
             "telegram",
@@ -125,7 +125,7 @@ public sealed class ExtractionAndDigestTests
     public async Task HeuristicExtraction_RecognizesStandaloneRescheduleFollowUpWithSameLinkCue()
     {
         var sentAt = new DateTimeOffset(2026, 04, 06, 11, 37, 23, TimeSpan.Zero);
-        var message = new NormalizedMessage(
+        var message = new ChatMessage(
             Guid.NewGuid(),
             Guid.NewGuid(),
             "telegram",
@@ -149,7 +149,7 @@ public sealed class ExtractionAndDigestTests
     public async Task HeuristicExtraction_RecognizesMeetingSlangMitWithExplicitTime()
     {
         var sentAt = new DateTimeOffset(2026, 03, 21, 12, 00, 00, TimeSpan.Zero);
-        var message = new NormalizedMessage(
+        var message = new ChatMessage(
             Guid.NewGuid(),
             Guid.NewGuid(),
             "telegram",
@@ -172,7 +172,7 @@ public sealed class ExtractionAndDigestTests
     public async Task DeepSeekExtraction_UsesAiStructuredItemsWithVaryingConfidence()
     {
         var sentAt = new DateTimeOffset(2026, 03, 16, 08, 00, 00, TimeSpan.Zero);
-        var message = new NormalizedMessage(
+        var message = new ChatMessage(
             Guid.NewGuid(),
             Guid.NewGuid(),
             "telegram",
@@ -219,7 +219,7 @@ public sealed class ExtractionAndDigestTests
     [Fact]
     public async Task DeepSeekExtraction_FallsBackToHeuristics_WhenAiFails()
     {
-        var message = new NormalizedMessage(
+        var message = new ChatMessage(
             Guid.NewGuid(),
             Guid.NewGuid(),
             "telegram",
@@ -244,16 +244,20 @@ public sealed class ExtractionAndDigestTests
     }
 
     [Fact]
-    public async Task DeepSeekExtraction_FallsBackToHeuristics_WhenAiReturnsEmptyItems()
+    public async Task DeepSeekExtraction_RespectsAuthoritativeEmpty_OnAdvertText()
     {
-        var message = new NormalizedMessage(
+        // Regression: an advert with the imperative "\u0432\u0441\u0442\u0440\u0435\u0447\u0430\u0439\u0442\u0435" used to be
+        // classified as a meeting by the deterministic detector even after
+        // the model answered with `{"items":[]}`.
+        var message = new ChatMessage(
             Guid.NewGuid(),
             Guid.NewGuid(),
             "telegram",
-            "!sales:matrix.localhost",
-            "$event-ai-empty-1",
-            "Alex",
-            "Please send the proposal tomorrow. Still waiting for reply from Marina.",
+            "!ads:matrix.localhost",
+            "$event-ai-advert",
+            "\u041b\u0415\u041a\u0410\u0420\u0421\u0422\u0412\u0410 \u0438\u0437 \u0422\u0423\u0420\u0426\u0418\u0418",
+            "\u0417\u0430\u043c\u0443\u0447\u0438\u043b\u0430 \u0431\u043e\u043b\u044c? \u0412\u0441\u0442\u0440\u0435\u0447\u0430\u0439\u0442\u0435 DOLOREX 50 MG! " +
+            "\u0426\u0435\u043d\u0430: 620 \u0440\u0443\u0431\u043b\u0435\u0439. \u0414\u043e\u0441\u0442\u0430\u0432\u043a\u0430 \u0438\u0437 \u0422\u0443\u0440\u0446\u0438\u0438 \u043f\u043e \u0432\u0441\u0435\u0439 \u0420\u043e\u0441\u0441\u0438\u0438.",
             DateTimeOffset.UtcNow,
             DateTimeOffset.UtcNow,
             false);
@@ -265,10 +269,40 @@ public sealed class ExtractionAndDigestTests
 
         var items = await service.ExtractAsync(CreateWindow(message), CancellationToken.None);
 
-        var task = Assert.Single(items, item => item.Kind == ExtractedItemKind.Task);
-        var waiting = Assert.Single(items, item => item.Kind == ExtractedItemKind.WaitingOn);
-        Assert.Equal("\u041d\u0443\u0436\u0435\u043d \u0441\u043b\u0435\u0434\u0443\u044e\u0449\u0438\u0439 \u0448\u0430\u0433", task.Title);
-        Assert.Equal("\u041d\u0443\u0436\u043d\u043e \u043e\u0442\u0432\u0435\u0442\u0438\u0442\u044c: Alex", waiting.Title);
+        Assert.Empty(items);
+        Assert.DoesNotContain(items, item => item.Kind == ExtractedItemKind.Meeting);
+        Assert.Contains(
+            logger.Messages,
+            entry => entry.Contains("Structured extraction completed", StringComparison.Ordinal) &&
+                     entry.Contains("UsedFallback=False", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task DeepSeekExtraction_FallsBackToHeuristics_OnNullResponse()
+    {
+        // null payload \u2260 authoritative empty: the model did not actually reply,
+        // so the heuristic must still run.
+        var message = new ChatMessage(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "telegram",
+            "!sales:matrix.localhost",
+            "$event-ai-null-1",
+            "Alex",
+            "Please send the proposal tomorrow. Still waiting for reply from Marina.",
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow,
+            false);
+
+        var logger = new RecordingLogger<DeepSeekStructuredExtractionService>();
+        var service = CreateDeepSeekService(
+            new FakeDeepSeekJsonClient(response: null),
+            logger);
+
+        var items = await service.ExtractAsync(CreateWindow(message), CancellationToken.None);
+
+        Assert.Single(items, item => item.Kind == ExtractedItemKind.Task);
+        Assert.Single(items, item => item.Kind == ExtractedItemKind.WaitingOn);
         Assert.Contains(
             logger.Messages,
             entry => entry.Contains("Structured extraction completed", StringComparison.Ordinal) &&
@@ -279,7 +313,7 @@ public sealed class ExtractionAndDigestTests
     public async Task DeepSeekExtraction_DeterministicMeetingOverridesStaleAiSchedule()
     {
         var userId = Guid.NewGuid();
-        var first = new NormalizedMessage(
+        var first = new ChatMessage(
             Guid.NewGuid(),
             userId,
             "telegram",
@@ -290,7 +324,7 @@ public sealed class ExtractionAndDigestTests
             new DateTimeOffset(2026, 03, 13, 09, 00, 00, TimeSpan.Zero),
             new DateTimeOffset(2026, 03, 13, 09, 00, 00, TimeSpan.Zero),
             false);
-        var second = new NormalizedMessage(
+        var second = new ChatMessage(
             Guid.NewGuid(),
             userId,
             "telegram",
@@ -301,7 +335,7 @@ public sealed class ExtractionAndDigestTests
             new DateTimeOffset(2026, 03, 13, 09, 01, 00, TimeSpan.Zero),
             new DateTimeOffset(2026, 03, 13, 09, 01, 00, TimeSpan.Zero),
             false);
-        var third = new NormalizedMessage(
+        var third = new ChatMessage(
             Guid.NewGuid(),
             userId,
             "telegram",
@@ -338,7 +372,7 @@ public sealed class ExtractionAndDigestTests
     public async Task HeuristicExtraction_DropsWaitingWhenUserAlreadyAnsweredInWindow()
     {
         var userId = Guid.NewGuid();
-        var first = new NormalizedMessage(
+        var first = new ChatMessage(
             Guid.NewGuid(),
             userId,
             "telegram",
@@ -349,7 +383,7 @@ public sealed class ExtractionAndDigestTests
             new DateTimeOffset(2026, 03, 16, 08, 00, 00, TimeSpan.Zero),
             new DateTimeOffset(2026, 03, 16, 08, 00, 00, TimeSpan.Zero),
             false);
-        var second = new NormalizedMessage(
+        var second = new ChatMessage(
             Guid.NewGuid(),
             userId,
             "telegram",
@@ -371,7 +405,7 @@ public sealed class ExtractionAndDigestTests
     public async Task DeepSeekExtraction_DropsWaitingWhenLatestMeaningfulTurnIsFromUser()
     {
         var userId = Guid.NewGuid();
-        var first = new NormalizedMessage(
+        var first = new ChatMessage(
             Guid.NewGuid(),
             userId,
             "telegram",
@@ -382,7 +416,7 @@ public sealed class ExtractionAndDigestTests
             new DateTimeOffset(2026, 03, 16, 08, 00, 00, TimeSpan.Zero),
             new DateTimeOffset(2026, 03, 16, 08, 00, 00, TimeSpan.Zero),
             false);
-        var second = new NormalizedMessage(
+        var second = new ChatMessage(
             Guid.NewGuid(),
             userId,
             "telegram",
@@ -415,7 +449,7 @@ public sealed class ExtractionAndDigestTests
     [Fact]
     public async Task DeepSeekExtraction_BackfillsWaitingCounterpartyFromLatestExternalTurn()
     {
-        var message = new NormalizedMessage(
+        var message = new ChatMessage(
             Guid.NewGuid(),
             Guid.NewGuid(),
             "telegram",
@@ -452,7 +486,7 @@ public sealed class ExtractionAndDigestTests
     public async Task DeepSeekExtraction_SendsWholeDialogueWindowToModel()
     {
         var userId = Guid.NewGuid();
-        var first = new NormalizedMessage(
+        var first = new ChatMessage(
             Guid.NewGuid(),
             userId,
             "telegram",
@@ -463,7 +497,7 @@ public sealed class ExtractionAndDigestTests
             new DateTimeOffset(2026, 03, 16, 08, 00, 00, TimeSpan.Zero),
             new DateTimeOffset(2026, 03, 16, 08, 00, 00, TimeSpan.Zero),
             false);
-        var second = new NormalizedMessage(
+        var second = new ChatMessage(
             Guid.NewGuid(),
             userId,
             "telegram",
@@ -488,7 +522,7 @@ public sealed class ExtractionAndDigestTests
     [Fact]
     public async Task DeepSeekExtraction_PromptMarksUnansweredOutreachQuestionsAsWaitingOnCandidates()
     {
-        var message = new NormalizedMessage(
+        var message = new ChatMessage(
             Guid.NewGuid(),
             Guid.NewGuid(),
             "telegram",
@@ -517,7 +551,7 @@ public sealed class ExtractionAndDigestTests
     [Fact]
     public async Task DeepSeekExtraction_LogsHowStructuredItemsAreMapped()
     {
-        var message = new NormalizedMessage(
+        var message = new ChatMessage(
             Guid.NewGuid(),
             Guid.NewGuid(),
             "telegram",
@@ -572,7 +606,7 @@ public sealed class ExtractionAndDigestTests
     [Fact]
     public async Task HeuristicExtraction_RecognizesOwnCommitmentWithRussianTitle()
     {
-        var message = new NormalizedMessage(
+        var message = new ChatMessage(
             Guid.NewGuid(),
             Guid.NewGuid(),
             "telegram",
@@ -596,7 +630,7 @@ public sealed class ExtractionAndDigestTests
     public async Task HeuristicExtraction_UsesTextEnrichmentForCounterpartyAndDueAt()
     {
         var sentAt = new DateTimeOffset(2026, 03, 16, 09, 13, 22, TimeSpan.Zero);
-        var message = new NormalizedMessage(
+        var message = new ChatMessage(
             Guid.NewGuid(),
             Guid.NewGuid(),
             "telegram",
@@ -633,7 +667,7 @@ public sealed class ExtractionAndDigestTests
     public async Task HeuristicExtraction_RecoversMeetingFromTemporalEnrichment_WhenRuleDetectionMisses()
     {
         var sentAt = new DateTimeOffset(2026, 03, 21, 06, 53, 55, TimeSpan.Zero);
-        var message = new NormalizedMessage(
+        var message = new ChatMessage(
             Guid.NewGuid(),
             Guid.NewGuid(),
             "telegram",
@@ -665,7 +699,7 @@ public sealed class ExtractionAndDigestTests
     public async Task HeuristicExtraction_RecoversMeetingFromTemporalEnrichment_ParsesLocalDatetimeWithBusinessTimezone()
     {
         var sentAt = new DateTimeOffset(2026, 03, 21, 06, 53, 55, TimeSpan.Zero);
-        var message = new NormalizedMessage(
+        var message = new ChatMessage(
             Guid.NewGuid(),
             Guid.NewGuid(),
             "telegram",
@@ -697,7 +731,7 @@ public sealed class ExtractionAndDigestTests
     public async Task HeuristicExtraction_RecoversMeetingFromTemporalEnrichment_AnchorsToCueMessage()
     {
         var userId = Guid.NewGuid();
-        var first = new NormalizedMessage(
+        var first = new ChatMessage(
             Guid.NewGuid(),
             userId,
             "telegram",
@@ -708,7 +742,7 @@ public sealed class ExtractionAndDigestTests
             new DateTimeOffset(2026, 03, 21, 06, 53, 55, TimeSpan.Zero),
             new DateTimeOffset(2026, 03, 21, 06, 53, 55, TimeSpan.Zero),
             false);
-        var second = new NormalizedMessage(
+        var second = new ChatMessage(
             Guid.NewGuid(),
             userId,
             "telegram",
@@ -747,7 +781,7 @@ public sealed class ExtractionAndDigestTests
     public async Task HeuristicExtraction_RecognizesConfirmedMeetingForTodayInMoscowTime()
     {
         var sentAt = new DateTimeOffset(2026, 03, 13, 09, 15, 00, TimeSpan.Zero);
-        var message = new NormalizedMessage(
+        var message = new ChatMessage(
             Guid.NewGuid(),
             Guid.NewGuid(),
             "telegram",
@@ -791,7 +825,7 @@ public sealed class ExtractionAndDigestTests
     public async Task HeuristicExtraction_UsesLatestRescheduleFromDialogueWindow()
     {
         var userId = Guid.NewGuid();
-        var first = new NormalizedMessage(
+        var first = new ChatMessage(
             Guid.NewGuid(),
             userId,
             "telegram",
@@ -802,7 +836,7 @@ public sealed class ExtractionAndDigestTests
             new DateTimeOffset(2026, 03, 13, 09, 00, 00, TimeSpan.Zero),
             new DateTimeOffset(2026, 03, 13, 09, 00, 00, TimeSpan.Zero),
             false);
-        var second = new NormalizedMessage(
+        var second = new ChatMessage(
             Guid.NewGuid(),
             userId,
             "telegram",
@@ -813,7 +847,7 @@ public sealed class ExtractionAndDigestTests
             new DateTimeOffset(2026, 03, 13, 09, 01, 00, TimeSpan.Zero),
             new DateTimeOffset(2026, 03, 13, 09, 01, 00, TimeSpan.Zero),
             false);
-        var third = new NormalizedMessage(
+        var third = new ChatMessage(
             Guid.NewGuid(),
             userId,
             "telegram",
@@ -907,7 +941,7 @@ public sealed class ExtractionAndDigestTests
     public async Task HeuristicExtraction_RequestsClarificationForUnknownTimezoneMention()
     {
         var sentAt = new DateTimeOffset(2026, 04, 10, 10, 00, 00, TimeSpan.Zero);
-        var message = new NormalizedMessage(
+        var message = new ChatMessage(
             Guid.NewGuid(),
             Guid.NewGuid(),
             "telegram",
@@ -932,7 +966,7 @@ public sealed class ExtractionAndDigestTests
     {
         var userId = Guid.NewGuid();
         var sentAt = new DateTimeOffset(2026, 04, 10, 10, 00, 00, TimeSpan.Zero);
-        var message = new NormalizedMessage(
+        var message = new ChatMessage(
             Guid.NewGuid(),
             userId,
             "telegram",
@@ -1028,7 +1062,7 @@ public sealed class ExtractionAndDigestTests
             logger ?? NullLogger<DeepSeekStructuredExtractionService>.Instance);
     }
 
-    private static ConversationWindow CreateWindow(params NormalizedMessage[] messages)
+    private static ConversationWindow CreateWindow(params ChatMessage[] messages)
     {
         var orderedMessages = messages
             .OrderBy(message => message.SentAt)
@@ -1051,7 +1085,7 @@ public sealed class ExtractionAndDigestTests
 
         public IReadOnlyList<DeepSeekMessage>? LastMessages { get; private set; }
 
-        public FakeDeepSeekJsonClient(DeepSeekStructuredResponse response)
+        public FakeDeepSeekJsonClient(DeepSeekStructuredResponse? response)
         {
             this.response = response;
         }

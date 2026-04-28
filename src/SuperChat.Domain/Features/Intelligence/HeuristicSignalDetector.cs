@@ -249,7 +249,7 @@ public static partial class HeuristicSignalDetector
         return Math.Min(0.92, confidence);
     }
 
-    private static string? ResolveCounterpartyName(NormalizedMessage message)
+    private static string? ResolveCounterpartyName(ChatMessage message)
     {
         var sender = message.SenderName?.Trim();
         if (string.IsNullOrWhiteSpace(sender))
@@ -267,7 +267,7 @@ public static partial class HeuristicSignalDetector
         return sender;
     }
 
-    private static bool ShouldSkip(NormalizedMessage message)
+    private static bool ShouldSkip(ChatMessage message)
     {
         return string.IsNullOrWhiteSpace(message.Text) ||
                StructuredArtifactDetector.LooksLikeStructuredArtifact(message.Text);

@@ -41,7 +41,7 @@ internal sealed class WorkItemAutoResolutionService(
 
         if (!string.IsNullOrWhiteSpace(externalChatId))
         {
-            candidatesQuery = candidatesQuery.Where(item => item.SourceRoom == externalChatId);
+            candidatesQuery = candidatesQuery.Where(item => item.ExternalChatId == externalChatId);
         }
 
         var candidates = await candidatesQuery
@@ -58,12 +58,12 @@ internal sealed class WorkItemAutoResolutionService(
         }
 
         var roomIds = candidates
-            .Select(item => item.SourceRoom)
+            .Select(item => item.ExternalChatId)
             .Distinct(StringComparer.Ordinal)
             .ToList();
         var observedFrom = candidates.Min(item => item.ObservedAt);
 
-        var messages = await dbContext.NormalizedMessages
+        var messages = await dbContext.ChatMessages
             .AsNoTracking()
             .Where(item => item.UserId == userId &&
                            roomIds.Contains(item.ExternalChatId))
@@ -74,13 +74,13 @@ internal sealed class WorkItemAutoResolutionService(
             .OrderBy(item => item.SentAt)
             .ThenBy(item => item.ReceivedAt)
             .GroupBy(item => item.ExternalChatId, StringComparer.Ordinal)
-            .ToDictionary(group => group.Key, group => (IReadOnlyList<NormalizedMessageEntity>)group.ToList(), StringComparer.Ordinal);
+            .ToDictionary(group => group.Key, group => (IReadOnlyList<ChatMessageEntity>)group.ToList(), StringComparer.Ordinal);
 
         var changed = false;
         var resolvedCount = 0;
         foreach (var item in candidates)
         {
-            var roomMessages = messagesByRoom.GetValueOrDefault(item.SourceRoom);
+            var roomMessages = messagesByRoom.GetValueOrDefault(item.ExternalChatId);
             if (roomMessages is null || roomMessages.Count == 0)
             {
                 continue;
@@ -116,7 +116,7 @@ internal sealed class WorkItemAutoResolutionService(
             messages.Count);
     }
 
-    private static bool IsLaterThanItem(NormalizedMessageEntity message, WorkItemEntity item)
+    private static bool IsLaterThanItem(ChatMessageEntity message, WorkItemEntity item)
     {
         if (message.SentAt > item.ObservedAt)
         {

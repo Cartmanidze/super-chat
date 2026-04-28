@@ -29,7 +29,7 @@ public static class TelegramIncomingEndpoint
     private static async Task<IResult> HandleAsync(
         HttpContext httpContext,
         [FromServices] IOptions<TelegramUserbotOptions> optionsAccessor,
-        [FromServices] IMessageNormalizationService normalizationService,
+        [FromServices] IChatMessageStore normalizationService,
         [FromServices] ILogger<IncomingPayload> logger,
         CancellationToken cancellationToken)
     {
@@ -88,9 +88,10 @@ public static class TelegramIncomingEndpoint
             payload.SenderName,
             payload.Text,
             payload.SentAt,
-            cancellationToken);
+            cancellationToken,
+            chatTitle: payload.ChatTitle);
 
-        SuperChatMetrics.NormalizedMessagesByPathTotal
+        SuperChatMetrics.ChatMessagesByPathTotal
             .WithLabels("userbot", stored ? "stored" : "duplicate")
             .Inc();
 
@@ -145,5 +146,6 @@ public static class TelegramIncomingEndpoint
         [property: JsonPropertyName("external_message_id")] string ExternalMessageId,
         [property: JsonPropertyName("sender_name")] string SenderName,
         [property: JsonPropertyName("text")] string Text,
-        [property: JsonPropertyName("sent_at")] DateTimeOffset SentAt);
+        [property: JsonPropertyName("sent_at")] DateTimeOffset SentAt,
+        [property: JsonPropertyName("chat_title")] string? ChatTitle = null);
 }

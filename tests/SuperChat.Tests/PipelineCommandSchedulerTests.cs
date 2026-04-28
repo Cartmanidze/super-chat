@@ -45,7 +45,7 @@ public sealed class PipelineCommandSchedulerTests
         var messageId = Guid.NewGuid();
         var sentAt = new DateTimeOffset(2026, 04, 03, 10, 00, 00, TimeSpan.Zero);
 
-        await scheduler.DispatchNormalizedMessageStoredAsync(
+        await scheduler.DispatchChatMessageStoredAsync(
             dbContext,
             userId,
             "telegram",
@@ -82,7 +82,7 @@ public sealed class PipelineCommandSchedulerTests
             NullLogger<NoOpPipelineCommandScheduler>.Instance);
 
         using var dbContext = CreateDbContext();
-        await scheduler.DispatchNormalizedMessageStoredAsync(
+        await scheduler.DispatchChatMessageStoredAsync(
             dbContext,
             Guid.NewGuid(),
             "telegram",

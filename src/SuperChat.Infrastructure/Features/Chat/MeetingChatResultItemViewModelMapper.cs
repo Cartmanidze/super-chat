@@ -10,7 +10,7 @@ internal static class MeetingChatResultItemViewModelMapper
         var item = new MeetingChatResultItemViewModel(
             Title: projection.Title,
             Summary: projection.Summary,
-            SourceRoom: projection.SourceRoom,
+            ChatTitle: projection.ChatTitle,
             Timestamp: projection.Timestamp,
             MeetingStatus: projection.Status.ToMeetingStatus() ?? MeetingStatus.PendingConfirmation,
             PriorityValue: projection.Priority ?? WorkItemPriority.Normal,

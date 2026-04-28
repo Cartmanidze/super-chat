@@ -36,56 +36,34 @@ public sealed class DeepSeekStructuredExtractionService(
         var fallbackTimeZone = ResolveReferenceTimeZone(pilotOptions.TodayTimeZoneId);
         var referenceTimeZone = await userTimeZoneResolver.ResolveAsync(window.UserId, fallbackTimeZone, cancellationToken);
         var stopwatch = Stopwatch.StartNew();
-        AiPipelineLog.StructuredExtractionStarted(
-            logger,
-            window.Source,
-            transcript.Length,
-            window.Messages.Count);
-
-        var usedFallback = false;
+        AiPipelineLog.StructuredExtractionStarted(logger, window.Source, transcript.Length, window.Messages.Count);
 
         try
         {
             var aiAttempt = await TryExtractViaAiAsync(window, transcript, referenceTimeZone, cancellationToken);
-            if (aiAttempt.IsAuthoritative && aiAttempt.Items.Count > 0)
-            {
-                stopwatch.Stop();
-                AiPipelineLog.StructuredExtractionCompleted(
-                    logger,
-                    window.Source,
-                    aiAttempt.Items.Count,
-                    usedFallback,
-                    stopwatch.ElapsedMilliseconds);
-                return aiAttempt.Items;
-            }
-
             if (aiAttempt.IsAuthoritative)
             {
-                usedFallback = true;
+                return CompleteWith(aiAttempt.Items, usedFallback: false, stopwatch, window.Source);
             }
         }
         catch (Exception exception)
         {
-            AiPipelineLog.StructuredExtractionFailed(
-                logger,
-                window.Source,
-                transcript.Length,
-                stopwatch.ElapsedMilliseconds,
-                exception);
+            AiPipelineLog.StructuredExtractionFailed(logger, window.Source, transcript.Length, stopwatch.ElapsedMilliseconds, exception);
         }
 
-        usedFallback = true;
-        var fallbackItems = await BuildHeuristicFallbackAsync(window, cancellationToken);
+        var fallbackItems = await heuristicService.ExtractAsync(window, cancellationToken);
+        return CompleteWith(fallbackItems, usedFallback: true, stopwatch, window.Source);
+    }
 
+    private IReadOnlyCollection<ExtractedItem> CompleteWith(
+        IReadOnlyCollection<ExtractedItem> items,
+        bool usedFallback,
+        Stopwatch stopwatch,
+        string source)
+    {
         stopwatch.Stop();
-        AiPipelineLog.StructuredExtractionCompleted(
-            logger,
-            window.Source,
-            fallbackItems.Count,
-            usedFallback,
-            stopwatch.ElapsedMilliseconds);
-
-        return fallbackItems;
+        AiPipelineLog.StructuredExtractionCompleted(logger, source, items.Count, usedFallback, stopwatch.ElapsedMilliseconds);
+        return items;
     }
 
     private async Task<StructuredExtractionAiAttemptResult> TryExtractViaAiAsync(
@@ -96,7 +74,7 @@ public sealed class DeepSeekStructuredExtractionService(
     {
         if (!deepSeekJsonClient.IsConfigured)
         {
-            return new StructuredExtractionAiAttemptResult(Array.Empty<ExtractedItem>(), false);
+            return StructuredExtractionAiAttemptResult.NotAuthoritative;
         }
 
         var sentAtLocal = TimeZoneInfo.ConvertTime(window.TsTo, referenceTimeZone);
@@ -110,44 +88,47 @@ public sealed class DeepSeekStructuredExtractionService(
             MaxOutputTokens,
             cancellationToken);
 
-        var rawItemCount = response?.Items?.Count ?? 0;
-        AiPipelineLog.StructuredExtractionAiResponseReceived(
-            logger,
-            window.Source,
-            rawItemCount);
+        // A null payload is "model did not answer" — let the heuristic fallback handle it.
+        // An explicit `{"items":[]}` is the authoritative "nothing here" — keep it as is,
+        // do NOT enrich with text-based heuristics or the meeting detector would resurrect
+        // false positives (e.g. an advert with the verb "встречайте").
+        if (response?.Items is null)
+        {
+            AiPipelineLog.StructuredExtractionAiResponseReceived(logger, window.Source, 0);
+            return StructuredExtractionAiAttemptResult.NotAuthoritative;
+        }
 
-        var mappingResult = (response?.Items).ToStructuredItemMappingResult(window, sentAtLocal, referenceTimeZone);
+        AiPipelineLog.StructuredExtractionAiResponseReceived(logger, window.Source, response.Items.Count);
+
+        var mappingResult = response.Items.ToStructuredItemMappingResult(window, sentAtLocal, referenceTimeZone);
         AiPipelineLog.StructuredExtractionItemMappingCompleted(
             logger,
             window.Source,
-            rawItemCount,
+            response.Items.Count,
             mappingResult.Items.Count,
             mappingResult.UnknownKindCount,
             mappingResult.InvalidContentCount,
             mappingResult.MappedKinds);
 
-        var extractedItems = mappingResult.Items;
-        var deterministicMeeting = MeetingSignalDetector.TryFromChunk(
-            transcript,
-            window.TsFrom,
-            window.TsTo,
-            referenceTimeZone);
-
-        if (deterministicMeeting is not null)
+        if (response.Items.Count > 0)
         {
-            deterministicMeeting.MergeInto(extractedItems, window);
+            ApplyDeterministicTopUps(mappingResult.Items, transcript, window, referenceTimeZone);
         }
 
-        HeuristicStructuredExtractionService.ApplyTimeZoneClarificationRules(window, extractedItems, referenceTimeZone);
-        HeuristicStructuredExtractionService.ApplyWaitingOnWindowRules(window, extractedItems);
-        return new StructuredExtractionAiAttemptResult(extractedItems, true);
+        return StructuredExtractionAiAttemptResult.Authoritative(mappingResult.Items);
     }
 
-    private async Task<IReadOnlyCollection<ExtractedItem>> BuildHeuristicFallbackAsync(
+    private static void ApplyDeterministicTopUps(
+        List<ExtractedItem> items,
+        string transcript,
         ConversationWindow window,
-        CancellationToken cancellationToken)
+        TimeZoneInfo referenceTimeZone)
     {
-        return await heuristicService.ExtractAsync(window, cancellationToken);
+        var deterministicMeeting = MeetingSignalDetector.TryFromChunk(transcript, window.TsFrom, window.TsTo, referenceTimeZone);
+        deterministicMeeting?.MergeInto(items, window);
+
+        HeuristicStructuredExtractionService.ApplyTimeZoneClarificationRules(window, items, referenceTimeZone);
+        HeuristicStructuredExtractionService.ApplyWaitingOnWindowRules(window, items);
     }
 
     private static string BuildSystemPrompt(string timeZoneId)
@@ -209,8 +190,8 @@ public sealed class DeepSeekStructuredExtractionService(
         ConversationWindow window,
         DateTimeOffset sentAtLocal,
         string transcript,
-        NormalizedMessage? latestMeaningfulMessage,
-        NormalizedMessage? unresolvedExternalMessage)
+        ChatMessage? latestMeaningfulMessage,
+        ChatMessage? unresolvedExternalMessage)
     {
         var latestMeaningfulSender = latestMeaningfulMessage?.SenderName?.Trim();
         if (string.IsNullOrWhiteSpace(latestMeaningfulSender))
@@ -255,5 +236,12 @@ public sealed class DeepSeekStructuredExtractionService(
 
     private readonly record struct StructuredExtractionAiAttemptResult(
         IReadOnlyCollection<ExtractedItem> Items,
-        bool IsAuthoritative);
+        bool IsAuthoritative)
+    {
+        public static StructuredExtractionAiAttemptResult NotAuthoritative { get; } =
+            new(Array.Empty<ExtractedItem>(), IsAuthoritative: false);
+
+        public static StructuredExtractionAiAttemptResult Authoritative(IReadOnlyCollection<ExtractedItem> items) =>
+            new(items, IsAuthoritative: true);
+    }
 }

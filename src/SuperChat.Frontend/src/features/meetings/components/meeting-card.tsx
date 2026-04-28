@@ -110,7 +110,7 @@ export function MeetingCard({ token, card }: MeetingCardProps) {
     confirmMutation.isPending ||
     unconfirmMutation.isPending;
 
-  const faceName = card.sourceRoom ?? "";
+  const faceName = card.chatTitle ?? "";
 
   return (
     <article className={cardClass}>
@@ -144,7 +144,7 @@ export function MeetingCard({ token, card }: MeetingCardProps) {
       ) : null}
 
       <div className="meeting-foot">
-        <span className="src">{card.sourceRoom}</span>
+        <span className="src">{card.chatTitle}</span>
         <div className="meeting-actions">
           {card.meetingJoinUrl ? (
             <a className="btn is-primary is-sm" href={card.meetingJoinUrl} target="_blank" rel="noreferrer">

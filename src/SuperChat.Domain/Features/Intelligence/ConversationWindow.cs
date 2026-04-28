@@ -7,11 +7,11 @@ public sealed record ConversationWindow(
     Guid UserId,
     string Source,
     string ExternalChatId,
-    IReadOnlyList<NormalizedMessage> Messages)
+    IReadOnlyList<ChatMessage> Messages)
 {
     private readonly bool _validated = Validate(UserId, Source, ExternalChatId, Messages);
 
-    private static bool Validate(Guid userId, string source, string externalChatId, IReadOnlyList<NormalizedMessage> messages)
+    private static bool Validate(Guid userId, string source, string externalChatId, IReadOnlyList<ChatMessage> messages)
     {
         DomainGuard.NotEmpty(userId);
         ArgumentException.ThrowIfNullOrWhiteSpace(source);
@@ -22,17 +22,24 @@ public sealed record ConversationWindow(
         return true;
     }
 
-    public NormalizedMessage FirstMessage => Messages[0];
+    public ChatMessage FirstMessage => Messages[0];
 
-    public NormalizedMessage LastMessage => Messages[^1];
+    public ChatMessage LastMessage => Messages[^1];
 
     public DateTimeOffset TsFrom => FirstMessage.SentAt;
 
     public DateTimeOffset TsTo => LastMessage.SentAt;
 
+    /// <summary>
+    /// Human-readable name of the source chat. Falls back to ExternalChatId
+    /// when no message in the window carries a chat title.
+    /// </summary>
+    public string DisplayChatTitle =>
+        Messages.Select(m => m.ChatTitle).FirstOrDefault(t => !string.IsNullOrWhiteSpace(t)) ?? ExternalChatId;
+
     public string Transcript => string.Join('\n', Messages.Select(RenderMessageLine));
 
-    private static string RenderMessageLine(NormalizedMessage message)
+    private static string RenderMessageLine(ChatMessage message)
     {
         var sender = string.IsNullOrWhiteSpace(message.SenderName)
             ? "Unknown"

@@ -20,7 +20,7 @@ internal static class WorkItemSearchQueryExtensions
                 item.Title != skippedTitle &&
                 (EF.Functions.Like(item.Title.ToLower(), pattern, escape) ||
                  EF.Functions.Like(item.Summary.ToLower(), pattern, escape) ||
-                 EF.Functions.Like(item.SourceRoom.ToLower(), pattern, escape)))
+                 EF.Functions.Like(item.ExternalChatId.ToLower(), pattern, escape)))
             .OrderByDescending(item => item.ObservedAt)
             .ThenBy(item => item.Id);
     }

@@ -40,7 +40,7 @@ internal sealed class WorkItemWriter(
                 Kind = item.Kind,
                 Title = item.Title,
                 Summary = item.Summary,
-                SourceRoom = item.SourceRoom,
+                ExternalChatId = item.ExternalChatId,
                 SourceEventId = item.SourceEventId,
                 Person = item.Person,
                 ObservedAt = item.ObservedAt,

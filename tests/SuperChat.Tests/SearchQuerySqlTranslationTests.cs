@@ -41,11 +41,11 @@ public sealed class SearchQuerySqlTranslationTests
     }
 
     [Fact]
-    public void NormalizedMessageSearchQuery_TranslatesToPostgreSqlLikeWithLowerAndEscape()
+    public void ChatMessageSearchQuery_TranslatesToPostgreSqlLikeWithLowerAndEscape()
     {
         using var dbContext = CreateNpgsqlDbContext();
 
-        var queryable = dbContext.NormalizedMessages
+        var queryable = dbContext.ChatMessages
             .AsNoTracking()
             .ApplySearchFilter(Guid.NewGuid(), "contract")
             .Take(20);

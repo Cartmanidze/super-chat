@@ -33,7 +33,7 @@ public sealed class ConversationResolutionCommandHandlerTests
                 Kind = ExtractedItemKind.Commitment,
                 Title = "You promised to send the deck",
                 Summary = "Need to send the final deck.",
-                SourceRoom = roomId,
+                ExternalChatId = roomId,
                 SourceEventId = "$evt-commitment",
                 ObservedAt = observedAt,
                 Confidence = 0.88,
@@ -41,7 +41,7 @@ public sealed class ConversationResolutionCommandHandlerTests
                 UpdatedAt = observedAt
             });
 
-            dbContext.NormalizedMessages.Add(new NormalizedMessageEntity
+            dbContext.ChatMessages.Add(new ChatMessageEntity
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
@@ -100,7 +100,7 @@ public sealed class ConversationResolutionCommandHandlerTests
                 Kind = ExtractedItemKind.Commitment,
                 Title = "Send the deck",
                 Summary = "Need to send the final deck.",
-                SourceRoom = roomId,
+                ExternalChatId = roomId,
                 SourceEventId = "$evt-commitment",
                 ObservedAt = observedAt,
                 Confidence = 0.88,
@@ -108,7 +108,7 @@ public sealed class ConversationResolutionCommandHandlerTests
                 UpdatedAt = observedAt
             });
 
-            dbContext.NormalizedMessages.Add(new NormalizedMessageEntity
+            dbContext.ChatMessages.Add(new ChatMessageEntity
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
@@ -178,7 +178,7 @@ public sealed class ConversationResolutionCommandHandlerTests
                 Kind = ExtractedItemKind.WaitingOn,
                 Title = "Жду ответ по смете",
                 Summary = "Нужно дождаться финального ответа.",
-                SourceRoom = roomId,
+                ExternalChatId = roomId,
                 SourceEventId = "$evt-waiting-on",
                 ObservedAt = observedAt,
                 Confidence = 0.88,
@@ -186,7 +186,7 @@ public sealed class ConversationResolutionCommandHandlerTests
                 UpdatedAt = observedAt
             });
 
-            dbContext.NormalizedMessages.Add(new NormalizedMessageEntity
+            dbContext.ChatMessages.Add(new ChatMessageEntity
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
@@ -246,7 +246,7 @@ public sealed class ConversationResolutionCommandHandlerTests
                 UserId = userId,
                 Title = "Demo",
                 Summary = "созвон сегодня в 14:00",
-                SourceRoom = roomId,
+                ExternalChatId = roomId,
                 SourceEventId = "$evt-meeting",
                 ObservedAt = now.AddMinutes(-10),
                 ScheduledFor = scheduledFor,
@@ -255,7 +255,7 @@ public sealed class ConversationResolutionCommandHandlerTests
                 UpdatedAt = now.AddMinutes(-10)
             });
 
-            dbContext.NormalizedMessages.Add(new NormalizedMessageEntity
+            dbContext.ChatMessages.Add(new ChatMessageEntity
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
@@ -311,7 +311,7 @@ public sealed class ConversationResolutionCommandHandlerTests
                 UserId = userId,
                 Title = "Demo",
                 Summary = "созвон сегодня в 14:00",
-                SourceRoom = roomId,
+                ExternalChatId = roomId,
                 SourceEventId = "$evt-meeting",
                 ObservedAt = now.AddMinutes(-10),
                 ScheduledFor = scheduledFor,
@@ -320,7 +320,7 @@ public sealed class ConversationResolutionCommandHandlerTests
                 UpdatedAt = now.AddMinutes(-10)
             });
 
-            dbContext.NormalizedMessages.Add(new NormalizedMessageEntity
+            dbContext.ChatMessages.Add(new ChatMessageEntity
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
@@ -376,7 +376,7 @@ public sealed class ConversationResolutionCommandHandlerTests
                 UserId = userId,
                 Title = "Demo",
                 Summary = "созвон сегодня в 14:00",
-                SourceRoom = roomId,
+                ExternalChatId = roomId,
                 SourceEventId = "$evt-meeting",
                 ObservedAt = now.AddMinutes(-10),
                 ScheduledFor = scheduledFor,
@@ -385,7 +385,7 @@ public sealed class ConversationResolutionCommandHandlerTests
                 UpdatedAt = now.AddMinutes(-10)
             });
 
-            dbContext.NormalizedMessages.Add(new NormalizedMessageEntity
+            dbContext.ChatMessages.Add(new ChatMessageEntity
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
@@ -428,7 +428,7 @@ public sealed class ConversationResolutionCommandHandlerTests
                 UserId = userId,
                 Title = "Interview",
                 Summary = "Interview at 11:00",
-                SourceRoom = roomId,
+                ExternalChatId = roomId,
                 SourceEventId = "$evt-confirmed-reschedule",
                 ObservedAt = now.AddHours(-2),
                 ScheduledFor = now.AddMinutes(-30),
@@ -438,7 +438,7 @@ public sealed class ConversationResolutionCommandHandlerTests
                 UpdatedAt = now.AddHours(-2)
             });
 
-            dbContext.NormalizedMessages.Add(new NormalizedMessageEntity
+            dbContext.ChatMessages.Add(new ChatMessageEntity
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
@@ -493,7 +493,7 @@ public sealed class ConversationResolutionCommandHandlerTests
                 UserId = userId,
                 Title = "Interview",
                 Summary = "Interview at 11:00",
-                SourceRoom = roomId,
+                ExternalChatId = roomId,
                 SourceEventId = "$evt-confirmed-complete",
                 ObservedAt = now.AddHours(-2),
                 ScheduledFor = now.AddMinutes(-30),
@@ -503,7 +503,7 @@ public sealed class ConversationResolutionCommandHandlerTests
                 UpdatedAt = now.AddHours(-2)
             });
 
-            dbContext.NormalizedMessages.Add(new NormalizedMessageEntity
+            dbContext.ChatMessages.Add(new ChatMessageEntity
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
@@ -558,7 +558,7 @@ public sealed class ConversationResolutionCommandHandlerTests
                 UserId = userId,
                 Title = "Interview",
                 Summary = "Interview at 18:00",
-                SourceRoom = roomId,
+                ExternalChatId = roomId,
                 SourceEventId = "$evt-confirmed-cancel",
                 ObservedAt = now.AddHours(-2),
                 ScheduledFor = now.AddHours(2),
@@ -568,7 +568,7 @@ public sealed class ConversationResolutionCommandHandlerTests
                 UpdatedAt = now.AddHours(-2)
             });
 
-            dbContext.NormalizedMessages.Add(new NormalizedMessageEntity
+            dbContext.ChatMessages.Add(new ChatMessageEntity
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
@@ -624,7 +624,7 @@ public sealed class ConversationResolutionCommandHandlerTests
                 UserId = userId,
                 Title = "Retro",
                 Summary = "созвон по ретро",
-                SourceRoom = roomId,
+                ExternalChatId = roomId,
                 SourceEventId = "$evt-retro",
                 ObservedAt = now.AddHours(-4),
                 ScheduledFor = scheduledFor,
@@ -634,7 +634,7 @@ public sealed class ConversationResolutionCommandHandlerTests
                 UpdatedAt = now.AddHours(-4)
             });
 
-            dbContext.NormalizedMessages.Add(new NormalizedMessageEntity
+            dbContext.ChatMessages.Add(new ChatMessageEntity
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
@@ -678,7 +678,7 @@ public sealed class ConversationResolutionCommandHandlerTests
                 UserId = userId,
                 Title = "Reschedule",
                 Summary = "давай перенесём встречу",
-                SourceRoom = roomId,
+                ExternalChatId = roomId,
                 SourceEventId = "$evt-reschedule-no-time",
                 ObservedAt = now.AddHours(-1),
                 ScheduledFor = null,
@@ -688,7 +688,7 @@ public sealed class ConversationResolutionCommandHandlerTests
                 UpdatedAt = now.AddHours(-1)
             });
 
-            dbContext.NormalizedMessages.Add(new NormalizedMessageEntity
+            dbContext.ChatMessages.Add(new ChatMessageEntity
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
@@ -743,7 +743,7 @@ public sealed class ConversationResolutionCommandHandlerTests
                 UserId = userId,
                 Title = "Reschedule",
                 Summary = "перенесём встречу",
-                SourceRoom = roomId,
+                ExternalChatId = roomId,
                 SourceEventId = "$evt-reschedule-complete",
                 ObservedAt = now.AddHours(-1),
                 ScheduledFor = null,
@@ -753,7 +753,7 @@ public sealed class ConversationResolutionCommandHandlerTests
                 UpdatedAt = now.AddHours(-1)
             });
 
-            dbContext.NormalizedMessages.Add(new NormalizedMessageEntity
+            dbContext.ChatMessages.Add(new ChatMessageEntity
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
@@ -809,7 +809,7 @@ public sealed class ConversationResolutionCommandHandlerTests
                 Kind = ExtractedItemKind.Task,
                 Title = "Отправить смету",
                 Summary = "Отправить смету клиенту",
-                SourceRoom = roomId,
+                ExternalChatId = roomId,
                 SourceEventId = "$evt-task",
                 ObservedAt = now.AddMinutes(-1),
                 Confidence = 0.88,
@@ -817,7 +817,7 @@ public sealed class ConversationResolutionCommandHandlerTests
                 UpdatedAt = now.AddMinutes(-1)
             });
 
-            dbContext.NormalizedMessages.Add(new NormalizedMessageEntity
+            dbContext.ChatMessages.Add(new ChatMessageEntity
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
@@ -859,7 +859,7 @@ public sealed class ConversationResolutionCommandHandlerTests
                 Kind = ExtractedItemKind.Task,
                 Title = "Отправить смету",
                 Summary = "Отправить смету клиенту",
-                SourceRoom = roomId,
+                ExternalChatId = roomId,
                 SourceEventId = "$evt-task",
                 ObservedAt = now.AddMinutes(-1),
                 Confidence = 0.88,
@@ -867,7 +867,7 @@ public sealed class ConversationResolutionCommandHandlerTests
                 UpdatedAt = now.AddMinutes(-1)
             });
 
-            dbContext.NormalizedMessages.Add(new NormalizedMessageEntity
+            dbContext.ChatMessages.Add(new ChatMessageEntity
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,

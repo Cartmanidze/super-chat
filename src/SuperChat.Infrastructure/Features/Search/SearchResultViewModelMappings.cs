@@ -14,13 +14,13 @@ internal static class SearchResultViewModelMappings
             item.Title,
             item.Summary,
             item.Kind.ToString(),
-            item.SourceRoom,
+            item.ExternalChatId,
             item.ObservedAt,
             item.ToResolutionNote(),
             item.ResolutionTrace?.Confidence);
     }
 
-    public static SearchResultViewModel ToSearchResultViewModel(this NormalizedMessage message)
+    public static SearchResultViewModel ToSearchResultViewModel(this ChatMessage message)
     {
         return new SearchResultViewModel(
             message.SenderName,
@@ -32,30 +32,25 @@ internal static class SearchResultViewModelMappings
             null);
     }
 
-    public static SearchResultViewModel WithResolvedSourceRoom(
+    public static SearchResultViewModel WithResolvedChatTitle(
         this SearchResultViewModel result,
-        IReadOnlyDictionary<string, string> roomNames)
+        IReadOnlyDictionary<string, string> chatTitles)
     {
-        if (roomNames.TryGetValue(result.SourceRoom, out var roomName))
+        if (chatTitles.TryGetValue(result.ChatTitle, out var resolvedTitle))
         {
             return result with
             {
                 Title = string.Equals(result.Kind, "Message", StringComparison.Ordinal)
-                    ? MessagePresentationFormatter.ResolveDisplaySenderName(result.Title, roomName)
+                    ? MessagePresentationFormatter.ResolveDisplaySenderName(result.Title, resolvedTitle)
                     : result.Title,
-                SourceRoom = roomName
+                ChatTitle = resolvedTitle
             };
         }
 
-        return result.SourceRoom.LooksLikeMatrixRoomId()
-            ? result with { SourceRoom = string.Empty }
+        // Если читаемого имени нет, а текущее значение это сырой идентификатор чата
+        // (числовой Telegram chat id или legacy Matrix room id), не показываем его.
+        return ChatTitleHeuristics.LooksLikeRawChatId(result.ChatTitle)
+            ? result with { ChatTitle = string.Empty }
             : result;
-    }
-
-    private static bool LooksLikeMatrixRoomId(this string value)
-    {
-        return !string.IsNullOrWhiteSpace(value) &&
-               value.StartsWith("!", StringComparison.Ordinal) &&
-               value.Contains(':', StringComparison.Ordinal);
     }
 }

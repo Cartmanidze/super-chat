@@ -6,7 +6,7 @@ public interface IPipelineCommandScheduler
 {
     bool RequiresTransactionalDispatch { get; }
 
-    Task DispatchNormalizedMessageStoredAsync(
+    Task DispatchChatMessageStoredAsync(
         SuperChatDbContext dbContext,
         Guid userId,
         string source,

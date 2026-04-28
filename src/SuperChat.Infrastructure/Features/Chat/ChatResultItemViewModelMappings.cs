@@ -27,10 +27,10 @@ internal static class ChatResultItemViewModelMappings
         return MapProjection(ChatResultItemProjectionFactory.FromSearchResult(result));
     }
 
-    public static ChatResultItemViewModel ToChatResultItemViewModel(this NormalizedMessage message, string sourceRoom)
+    public static ChatResultItemViewModel ToChatResultItemViewModel(this ChatMessage message, string chatTitle)
     {
         return GenericChatResultItemViewModelMapper.Map(
-            ChatResultItemProjectionFactory.FromMessage(message, sourceRoom));
+            ChatResultItemProjectionFactory.FromMessage(message, chatTitle));
     }
 
     public static ChatResultItemViewModel ToChatResultItemViewModel(this RetrievedChatContext context)

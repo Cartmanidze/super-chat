@@ -13,8 +13,8 @@ internal sealed class MessageChunkEntity
     public string Kind { get; set; } = "dialog_chunk";
     public string Text { get; set; } = string.Empty;
     public int MessageCount { get; set; }
-    public Guid? FirstNormalizedMessageId { get; set; }
-    public Guid? LastNormalizedMessageId { get; set; }
+    public Guid? FirstChatMessageId { get; set; }
+    public Guid? LastChatMessageId { get; set; }
     public DateTimeOffset TsFrom { get; set; }
     public DateTimeOffset TsTo { get; set; }
     public string ContentHash { get; set; } = string.Empty;

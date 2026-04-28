@@ -9,7 +9,7 @@ internal static class GenericChatResultItemViewModelMapper
         var item = new GenericChatResultItemViewModel(
             projection.Title,
             projection.Summary,
-            projection.SourceRoom,
+            projection.ChatTitle,
             projection.Timestamp,
             projection.Type,
             projection.Status,

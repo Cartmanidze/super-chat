@@ -8,7 +8,7 @@ public sealed record WorkItemRecord(
     ExtractedItemKind Kind,
     string Title,
     string Summary,
-    string SourceRoom,
+    string ExternalChatId,
     string SourceEventId,
     string? Person,
     DateTimeOffset ObservedAt,

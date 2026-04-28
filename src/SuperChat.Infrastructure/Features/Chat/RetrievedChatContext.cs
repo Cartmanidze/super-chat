@@ -3,6 +3,6 @@ namespace SuperChat.Infrastructure.Features.Chat;
 internal sealed record RetrievedChatContext(
     string Title,
     string Summary,
-    string SourceRoom,
+    string ExternalChatId,
     DateTimeOffset ObservedAt,
     string Text);

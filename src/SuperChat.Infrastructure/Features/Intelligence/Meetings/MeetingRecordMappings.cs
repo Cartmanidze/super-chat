@@ -53,11 +53,11 @@ internal static class MeetingRecordMappings
     {
         return meeting.ScheduledFor is DateTimeOffset scheduledFor
             ? BuildDeduplicationKey(
-                meeting.SourceRoom,
+                meeting.ExternalChatId,
                 scheduledFor.UtcDateTime,
                 meeting.Summary)
             : BuildUnscheduledDeduplicationKey(
-                meeting.SourceRoom,
+                meeting.ExternalChatId,
                 meeting.SourceEventId,
                 meeting.Summary);
     }
@@ -66,29 +66,29 @@ internal static class MeetingRecordMappings
     {
         return entity.ScheduledFor is DateTimeOffset scheduledFor
             ? BuildDeduplicationKey(
-                entity.SourceRoom,
+                entity.ExternalChatId,
                 scheduledFor.UtcDateTime,
                 entity.Summary)
             : BuildUnscheduledDeduplicationKey(
-                entity.SourceRoom,
+                entity.ExternalChatId,
                 entity.SourceEventId,
                 entity.Summary);
     }
 
-    internal static string BuildDeduplicationKey(string sourceRoom, DateTime scheduledForUtc, string summary)
+    internal static string BuildDeduplicationKey(string externalChatId, DateTime scheduledForUtc, string summary)
     {
         return string.Join(
             '|',
-            sourceRoom,
+            externalChatId,
             scheduledForUtc.ToString("yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture),
             summary.Trim().ToLowerInvariant());
     }
 
-    internal static string BuildUnscheduledDeduplicationKey(string sourceRoom, string sourceEventId, string summary)
+    internal static string BuildUnscheduledDeduplicationKey(string externalChatId, string sourceEventId, string summary)
     {
         return string.Join(
             '|',
-            sourceRoom,
+            externalChatId,
             "unscheduled",
             sourceEventId,
             summary.Trim().ToLowerInvariant());

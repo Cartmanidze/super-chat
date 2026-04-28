@@ -4,25 +4,25 @@ namespace SuperChat.Infrastructure.Diagnostics;
 
 public static class SuperChatMetrics
 {
-    public static readonly Counter NormalizedMessagesStoredTotal = Metrics.CreateCounter(
-        "superchat_normalized_messages_stored_total",
-        "Total number of normalized messages stored for downstream processing.",
+    public static readonly Counter ChatMessagesStoredTotal = Metrics.CreateCounter(
+        "superchat_chat_messages_stored_total",
+        "Total number of chat messages stored for downstream processing.",
         new CounterConfiguration
         {
             LabelNames = ["source"]
         });
 
-    public static readonly Counter NormalizedMessagesDuplicateTotal = Metrics.CreateCounter(
-        "superchat_normalized_messages_duplicate_total",
-        "Total number of duplicate normalized messages skipped when receiving.",
+    public static readonly Counter ChatMessagesDuplicateTotal = Metrics.CreateCounter(
+        "superchat_chat_messages_duplicate_total",
+        "Total number of duplicate chat messages skipped when receiving.",
         new CounterConfiguration
         {
             LabelNames = ["source"]
         });
 
-    public static readonly Counter NormalizedMessagesByPathTotal = Metrics.CreateCounter(
-        "superchat_normalized_messages_by_path_total",
-        "Normalized messages split by ingestion path and result (stored vs duplicate).",
+    public static readonly Counter ChatMessagesByPathTotal = Metrics.CreateCounter(
+        "superchat_chat_messages_by_path_total",
+        "Chat messages split by ingestion path and result (stored vs duplicate).",
         new CounterConfiguration
         {
             LabelNames = ["path", "result"]
@@ -71,9 +71,9 @@ public static class SuperChatMetrics
 
     public static void Initialize()
     {
-        _ = NormalizedMessagesStoredTotal;
-        _ = NormalizedMessagesDuplicateTotal;
-        _ = NormalizedMessagesByPathTotal;
+        _ = ChatMessagesStoredTotal;
+        _ = ChatMessagesDuplicateTotal;
+        _ = ChatMessagesByPathTotal;
         _ = PipelineDispatchTotal;
         _ = PipelineDispatchSkippedTotal;
         _ = PipelineCommandsTotal;

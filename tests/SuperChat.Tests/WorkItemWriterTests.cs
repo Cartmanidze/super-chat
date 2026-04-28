@@ -78,7 +78,7 @@ public sealed class WorkItemWriterTests
                 Kind = ExtractedItemKind.Task,
                 Title = "Отправить смету",
                 Summary = "Отправить смету клиенту",
-                SourceRoom = roomId,
+                ExternalChatId = roomId,
                 SourceEventId = sourceEventId,
                 ObservedAt = observedAt,
                 Confidence = 0.70,

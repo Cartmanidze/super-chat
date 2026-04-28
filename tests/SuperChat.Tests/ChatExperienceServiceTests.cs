@@ -56,7 +56,7 @@ public sealed class ChatExperienceServiceTests
         var item = Assert.Single(answer.Items);
         Assert.Equal("Созвон с Валерией", item.Title);
         Assert.Equal("Подтверждённый созвон сегодня в 14:00.", item.Summary);
-        Assert.Equal("Личные", item.SourceRoom);
+        Assert.Equal("Личные", item.ChatTitle);
     }
 
     [Fact]

@@ -8,10 +8,10 @@
 src/
   theme/        — токены (цвета, типографика, тени, радиусы), шрифты Manrope/Inter/IBM Plex Mono
   ui/           — primitives: BoltIcon, BoltChip, Pill, Button, Avatar, Card, Eyebrow, Header, Screen, BrandIcon, Dots
-  api/          — axios + те же контракты что у веба (auth, me, meetings, search, telegram)
+  api/          — axios + те же контракты что у веба (auth, me, meetings, telegram)
   store/        — zustand session-store + expo-secure-store (Keychain/Keystore для токена)
   lib/          — хелперы (relative-time, форматы)
-  screens/      — Onboarding, Auth, Today, Search, Connections, TelegramLogin, Profile
+  screens/      — Onboarding, Auth, Today, Connections, TelegramLogin, Profile
   navigation/   — Root (Stack: Onboarding → Auth → Tabs), TabBar (BlurView), ConnectStack
 ```
 
@@ -19,7 +19,6 @@ src/
 
 - 4-шаговый онбординг (Hero / How / Value / CTA) + 6-cell OTP-вход.
 - Главный экран «Сегодня» — hero next-meeting, ждут подтверждения, timeline дня.
-- Поиск с list/detail-разметкой.
 - Источники + Telegram-login (3 шага: phone → code → password) с polling-ом статуса.
 - Профиль + выход (с очисткой SecureStore + react-query кэша).
 - Liquid-glass tab-bar (BlurView 50, dark, 1px bone-border) с активным state-gradient.
@@ -68,7 +67,7 @@ npx eas-cli build --profile production --platform ios
 ## Что осталось
 
 - Push-нотификации (`expo-notifications`) для напоминаний о встречах.
-- Pull-to-refresh на Today / Search.
+- Pull-to-refresh на Today.
 - Ошибки и offline-state — пока минимально (Alert).
 - Тесты — пока ноль.
 - `meetings/{id}/confirm|complete|dismiss` actions из карточек (есть в gateway, не подключены к UI).

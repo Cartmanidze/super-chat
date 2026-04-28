@@ -22,7 +22,7 @@ internal sealed class RebusPipelineCommandScheduler(
 {
     public bool RequiresTransactionalDispatch => true;
 
-    public async Task DispatchNormalizedMessageStoredAsync(
+    public async Task DispatchChatMessageStoredAsync(
         SuperChatDbContext dbContext,
         Guid userId,
         string source,
@@ -34,18 +34,18 @@ internal sealed class RebusPipelineCommandScheduler(
     {
         if (dbContext.Database.CurrentTransaction is not IDbContextTransaction currentTransaction)
         {
-            throw new InvalidOperationException("Normalized message dispatch requires an active database transaction.");
+            throw new InvalidOperationException("Chat message dispatch requires an active database transaction.");
         }
 
         var dbTransaction = currentTransaction.GetDbTransaction();
         if (dbTransaction is not NpgsqlTransaction npgsqlTransaction)
         {
-            throw new InvalidOperationException("Normalized message dispatch requires an Npgsql transaction.");
+            throw new InvalidOperationException("Chat message dispatch requires an Npgsql transaction.");
         }
 
         if (dbContext.Database.GetDbConnection() is not NpgsqlConnection npgsqlConnection)
         {
-            throw new InvalidOperationException("Normalized message dispatch requires an Npgsql connection.");
+            throw new InvalidOperationException("Chat message dispatch requires an Npgsql connection.");
         }
 
         using var rebusTransactionScope = new RebusTransactionScope();
@@ -54,7 +54,7 @@ internal sealed class RebusPipelineCommandScheduler(
 
         var rebuildFrom = sentAt.AddMinutes(-Math.Max(1, chunkingOptions.Value.MaxGapMinutes));
         logger.LogInformation(
-            "Dispatching transactional pipeline commands for normalized message. Source={Source}, SentAt={SentAt}, RebuildFrom={RebuildFrom}, SettleDelaySeconds={SettleDelaySeconds}.",
+            "Dispatching transactional pipeline commands for chat message. Source={Source}, SentAt={SentAt}, RebuildFrom={RebuildFrom}, SettleDelaySeconds={SettleDelaySeconds}.",
             source,
             sentAt,
             rebuildFrom,
@@ -84,7 +84,7 @@ internal sealed class NonTransactionalRebusPipelineCommandScheduler(
 {
     public bool RequiresTransactionalDispatch => false;
 
-    public async Task DispatchNormalizedMessageStoredAsync(
+    public async Task DispatchChatMessageStoredAsync(
         SuperChatDbContext dbContext,
         Guid userId,
         string source,
@@ -98,7 +98,7 @@ internal sealed class NonTransactionalRebusPipelineCommandScheduler(
 
         var rebuildFrom = sentAt.AddMinutes(-Math.Max(1, chunkingOptions.Value.MaxGapMinutes));
         logger.LogInformation(
-            "Dispatching non-transactional pipeline commands for normalized message. Source={Source}, SentAt={SentAt}, RebuildFrom={RebuildFrom}, SettleDelaySeconds={SettleDelaySeconds}.",
+            "Dispatching non-transactional pipeline commands for chat message. Source={Source}, SentAt={SentAt}, RebuildFrom={RebuildFrom}, SettleDelaySeconds={SettleDelaySeconds}.",
             source,
             sentAt,
             rebuildFrom,
@@ -124,7 +124,7 @@ internal sealed class NoOpPipelineCommandScheduler(
 {
     public bool RequiresTransactionalDispatch => false;
 
-    public Task DispatchNormalizedMessageStoredAsync(
+    public Task DispatchChatMessageStoredAsync(
         SuperChatDbContext dbContext,
         Guid userId,
         string source,

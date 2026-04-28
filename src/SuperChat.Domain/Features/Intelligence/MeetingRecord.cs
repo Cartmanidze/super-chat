@@ -7,7 +7,7 @@ public sealed record MeetingRecord(
     Guid UserId,
     string Title,
     string Summary,
-    string SourceRoom,
+    string ExternalChatId,
     string SourceEventId,
     string? Person,
     DateTimeOffset ObservedAt,

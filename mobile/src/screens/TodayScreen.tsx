@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Alert, Linking, Pressable, Text, View } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigation } from "@react-navigation/native";
 import { meetingsGateway, type MeetingCard } from "../api/meetings";
 import { useSessionStore } from "../store/session";
 import { Screen } from "../ui/Screen";
@@ -20,6 +21,12 @@ function avatarInitials(value: string | null | undefined): string {
   if (parts.length === 0) return "·";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
+function profileInitials(email: string | null | undefined): string {
+  if (!email) return "Я";
+  const local = email.split("@")[0] ?? email;
+  return local.slice(0, 2).toUpperCase();
 }
 
 function avatarVariant(value: string | null | undefined): "g1" | "g2" | "g3" | "g4" {
@@ -47,7 +54,9 @@ function pickNext(cards: MeetingCard[], now: Date): MeetingCard | null {
 
 export function TodayScreen() {
   const queryClient = useQueryClient();
+  const navigation = useNavigation();
   const token = useSessionStore((s) => s.accessToken);
+  const email = useSessionStore((s) => s.email);
   const meetings = useQuery({
     queryKey: ["meetings"],
     queryFn: () => meetingsGateway.list(token!),
@@ -120,7 +129,9 @@ export function TodayScreen() {
                 letterSpacing: -0.6,
               }}
             >
-              {todayCount > 0 ? `${todayCount} ${pluralMeetings(todayCount)} сегодня.` : "Сегодня тихо."}
+              {todayCount > 0
+                ? `${todayCount} ${pluralMeetings(todayCount)} сегодня.`
+                : "Свободный день."}
             </Text>
             {headlineRel ? (
               <Text
@@ -138,7 +149,16 @@ export function TodayScreen() {
             ) : null}
           </View>
         }
-        right={<Avatar who="ИП" size={32} variant="g2" />}
+        right={
+          <Pressable
+            onPress={() => navigation.navigate("Profile" as never)}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Открыть профиль"
+          >
+            <Avatar who={profileInitials(email)} size={32} variant="g2" />
+          </Pressable>
+        }
       />
 
       <View style={{ paddingHorizontal: 16, gap: 14 }}>
@@ -171,15 +191,15 @@ export function TodayScreen() {
           </>
         ) : null}
 
-        <SectionHead title="Расписание дня" count={todayCount} />
+        <SectionHead title="Расписание дня" count={todayCount > 0 ? todayCount : null} />
         <View style={{ paddingHorizontal: 4 }}>
           {cards.length === 0 && !meetings.isLoading ? (
             <Card>
               <Text style={{ ...typography.heading, fontFamily: "Manrope_700Bold", fontSize: 16, color: colors.bone }}>
-                Пока пусто
+                Пока тихо
               </Text>
               <Text style={{ ...typography.body, fontSize: 13, color: colors.ash400, marginTop: 6 }}>
-                Когда Super Chat найдёт встречу в чатах, она появится здесь первой.
+                Соберём встречи, как только что-то пролетит в чатах.
               </Text>
             </Card>
           ) : null}
@@ -234,7 +254,7 @@ function NextMeetingHero({
         {card.title}
       </Text>
       <Text style={{ ...typography.body, fontSize: 12, color: colors.ash400, lineHeight: 18, marginBottom: 12 }}>
-        <Text style={{ color: colors.bolt400 }}>{card.sourceRoom}</Text>
+        <Text style={{ color: colors.bolt400 }}>{card.chatTitle}</Text>
         {card.summary ? ` · ${card.summary}` : ""}
       </Text>
       <View style={{ flexDirection: "row", alignItems: "baseline", gap: 10, marginBottom: 14 }}>
@@ -326,7 +346,7 @@ function PendingRow({ card, onConfirm, onDismiss, isBusy }: PendingRowProps) {
           {card.title}
         </Text>
         <Text style={{ ...typography.body, fontSize: 11, color: colors.ash400, marginTop: 2 }}>
-          из <Text style={{ color: colors.bolt400 }}>{card.sourceRoom}</Text>
+          из <Text style={{ color: colors.bolt400 }}>{card.chatTitle}</Text>
         </Text>
       </View>
       {card.id != null ? (
@@ -413,9 +433,9 @@ function TimelineRow({ card, now }: { card: MeetingCard; now: Date }) {
         </Text>
         <Text style={{ ...typography.body, fontSize: 12, color: colors.ash400, lineHeight: 18 }}>{card.summary}</Text>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 }}>
-          <Avatar who={avatarInitials(card.sourceRoom)} size={20} variant={avatarVariant(card.sourceRoom)} />
+          <Avatar who={avatarInitials(card.chatTitle)} size={20} variant={avatarVariant(card.chatTitle)} />
           <Text style={{ ...typography.mono, fontSize: 10, color: colors.bolt400, letterSpacing: 0.8 }}>
-            {card.sourceRoom}
+            {card.chatTitle}
           </Text>
           <Text style={{ ...typography.mono, fontSize: 10, color: colors.ash500, letterSpacing: 0.8 }}>
             · {isPast ? "прошла" : isLive ? "идёт" : rel.label}
@@ -426,7 +446,7 @@ function TimelineRow({ card, now }: { card: MeetingCard; now: Date }) {
   );
 }
 
-function SectionHead({ title, count }: { title: string; count: number }) {
+function SectionHead({ title, count }: { title: string; count: number | null }) {
   return (
     <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", paddingHorizontal: 4, paddingTop: 4 }}>
       <Text
@@ -440,7 +460,7 @@ function SectionHead({ title, count }: { title: string; count: number }) {
       >
         {title}
       </Text>
-      <Eyebrow color={colors.ash500}>{String(count)}</Eyebrow>
+      {count !== null && count > 0 ? <Eyebrow color={colors.ash500}>{String(count)}</Eyebrow> : null}
     </View>
   );
 }

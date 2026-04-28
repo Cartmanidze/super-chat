@@ -28,7 +28,7 @@ internal sealed class EfWorkItemRepository(
                 Kind = item.Kind,
                 Title = item.Title,
                 Summary = item.Summary,
-                SourceRoom = item.SourceRoom,
+                ExternalChatId = item.ExternalChatId,
                 SourceEventId = item.SourceEventId,
                 Person = item.Person,
                 ObservedAt = item.ObservedAt,
@@ -124,7 +124,7 @@ internal sealed class EfWorkItemRepository(
         await using var db = await GetDbContextAsync(cancellationToken);
         var entities = await db.WorkItems
             .AsNoTracking()
-            .Where(w => w.UserId == userId && w.SourceRoom == externalChatId && w.ResolvedAt == null)
+            .Where(w => w.UserId == userId && w.ExternalChatId == externalChatId && w.ResolvedAt == null)
             .OrderByDescending(w => w.ObservedAt)
             .ToListAsync(cancellationToken);
 

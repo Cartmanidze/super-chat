@@ -8,22 +8,22 @@ public sealed record ExtractedItem(
     ExtractedItemKind Kind,
     string Title,
     string Summary,
-    string SourceRoom,
+    string ExternalChatId,
     string SourceEventId,
     string? Person,
     DateTimeOffset ObservedAt,
     DateTimeOffset? DueAt,
     Confidence Confidence)
 {
-    private readonly bool _validated = Validate(Id, UserId, Title, Summary, SourceRoom, SourceEventId);
+    private readonly bool _validated = Validate(Id, UserId, Title, Summary, ExternalChatId, SourceEventId);
 
-    private static bool Validate(Guid id, Guid userId, string title, string summary, string sourceRoom, string sourceEventId)
+    private static bool Validate(Guid id, Guid userId, string title, string summary, string externalChatId, string sourceEventId)
     {
         DomainGuard.NotEmpty(id);
         DomainGuard.NotEmpty(userId);
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
         ArgumentException.ThrowIfNullOrWhiteSpace(summary);
-        ArgumentException.ThrowIfNullOrWhiteSpace(sourceRoom);
+        ArgumentException.ThrowIfNullOrWhiteSpace(externalChatId);
         ArgumentException.ThrowIfNullOrWhiteSpace(sourceEventId);
         return true;
     }

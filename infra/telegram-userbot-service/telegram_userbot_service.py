@@ -356,11 +356,9 @@ async def _forward_message(user_id: UUID, event: events.NewMessage.Event) -> Non
         return
 
     sender = await event.get_sender()
-    sender_name = (
-        getattr(sender, "first_name", None)
-        or getattr(sender, "title", None)
-        or "Unknown"
-    )
+    sender_name = _build_display_name(sender)
+    chat = await event.get_chat()
+    chat_title = _build_chat_title(chat, fallback=sender_name)
     chat_id = str(event.chat_id)
     message_id = f"{chat_id}:{message.id}"
 
@@ -368,6 +366,7 @@ async def _forward_message(user_id: UUID, event: events.NewMessage.Event) -> Non
         "user_id": str(user_id),
         "external_chat_id": chat_id,
         "external_message_id": message_id,
+        "chat_title": chat_title,
         "sender_name": sender_name,
         "text": message.message,
         "sent_at": message.date.isoformat(),
@@ -403,3 +402,35 @@ def _require_state(user_id: UUID) -> SessionState:
     if state is None:
         raise HTTPException(status_code=404, detail="session_not_started")
     return state
+
+
+def _build_display_name(entity: object) -> str:
+    """Best-effort human-readable name for a Telegram user / channel / group."""
+    if entity is None:
+        return "Unknown"
+    first = getattr(entity, "first_name", None)
+    last = getattr(entity, "last_name", None)
+    if first or last:
+        return " ".join(part for part in (first, last) if part).strip() or "Unknown"
+    title = getattr(entity, "title", None)
+    if title:
+        return title
+    username = getattr(entity, "username", None)
+    if username:
+        return f"@{username}"
+    return "Unknown"
+
+
+def _build_chat_title(chat: object, fallback: str) -> str:
+    """Title shown to the user for the source chat. For 1:1 dialogues with a
+    private user Telegram does not expose a `title`; we fall back to the
+    sender's display name so the UI never shows a raw chat id."""
+    if chat is None:
+        return fallback
+    title = getattr(chat, "title", None)
+    if title:
+        return title
+    username = getattr(chat, "username", None)
+    if username:
+        return f"@{username}"
+    return fallback

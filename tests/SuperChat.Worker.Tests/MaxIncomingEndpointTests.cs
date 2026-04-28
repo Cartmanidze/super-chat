@@ -47,7 +47,7 @@ public sealed class MaxIncomingEndpointTests : IClassFixture<MaxIncomingWorkerTe
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         await using var dbContext = await CreateDbContextAsync();
-        var stored = await dbContext.NormalizedMessages
+        var stored = await dbContext.ChatMessages
             .SingleAsync(item => item.ExternalMessageId == externalMessageId);
 
         Assert.Equal("max", stored.Source);

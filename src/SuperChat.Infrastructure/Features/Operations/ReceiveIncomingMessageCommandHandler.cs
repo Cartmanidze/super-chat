@@ -8,7 +8,7 @@ using SuperChat.Infrastructure.Features.Messaging;
 namespace SuperChat.Infrastructure.Features.Operations;
 
 internal sealed class ReceiveIncomingMessageCommandHandler(
-    IMessageNormalizationService normalizationService,
+    IChatMessageStore normalizationService,
     IncomingMessageFilter filter,
     IHostApplicationLifetime applicationLifetime,
     ILogger<ReceiveIncomingMessageCommandHandler> logger) : IHandleMessages<ReceiveIncomingMessageCommand>

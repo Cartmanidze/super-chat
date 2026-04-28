@@ -12,10 +12,10 @@ using DomainMeetingStatus = SuperChat.Domain.Features.Intelligence.MeetingStatus
 
 namespace SuperChat.Tests;
 
-public sealed class RoomDisplayNamePresentationTests
+public sealed class ChatTitlePresentationTests
 {
     [Fact]
-    public async Task SearchService_ReplacesRoomIdWithResolvedDisplayName()
+    public async Task SearchService_ReplacesChatIdWithResolvedTitle()
     {
         var userId = Guid.NewGuid();
         var service = new SearchService(
@@ -33,8 +33,8 @@ public sealed class RoomDisplayNamePresentationTests
                     DateTimeOffset.UtcNow.AddHours(1),
                     new Confidence(0.9))
             ]),
-            new StubMessageNormalizationService([]),
-            new StubRoomDisplayNameService(new Dictionary<string, string>
+            new StubChatMessageStore([]),
+            new StubChatTitleService(new Dictionary<string, string>
             {
                 ["!sales:matrix.localhost"] = "Sales Team"
             }));
@@ -42,17 +42,17 @@ public sealed class RoomDisplayNamePresentationTests
         var results = await service.SearchAsync(userId, "contract", CancellationToken.None);
 
         Assert.Single(results);
-        Assert.Equal("Sales Team", results[0].SourceRoom);
+        Assert.Equal("Sales Team", results[0].ChatTitle);
     }
 
     [Fact]
-    public async Task SearchService_ReplacesRoomIdForRawMessageFallback()
+    public async Task SearchService_ReplacesChatIdForRawMessageFallback()
     {
         var userId = Guid.NewGuid();
         var service = new SearchService(
             new StubWorkItemService([]),
-            new StubMessageNormalizationService([
-                new NormalizedMessage(
+            new StubChatMessageStore([
+                new ChatMessage(
                     Guid.NewGuid(),
                     userId,
                     "telegram",
@@ -64,7 +64,7 @@ public sealed class RoomDisplayNamePresentationTests
                     DateTimeOffset.UtcNow,
                     false)
             ]),
-            new StubRoomDisplayNameService(new Dictionary<string, string>
+            new StubChatTitleService(new Dictionary<string, string>
             {
                 ["!founders:matrix.localhost"] = "Founders"
             }));
@@ -72,17 +72,17 @@ public sealed class RoomDisplayNamePresentationTests
         var results = await service.SearchAsync(userId, "pilot-marker", CancellationToken.None);
 
         Assert.Single(results);
-        Assert.Equal("Founders", results[0].SourceRoom);
+        Assert.Equal("Founders", results[0].ChatTitle);
     }
 
     [Fact]
-    public async Task SearchService_UsesRoomDisplayNameWhenRawMessageSenderIsOpaqueNumericId()
+    public async Task SearchService_UsesChatTitleWhenRawMessageSenderIsOpaqueNumericId()
     {
         var userId = Guid.NewGuid();
         var service = new SearchService(
             new StubWorkItemService([]),
-            new StubMessageNormalizationService([
-                new NormalizedMessage(
+            new StubChatMessageStore([
+                new ChatMessage(
                     Guid.NewGuid(),
                     userId,
                     "telegram",
@@ -94,7 +94,7 @@ public sealed class RoomDisplayNamePresentationTests
                     DateTimeOffset.UtcNow,
                     false)
             ]),
-            new StubRoomDisplayNameService(new Dictionary<string, string>
+            new StubChatTitleService(new Dictionary<string, string>
             {
                 ["!dm:matrix.localhost"] = "Bi (Telegram)"
             }));
@@ -103,11 +103,11 @@ public sealed class RoomDisplayNamePresentationTests
 
         Assert.Single(results);
         Assert.Equal("Bi", results[0].Title);
-        Assert.Equal("Bi (Telegram)", results[0].SourceRoom);
+        Assert.Equal("Bi (Telegram)", results[0].ChatTitle);
     }
 
     [Fact]
-    public async Task DigestService_ReplacesRoomIdWithResolvedDisplayName()
+    public async Task DigestService_ReplacesChatIdWithResolvedTitle()
     {
         var userId = Guid.NewGuid();
         var now = new DateTimeOffset(2026, 03, 12, 12, 00, 00, TimeSpan.Zero);
@@ -128,7 +128,7 @@ public sealed class RoomDisplayNamePresentationTests
                     null,
                     null)
             ]),
-            new StubRoomDisplayNameService(new Dictionary<string, string>
+            new StubChatTitleService(new Dictionary<string, string>
             {
                 ["!team:matrix.localhost"] = "Sales Ops"
             }),
@@ -142,7 +142,7 @@ public sealed class RoomDisplayNamePresentationTests
         var cards = await service.GetMeetingsAsync(userId, CancellationToken.None);
 
         Assert.Single(cards);
-        Assert.Equal("Sales Ops", cards[0].SourceRoom);
+        Assert.Equal("Sales Ops", cards[0].ChatTitle);
     }
 
     [Fact]
@@ -165,7 +165,7 @@ public sealed class RoomDisplayNamePresentationTests
                     new Confidence(0.9),
                     Status: DomainMeetingStatus.Confirmed)
             ]),
-            new StubRoomDisplayNameService(new Dictionary<string, string>()),
+            new StubChatTitleService(new Dictionary<string, string>()),
             new FixedTimeProvider(now),
             new PilotOptions
             {
@@ -231,7 +231,7 @@ public sealed class RoomDisplayNamePresentationTests
                 .Where(item => item.UserId == userId &&
                     (item.Title.Contains(trimmed, StringComparison.OrdinalIgnoreCase) ||
                      item.Summary.Contains(trimmed, StringComparison.OrdinalIgnoreCase) ||
-                     item.SourceRoom.Contains(trimmed, StringComparison.OrdinalIgnoreCase)))
+                     item.ExternalChatId.Contains(trimmed, StringComparison.OrdinalIgnoreCase)))
                 .OrderByDescending(item => item.ObservedAt)
                 .Take(limit)
                 .ToList();
@@ -250,7 +250,7 @@ public sealed class RoomDisplayNamePresentationTests
         }
     }
 
-    private sealed class StubMessageNormalizationService(IReadOnlyList<NormalizedMessage> messages) : IMessageNormalizationService
+    private sealed class StubChatMessageStore(IReadOnlyList<ChatMessage> messages) : IChatMessageStore
     {
         public Task<bool> TryStoreAsync(
             Guid userId,
@@ -260,35 +260,36 @@ public sealed class RoomDisplayNamePresentationTests
             string senderName,
             string text,
             DateTimeOffset sentAt,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            string? chatTitle = null)
         {
             throw new NotSupportedException();
         }
 
-        public Task<IReadOnlyList<NormalizedMessage>> GetPendingMessagesAsync(CancellationToken cancellationToken)
+        public Task<IReadOnlyList<ChatMessage>> GetPendingMessagesAsync(CancellationToken cancellationToken)
         {
-            return Task.FromResult(Array.Empty<NormalizedMessage>() as IReadOnlyList<NormalizedMessage>);
+            return Task.FromResult(Array.Empty<ChatMessage>() as IReadOnlyList<ChatMessage>);
         }
 
-        public Task<IReadOnlyList<NormalizedMessage>> GetPendingMessagesForConversationAsync(
+        public Task<IReadOnlyList<ChatMessage>> GetPendingMessagesForConversationAsync(
             Guid userId,
             string source,
-            string matrixRoomId,
+            string externalChatId,
             CancellationToken cancellationToken)
         {
-            return Task.FromResult(Array.Empty<NormalizedMessage>() as IReadOnlyList<NormalizedMessage>);
+            return Task.FromResult(Array.Empty<ChatMessage>() as IReadOnlyList<ChatMessage>);
         }
 
-        public Task<IReadOnlyList<NormalizedMessage>> GetRecentMessagesAsync(Guid userId, int take, CancellationToken cancellationToken)
+        public Task<IReadOnlyList<ChatMessage>> GetRecentMessagesAsync(Guid userId, int take, CancellationToken cancellationToken)
         {
-            return Task.FromResult(messages.Where(item => item.UserId == userId).Take(take).ToList() as IReadOnlyList<NormalizedMessage>);
+            return Task.FromResult(messages.Where(item => item.UserId == userId).Take(take).ToList() as IReadOnlyList<ChatMessage>);
         }
 
-        public Task<IReadOnlyList<NormalizedMessage>> SearchRecentMessagesAsync(Guid userId, string query, int limit, CancellationToken cancellationToken)
+        public Task<IReadOnlyList<ChatMessage>> SearchRecentMessagesAsync(Guid userId, string query, int limit, CancellationToken cancellationToken)
         {
             if (limit <= 0 || string.IsNullOrWhiteSpace(query))
             {
-                return Task.FromResult(Array.Empty<NormalizedMessage>() as IReadOnlyList<NormalizedMessage>);
+                return Task.FromResult(Array.Empty<ChatMessage>() as IReadOnlyList<ChatMessage>);
             }
 
             var trimmed = query.Trim();
@@ -301,7 +302,7 @@ public sealed class RoomDisplayNamePresentationTests
                 .Take(limit)
                 .ToList();
 
-            return Task.FromResult(matches as IReadOnlyList<NormalizedMessage>);
+            return Task.FromResult(matches as IReadOnlyList<ChatMessage>);
         }
 
         public Task MarkProcessedAsync(IEnumerable<Guid> messageIds, CancellationToken cancellationToken)
@@ -310,17 +311,17 @@ public sealed class RoomDisplayNamePresentationTests
         }
     }
 
-    private sealed class StubRoomDisplayNameService(IReadOnlyDictionary<string, string> roomNames) : IRoomDisplayNameService
+    private sealed class StubChatTitleService(IReadOnlyDictionary<string, string> chatTitles) : IChatTitleService
     {
         public Task<IReadOnlyDictionary<string, string>> ResolveManyAsync(
             Guid userId,
-            IEnumerable<string> sourceRooms,
+            IEnumerable<string> externalChatIds,
             CancellationToken cancellationToken)
         {
-            var resolved = sourceRooms
+            var resolved = externalChatIds
                 .Distinct(StringComparer.Ordinal)
-                .Where(roomNames.ContainsKey)
-                .ToDictionary(roomId => roomId, roomId => roomNames[roomId], StringComparer.Ordinal);
+                .Where(chatTitles.ContainsKey)
+                .ToDictionary(chatId => chatId, chatId => chatTitles[chatId], StringComparer.Ordinal);
 
             return Task.FromResult(resolved as IReadOnlyDictionary<string, string>);
         }

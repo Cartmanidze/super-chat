@@ -29,9 +29,9 @@ internal static class PersistenceMappings
             entity.LastSyncedAt);
     }
 
-    public static NormalizedMessage ToDomain(this NormalizedMessageEntity entity)
+    public static ChatMessage ToDomain(this ChatMessageEntity entity)
     {
-        return new NormalizedMessage(
+        return new ChatMessage(
             entity.Id,
             entity.UserId,
             entity.Source,
@@ -41,7 +41,8 @@ internal static class PersistenceMappings
             entity.Text,
             entity.SentAt,
             entity.ReceivedAt,
-            entity.Processed);
+            entity.Processed,
+            entity.ChatTitle);
     }
 
     public static ExtractedItem ToDomain(this ExtractedItemEntity entity)
@@ -52,7 +53,7 @@ internal static class PersistenceMappings
             entity.Kind,
             entity.Title,
             entity.Summary,
-            entity.SourceRoom,
+            entity.ExternalChatId,
             entity.SourceEventId,
             entity.Person,
             entity.ObservedAt,
@@ -68,7 +69,7 @@ internal static class PersistenceMappings
             entity.Kind,
             entity.Title,
             entity.Summary,
-            entity.SourceRoom,
+            entity.ExternalChatId,
             entity.SourceEventId,
             entity.Person,
             entity.ObservedAt,
@@ -87,7 +88,7 @@ internal static class PersistenceMappings
             entity.UserId,
             entity.Title,
             entity.Summary,
-            entity.SourceRoom,
+            entity.ExternalChatId,
             entity.SourceEventId,
             entity.Person,
             entity.ObservedAt,

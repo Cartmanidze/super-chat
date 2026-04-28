@@ -15,7 +15,7 @@ public sealed class ReceiveIncomingMessageCommandHandlerTests
     [Fact]
     public async Task Handle_PassesMessageThroughNormalizationService_WithTelegramLabel()
     {
-        var store = new RecordingMessageNormalizationService();
+        var store = new RecordingChatMessageStore();
         var handler = CreateHandler(store);
 
         await handler.Handle(new ReceiveIncomingMessageCommand(
@@ -38,7 +38,7 @@ public sealed class ReceiveIncomingMessageCommandHandlerTests
     [Fact]
     public async Task Handle_UsesMaxLabel_WhenSourceIsMax()
     {
-        var store = new RecordingMessageNormalizationService();
+        var store = new RecordingChatMessageStore();
         var handler = CreateHandler(store);
 
         await handler.Handle(new ReceiveIncomingMessageCommand(
@@ -57,7 +57,7 @@ public sealed class ReceiveIncomingMessageCommandHandlerTests
     [Fact]
     public async Task Handle_DoesNotStoreMessage_WhenFilterRejectsBody()
     {
-        var store = new RecordingMessageNormalizationService();
+        var store = new RecordingChatMessageStore();
         var handler = CreateHandler(store);
 
         await handler.Handle(new ReceiveIncomingMessageCommand(
@@ -73,7 +73,7 @@ public sealed class ReceiveIncomingMessageCommandHandlerTests
     }
 
     private static ReceiveIncomingMessageCommandHandler CreateHandler(
-        RecordingMessageNormalizationService store)
+        RecordingChatMessageStore store)
     {
         var filter = new IncomingMessageFilter(Options.Create(new IncomingMessageFilterOptions()));
         var lifetime = Substitute.For<IHostApplicationLifetime>();
@@ -86,7 +86,7 @@ public sealed class ReceiveIncomingMessageCommandHandlerTests
             NullLogger<ReceiveIncomingMessageCommandHandler>.Instance);
     }
 
-    private sealed class RecordingMessageNormalizationService : IMessageNormalizationService
+    private sealed class RecordingChatMessageStore : IChatMessageStore
     {
         public List<StoredMessage> Stored { get; } = [];
 
@@ -98,27 +98,28 @@ public sealed class ReceiveIncomingMessageCommandHandlerTests
             string senderName,
             string text,
             DateTimeOffset sentAt,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            string? chatTitle = null)
         {
             Stored.Add(new StoredMessage(userId, source, externalChatId, externalMessageId, senderName, text, sentAt));
             return Task.FromResult(true);
         }
 
-        public Task<IReadOnlyList<NormalizedMessage>> GetPendingMessagesAsync(CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyList<NormalizedMessage>>([]);
+        public Task<IReadOnlyList<ChatMessage>> GetPendingMessagesAsync(CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<ChatMessage>>([]);
 
-        public Task<IReadOnlyList<NormalizedMessage>> GetPendingMessagesForConversationAsync(
+        public Task<IReadOnlyList<ChatMessage>> GetPendingMessagesForConversationAsync(
             Guid userId,
             string source,
             string externalChatId,
             CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyList<NormalizedMessage>>([]);
+            Task.FromResult<IReadOnlyList<ChatMessage>>([]);
 
-        public Task<IReadOnlyList<NormalizedMessage>> GetRecentMessagesAsync(Guid userId, int take, CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyList<NormalizedMessage>>([]);
+        public Task<IReadOnlyList<ChatMessage>> GetRecentMessagesAsync(Guid userId, int take, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<ChatMessage>>([]);
 
-        public Task<IReadOnlyList<NormalizedMessage>> SearchRecentMessagesAsync(Guid userId, string query, int limit, CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyList<NormalizedMessage>>([]);
+        public Task<IReadOnlyList<ChatMessage>> SearchRecentMessagesAsync(Guid userId, string query, int limit, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<ChatMessage>>([]);
 
         public Task MarkProcessedAsync(IEnumerable<Guid> messageIds, CancellationToken cancellationToken) => Task.CompletedTask;
     }

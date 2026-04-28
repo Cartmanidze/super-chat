@@ -17,7 +17,7 @@ using System.Diagnostics;
 namespace SuperChat.Infrastructure.Features.Operations;
 
 internal sealed class ProcessConversationAfterSettleCommandHandler(
-    IMessageNormalizationService normalizationService,
+    IChatMessageStore normalizationService,
     IAiStructuredExtractionService extractionService,
     IWorkItemService workItemService,
     IBus bus,
@@ -55,13 +55,13 @@ internal sealed class ProcessConversationAfterSettleCommandHandler(
             if (pendingMessages.Count == 0)
             {
                 logger.LogInformation(
-                    "No pending normalized messages found for processing. Command={CommandName}.",
+                    "No pending chat messages found for processing. Command={CommandName}.",
                     CommandName);
                 return;
             }
 
             logger.LogInformation(
-                "Loaded pending normalized messages. PendingCount={PendingCount}, PendingMessageIds={PendingMessageIds}, PendingEventIds={PendingEventIds}.",
+                "Loaded pending chat messages. PendingCount={PendingCount}, PendingMessageIds={PendingMessageIds}, PendingEventIds={PendingEventIds}.",
                 pendingMessages.Count,
                 MessagePipelineTrace.SummarizeGuids(pendingMessages.Select(item => item.Id)),
                 MessagePipelineTrace.SummarizeStrings(pendingMessages.Select(item => item.ExternalMessageId)));
@@ -132,7 +132,7 @@ internal sealed class ProcessConversationAfterSettleCommandHandler(
 
             await normalizationService.MarkProcessedAsync(processedIds, applicationLifetime.ApplicationStopping);
             logger.LogInformation(
-                "Marked normalized messages as processed. ProcessedCount={ProcessedCount}, ProcessedMessageIds={ProcessedMessageIds}.",
+                "Marked chat messages as processed. ProcessedCount={ProcessedCount}, ProcessedMessageIds={ProcessedMessageIds}.",
                 processedIds.Count,
                 MessagePipelineTrace.SummarizeGuids(processedIds));
         }

@@ -25,7 +25,7 @@ public sealed class DueMeetingsSweepBackgroundServiceTests
                 UserId = userId,
                 Title = "Daily sync",
                 Summary = "Call with Alex",
-                SourceRoom = roomId,
+                ExternalChatId = roomId,
                 SourceEventId = "$evt-meeting",
                 Person = "Alex",
                 ObservedAt = observedAt,
@@ -35,7 +35,7 @@ public sealed class DueMeetingsSweepBackgroundServiceTests
                 UpdatedAt = observedAt
             });
 
-            dbContext.NormalizedMessages.Add(new NormalizedMessageEntity
+            dbContext.ChatMessages.Add(new ChatMessageEntity
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,

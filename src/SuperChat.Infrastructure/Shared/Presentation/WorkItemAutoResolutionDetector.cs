@@ -70,7 +70,7 @@ internal static class WorkItemAutoResolutionDetector
 
     public static WorkItemAutoResolution? TryResolve(
         ExtractedItemEntity item,
-        IReadOnlyList<NormalizedMessageEntity> laterMessages)
+        IReadOnlyList<ChatMessageEntity> laterMessages)
     {
         if (laterMessages.Count == 0)
         {
@@ -88,7 +88,7 @@ internal static class WorkItemAutoResolutionDetector
 
     public static WorkItemAutoResolution? TryResolve(
         WorkItemEntity item,
-        IReadOnlyList<NormalizedMessageEntity> laterMessages)
+        IReadOnlyList<ChatMessageEntity> laterMessages)
     {
         if (laterMessages.Count == 0)
         {
@@ -106,7 +106,7 @@ internal static class WorkItemAutoResolutionDetector
 
     public static WorkItemAutoResolution? TryResolve(
         MeetingEntity item,
-        IReadOnlyList<NormalizedMessageEntity> laterMessages)
+        IReadOnlyList<ChatMessageEntity> laterMessages)
     {
         if (laterMessages.Count == 0)
         {
@@ -120,14 +120,14 @@ internal static class WorkItemAutoResolutionDetector
 
     private static WorkItemAutoResolution? TryResolveWaiting(
         ExtractedItemEntity item,
-        IReadOnlyList<NormalizedMessageEntity> laterMessages)
+        IReadOnlyList<ChatMessageEntity> laterMessages)
     {
         return TryResolveWaiting(item.SourceEventId, laterMessages);
     }
 
     private static WorkItemAutoResolution? TryResolveWaiting(
         string sourceEventId,
-        IReadOnlyList<NormalizedMessageEntity> laterMessages)
+        IReadOnlyList<ChatMessageEntity> laterMessages)
     {
         var reply = laterMessages.FirstOrDefault(message =>
             message.ExternalMessageId != sourceEventId &&
@@ -143,7 +143,7 @@ internal static class WorkItemAutoResolutionDetector
     }
 
     private static WorkItemAutoResolution? TryResolveActionItem(
-        IReadOnlyList<NormalizedMessageEntity> laterMessages)
+        IReadOnlyList<ChatMessageEntity> laterMessages)
     {
         foreach (var message in laterMessages)
         {
@@ -167,7 +167,7 @@ internal static class WorkItemAutoResolutionDetector
 
     private static WorkItemAutoResolution? TryResolveMeeting(
         DateTimeOffset scheduledFor,
-        IReadOnlyList<NormalizedMessageEntity> laterMessages)
+        IReadOnlyList<ChatMessageEntity> laterMessages)
     {
         foreach (var message in laterMessages)
         {
@@ -194,7 +194,7 @@ internal static class WorkItemAutoResolutionDetector
         return null;
     }
 
-    private static bool LooksMeaningful(NormalizedMessageEntity message)
+    private static bool LooksMeaningful(ChatMessageEntity message)
     {
         return !string.IsNullOrWhiteSpace(message.Text) &&
                !StructuredArtifactDetector.LooksLikeStructuredArtifact(message.Text);

@@ -112,7 +112,7 @@ public sealed class ChatExperienceService : IChatExperienceService
                 item.ViewItem,
                 ContextItem = new ChatAnswerContextItem(
                     item.ReferenceKey,
-                    item.ViewItem.SourceRoom,
+                    item.ViewItem.ChatTitle,
                     item.ViewItem.Timestamp,
                     item.ContextText)
             })
@@ -150,7 +150,7 @@ public sealed class ChatExperienceService : IChatExperienceService
                 var sourceItem = itemsByReference[item.ReferenceKey];
                 return item.ToChatResultItemViewModel(sourceItem);
             })
-            .DistinctBy(item => $"{item.Title}|{item.Summary}|{item.SourceRoom}|{item.Timestamp:O}", StringComparer.Ordinal)
+            .DistinctBy(item => $"{item.Title}|{item.Summary}|{item.ChatTitle}|{item.Timestamp:O}", StringComparer.Ordinal)
             .ToList();
 
         if (string.IsNullOrWhiteSpace(generatedAnswer.AssistantText) && generatedItems.Count == 0)

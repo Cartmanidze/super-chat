@@ -47,7 +47,7 @@ public sealed class TelegramIncomingEndpointTests : IClassFixture<TelegramIncomi
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         await using var dbContext = await CreateDbContextAsync();
-        var stored = await dbContext.NormalizedMessages
+        var stored = await dbContext.ChatMessages
             .SingleAsync(item => item.ExternalMessageId == externalMessageId);
 
         Assert.Equal(userId, stored.UserId);

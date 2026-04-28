@@ -86,7 +86,7 @@ internal sealed class ConversationResolutionService(
         var workItems = await dbContext.WorkItems
             .AsNoTracking()
             .Where(item => item.UserId == userId &&
-                           item.SourceRoom == externalChatId &&
+                           item.ExternalChatId == externalChatId &&
                            item.ResolvedAt == null &&
                            item.ObservedAt <= cooldownThreshold)
             .OrderBy(item => item.ObservedAt)
@@ -96,7 +96,7 @@ internal sealed class ConversationResolutionService(
         var meetings = await dbContext.Meetings
             .AsNoTracking()
             .Where(item => item.UserId == userId &&
-                           item.SourceRoom == externalChatId &&
+                           item.ExternalChatId == externalChatId &&
                            item.ResolvedAt == null &&
                            item.ScheduledFor != null)
             .OrderBy(item => item.ScheduledFor)
@@ -115,7 +115,7 @@ internal sealed class ConversationResolutionService(
             return Array.Empty<ConversationResolutionCandidate>();
         }
 
-        var messages = await dbContext.NormalizedMessages
+        var messages = await dbContext.ChatMessages
             .AsNoTracking()
             .Where(item => item.UserId == userId &&
                            item.ExternalChatId == externalChatId &&
@@ -143,7 +143,7 @@ internal sealed class ConversationResolutionService(
         var meetings = await dbContext.Meetings
             .AsNoTracking()
             .Where(item => item.UserId == userId &&
-                           item.SourceRoom == externalChatId &&
+                           item.ExternalChatId == externalChatId &&
                            item.ResolvedAt == null &&
                            item.ScheduledFor != null &&
                            item.ScheduledFor <= resolveAfter)
@@ -157,7 +157,7 @@ internal sealed class ConversationResolutionService(
         }
 
         var observedFrom = meetings.Min(item => item.ObservedAt);
-        var messages = await dbContext.NormalizedMessages
+        var messages = await dbContext.ChatMessages
             .AsNoTracking()
             .Where(item => item.UserId == userId &&
                            item.ExternalChatId == externalChatId &&
@@ -269,7 +269,7 @@ internal sealed class ConversationResolutionService(
 
     private static ConversationResolutionCandidate ToCandidate(
         WorkItemEntity item,
-        IReadOnlyList<NormalizedMessageEntity> messages,
+        IReadOnlyList<ChatMessageEntity> messages,
         int maxMessages)
     {
         return new ConversationResolutionCandidate(
@@ -278,7 +278,7 @@ internal sealed class ConversationResolutionService(
             item.Kind,
             item.Title,
             item.Summary,
-            item.SourceRoom,
+            item.ExternalChatId,
             item.Person,
             item.ObservedAt,
             item.DueAt,
@@ -287,7 +287,7 @@ internal sealed class ConversationResolutionService(
 
     private static ConversationResolutionCandidate ToCandidate(
         MeetingEntity item,
-        IReadOnlyList<NormalizedMessageEntity> messages,
+        IReadOnlyList<ChatMessageEntity> messages,
         int maxMessages)
     {
         return new ConversationResolutionCandidate(
@@ -296,7 +296,7 @@ internal sealed class ConversationResolutionService(
             ExtractedItemKind.Meeting,
             item.Title,
             item.Summary,
-            item.SourceRoom,
+            item.ExternalChatId,
             item.Person,
             item.ObservedAt,
             item.ScheduledFor,
@@ -306,7 +306,7 @@ internal sealed class ConversationResolutionService(
     private static IReadOnlyList<ResolutionMessageSnippet> LaterMessagesFor(
         DateTimeOffset observedAt,
         string sourceEventId,
-        IReadOnlyList<NormalizedMessageEntity> messages,
+        IReadOnlyList<ChatMessageEntity> messages,
         int maxMessages)
     {
         return messages

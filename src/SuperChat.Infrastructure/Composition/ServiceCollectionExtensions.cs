@@ -191,9 +191,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IPilotInviteAdminService, PilotInviteAdminService>();
         services.AddSingleton<ITelegramConnectionService, TelegramConnectionService>();
         services.AddSingleton<IIntegrationConnectionService, IntegrationConnectionService>();
-        services.AddSingleton<IRoomDisplayNameService, EmptyRoomDisplayNameService>();
+        services.AddSingleton<IChatTitleService, ChatMessageChatTitleService>();
         services.AddSingleton<IncomingMessageFilter>();
-        services.AddSingleton<IMessageNormalizationService, MessageNormalizationService>();
+        services.AddSingleton<IChatMessageStore, ChatMessageStore>();
         services.AddSingleton<IChatTemplateCatalog, ChatTemplateCatalog>();
         services.AddSingleton<IChatTemplateHandler, MeetingsChatTemplateHandler>();
         services.AddSingleton<IChatAnswerGenerationService, ChatAnswerGenerationService>();

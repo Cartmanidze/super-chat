@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SuperChat.Infrastructure.Shared.Persistence;
@@ -11,9 +12,11 @@ using SuperChat.Infrastructure.Shared.Persistence;
 namespace SuperChat.Infrastructure.Migrations
 {
     [DbContext(typeof(SuperChatDbContext))]
-    partial class SuperChatDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260428063900_AddChatTitleToNormalizedMessages")]
+    partial class AddChatTitleToNormalizedMessages
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -80,68 +83,6 @@ namespace SuperChat.Infrastructure.Migrations
                     b.ToTable("app_users", (string)null);
                 });
 
-            modelBuilder.Entity("SuperChat.Infrastructure.Shared.Persistence.ChatMessageEntity", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("ChatTitle")
-                        .HasColumnType("text")
-                        .HasColumnName("chat_title");
-
-                    b.Property<string>("ExternalChatId")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("external_chat_id");
-
-                    b.Property<string>("ExternalMessageId")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("external_message_id");
-
-                    b.Property<bool>("Processed")
-                        .HasColumnType("boolean")
-                        .HasColumnName("processed");
-
-                    b.Property<DateTimeOffset>("ReceivedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("received_at");
-
-                    b.Property<string>("SenderName")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("sender_name");
-
-                    b.Property<DateTimeOffset>("SentAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("sent_at");
-
-                    b.Property<string>("Source")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("source");
-
-                    b.Property<string>("Text")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("text");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Processed");
-
-                    b.HasIndex("UserId", "ExternalChatId", "ExternalMessageId")
-                        .IsUnique();
-
-                    b.ToTable("chat_messages", (string)null);
-                });
-
             modelBuilder.Entity("SuperChat.Infrastructure.Shared.Persistence.ChunkBuildCheckpointEntity", b =>
                 {
                     b.Property<Guid>("UserId")
@@ -180,11 +121,6 @@ namespace SuperChat.Infrastructure.Migrations
                     b.Property<DateTimeOffset?>("DueAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("due_at");
-
-                    b.Property<string>("ExternalChatId")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("external_chat_id");
 
                     b.Property<string>("Kind")
                         .IsRequired()
@@ -227,6 +163,11 @@ namespace SuperChat.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("source_event_id");
+
+                    b.Property<string>("SourceRoom")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("source_room");
 
                     b.Property<string>("Summary")
                         .IsRequired()
@@ -300,11 +241,6 @@ namespace SuperChat.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
-                    b.Property<string>("ExternalChatId")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("external_chat_id");
-
                     b.Property<string>("MeetingJoinUrl")
                         .HasColumnType("text")
                         .HasColumnName("meeting_join_url");
@@ -353,6 +289,11 @@ namespace SuperChat.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("source_event_id");
+
+                    b.Property<string>("SourceRoom")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("source_room");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -442,9 +383,9 @@ namespace SuperChat.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("embedding_version");
 
-                    b.Property<Guid?>("FirstChatMessageId")
+                    b.Property<Guid?>("FirstNormalizedMessageId")
                         .HasColumnType("uuid")
-                        .HasColumnName("first_chat_message_id");
+                        .HasColumnName("first_normalized_message_id");
 
                     b.Property<DateTimeOffset?>("IndexedAt")
                         .HasColumnType("timestamp with time zone")
@@ -455,9 +396,9 @@ namespace SuperChat.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("kind");
 
-                    b.Property<Guid?>("LastChatMessageId")
+                    b.Property<Guid?>("LastNormalizedMessageId")
                         .HasColumnType("uuid")
-                        .HasColumnName("last_chat_message_id");
+                        .HasColumnName("last_normalized_message_id");
 
                     b.Property<int>("MessageCount")
                         .HasColumnType("integer")
@@ -518,6 +459,68 @@ namespace SuperChat.Infrastructure.Migrations
                     b.HasIndex("UserId", "ChatId", "TsFrom");
 
                     b.ToTable("message_chunks", (string)null);
+                });
+
+            modelBuilder.Entity("SuperChat.Infrastructure.Shared.Persistence.NormalizedMessageEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ChatTitle")
+                        .HasColumnType("text")
+                        .HasColumnName("chat_title");
+
+                    b.Property<string>("ExternalChatId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("external_chat_id");
+
+                    b.Property<string>("ExternalMessageId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("external_message_id");
+
+                    b.Property<bool>("Processed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("processed");
+
+                    b.Property<DateTimeOffset>("ReceivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("received_at");
+
+                    b.Property<string>("SenderName")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("sender_name");
+
+                    b.Property<DateTimeOffset>("SentAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sent_at");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("source");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("text");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Processed");
+
+                    b.HasIndex("UserId", "ExternalChatId", "ExternalMessageId")
+                        .IsUnique();
+
+                    b.ToTable("normalized_messages", (string)null);
                 });
 
             modelBuilder.Entity("SuperChat.Infrastructure.Shared.Persistence.PilotInviteEntity", b =>
@@ -738,11 +741,6 @@ namespace SuperChat.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("due_at");
 
-                    b.Property<string>("ExternalChatId")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("external_chat_id");
-
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasColumnType("text")
@@ -784,6 +782,11 @@ namespace SuperChat.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("source_event_id");
+
+                    b.Property<string>("SourceRoom")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("source_room");
 
                     b.Property<string>("Summary")
                         .IsRequired()

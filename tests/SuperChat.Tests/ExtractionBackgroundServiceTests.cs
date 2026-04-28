@@ -49,7 +49,7 @@ public sealed class ConversationWindowSettlementTests
         Assert.Empty(windows);
     }
 
-    private static NormalizedMessage CreateMessage(
+    private static ChatMessage CreateMessage(
         Guid userId,
         string roomId,
         string eventId,
@@ -58,7 +58,7 @@ public sealed class ConversationWindowSettlementTests
         DateTimeOffset sentAt,
         DateTimeOffset receivedAt)
     {
-        return new NormalizedMessage(
+        return new ChatMessage(
             Guid.NewGuid(),
             userId,
             "telegram",

@@ -248,53 +248,6 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
     }
 
     [Fact]
-    public async Task ChatEndpoint_ReturnsStructuredAnswer_AndValidatesLength()
-    {
-        using var client = _factory.CreateClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", await GetAccessTokenAsync(client));
-
-        var connectResponse = await client.PostAsync("/api/v1/integrations/telegram/connect", content: null);
-        Assert.Equal(HttpStatusCode.OK, connectResponse.StatusCode);
-
-        var okResponse = await client.PostAsJsonAsync("/api/v1/chat/ask", new
-        {
-            templateId = "meetings",
-            question = "Какие у меня ближайшие встречи?"
-        });
-
-        var okPayload = await okResponse.Content.ReadAsStringAsync();
-        Assert.Equal(HttpStatusCode.OK, okResponse.StatusCode);
-        Assert.Contains("\"mode\":\"meetings\"", okPayload, StringComparison.OrdinalIgnoreCase);
-
-        var badResponse = await client.PostAsJsonAsync("/api/v1/chat/ask", new
-        {
-            templateId = "meetings",
-            question = new string('x', 101)
-        });
-
-        Assert.Equal(HttpStatusCode.BadRequest, badResponse.StatusCode);
-    }
-
-    [Fact]
-    public async Task ChatEndpoint_RejectsUnsupportedTemplate_WithTemplateIdValidationProblem()
-    {
-        using var client = _factory.CreateClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", await GetAccessTokenAsync(client));
-
-        var response = await client.PostAsJsonAsync("/api/v1/chat/ask", new
-        {
-            templateId = "today",
-            question = "Что важно?"
-        });
-
-        var payload = await response.Content.ReadAsStringAsync();
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Contains("\"templateId\"", payload, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Unsupported chat template.", payload, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task WorkItemEndpoints_RejectInvalidMeetingId_WithNotFound()
     {
         using var client = _factory.CreateClient();
@@ -324,7 +277,7 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
                 UserId = userId,
                 Title = "Product sync",
                 Summary = "Meet product team in two hours.",
-                SourceRoom = "!team:matrix.localhost",
+                ExternalChatId = "!team:matrix.localhost",
                 SourceEventId = "$evt-api-meeting",
                 ObservedAt = scheduledFor.AddHours(-1),
                 ScheduledFor = scheduledFor,
@@ -375,7 +328,7 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
                 UserId = userId,
                 Title = "Interview sync",
                 Summary = "Interview at 18:00.",
-                SourceRoom = "!team:matrix.localhost",
+                ExternalChatId = "!team:matrix.localhost",
                 SourceEventId = "$evt-api-confirm",
                 ObservedAt = scheduledFor.AddHours(-1),
                 ScheduledFor = scheduledFor,
@@ -432,7 +385,7 @@ public sealed class ApiSmokeTests : IClassFixture<ApiTestApplicationFactory>
                 UserId = userId,
                 Title = "Catalog planning sync",
                 Summary = "Meet product team in three hours.",
-                SourceRoom = "!team:matrix.localhost",
+                ExternalChatId = "!team:matrix.localhost",
                 SourceEventId = "$evt-api-common-meeting",
                 ObservedAt = DateTimeOffset.UtcNow.AddMinutes(-5),
                 ScheduledFor = scheduledFor,

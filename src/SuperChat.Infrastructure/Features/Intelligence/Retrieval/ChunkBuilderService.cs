@@ -26,7 +26,7 @@ public sealed class ChunkBuilderService(
             .AsNoTracking()
             .ToDictionaryAsync(item => item.UserId, cancellationToken);
 
-        var latestMessagesByUser = await dbContext.NormalizedMessages
+        var latestMessagesByUser = await dbContext.ChatMessages
             .AsNoTracking()
             .GroupBy(item => item.UserId)
             .Select(group => new UserLatestIngested(group.Key, group.Max(item => item.ReceivedAt)))
@@ -82,8 +82,8 @@ public sealed class ChunkBuilderService(
                latestReceivedAt >= lastObservedReceivedAt;
     }
 
-    internal static IReadOnlyList<NormalizedMessageEntity> FilterNewMessages(
-        IReadOnlyList<NormalizedMessageEntity> candidateMessages,
+    internal static IReadOnlyList<ChatMessageEntity> FilterNewMessages(
+        IReadOnlyList<ChatMessageEntity> candidateMessages,
         ChunkBuildCheckpointEntity? checkpoint)
     {
         if (checkpoint?.LastObservedReceivedAt is not DateTimeOffset lastObservedReceivedAt)
@@ -101,7 +101,7 @@ public sealed class ChunkBuilderService(
     internal static IReadOnlyList<MessageChunkEntity> BuildChunkEntities(
         Guid userId,
         string roomId,
-        IReadOnlyList<NormalizedMessage> messages,
+        IReadOnlyList<ChatMessage> messages,
         ChunkingOptions options,
         DateTimeOffset now)
     {
@@ -121,7 +121,7 @@ public sealed class ChunkBuilderService(
         var maxChunkCharacters = Math.Max(200, options.MaxChunkCharacters);
 
         var chunks = new List<MessageChunkEntity>();
-        var buffer = new List<NormalizedMessage>();
+        var buffer = new List<ChatMessage>();
         var currentLength = 0;
 
         foreach (var message in orderedMessages)
@@ -166,7 +166,7 @@ public sealed class ChunkBuilderService(
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var checkpointBoundary = checkpoint?.LastObservedReceivedAt ?? DateTimeOffset.MinValue;
-        var candidateMessages = await dbContext.NormalizedMessages
+        var candidateMessages = await dbContext.ChatMessages
             .AsNoTracking()
             .Where(item => item.UserId == userId && item.ReceivedAt >= checkpointBoundary)
             .OrderBy(item => item.ReceivedAt)
@@ -193,7 +193,7 @@ public sealed class ChunkBuilderService(
 
         foreach (var roomPlan in roomPlans)
         {
-            var roomMessages = await dbContext.NormalizedMessages
+            var roomMessages = await dbContext.ChatMessages
                 .AsNoTracking()
                 .Where(item => item.UserId == userId &&
                                item.ExternalChatId == roomPlan.RoomId &&
@@ -268,7 +268,7 @@ public sealed class ChunkBuilderService(
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
-        var roomMessages = await dbContext.NormalizedMessages
+        var roomMessages = await dbContext.ChatMessages
             .AsNoTracking()
             .Where(item => item.UserId == userId &&
                            item.ExternalChatId == roomId &&
@@ -310,7 +310,7 @@ public sealed class ChunkBuilderService(
     private static MessageChunkEntity CreateChunkEntity(
         Guid userId,
         string roomId,
-        IReadOnlyList<NormalizedMessage> messages,
+        IReadOnlyList<ChatMessage> messages,
         DateTimeOffset now)
     {
         var firstMessage = messages[0];
@@ -330,8 +330,8 @@ public sealed class ChunkBuilderService(
             Kind = "dialog_chunk",
             Text = text,
             MessageCount = messages.Count,
-            FirstNormalizedMessageId = firstMessage.Id,
-            LastNormalizedMessageId = lastMessage.Id,
+            FirstChatMessageId = firstMessage.Id,
+            LastChatMessageId = lastMessage.Id,
             TsFrom = firstMessage.SentAt,
             TsTo = lastMessage.SentAt,
             ContentHash = ComputeContentHash(roomId, messages),
@@ -344,12 +344,12 @@ public sealed class ChunkBuilderService(
         };
     }
 
-    private static string RenderMessageLine(NormalizedMessage message)
+    private static string RenderMessageLine(ChatMessage message)
     {
         return $"{message.SenderName}: {message.Text.Trim()}";
     }
 
-    private static string ComputeContentHash(string roomId, IReadOnlyList<NormalizedMessage> messages)
+    private static string ComputeContentHash(string roomId, IReadOnlyList<ChatMessage> messages)
     {
         var lines = new List<string>(messages.Count + 1)
         {

@@ -32,7 +32,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (source) (rate(superchat_normalized_messages_stored_total[5m]))",
+          "expr": "sum by (source) (rate(superchat_chat_messages_stored_total[5m]))",
           "legendFormat": "{{source}}",
           "refId": "A"
         }
@@ -64,7 +64,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (path, result) (rate(superchat_normalized_messages_by_path_total[5m]))",
+          "expr": "sum by (path, result) (rate(superchat_chat_messages_by_path_total[5m]))",
           "legendFormat": "{{path}} / {{result}}",
           "refId": "A"
         }
@@ -160,7 +160,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (source) (rate(superchat_normalized_messages_duplicate_total[5m]))",
+          "expr": "sum by (source) (rate(superchat_chat_messages_duplicate_total[5m]))",
           "legendFormat": "{{source}}",
           "refId": "A"
         }

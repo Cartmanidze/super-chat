@@ -8,7 +8,7 @@ export type MeetingCard = {
   summary: string;
   observedAt: string;
   dueAt: string | null;
-  sourceRoom: string;
+  chatTitle: string;
   confidence: number;
   status: string | null;
   meetingProvider: string | null;

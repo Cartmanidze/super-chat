@@ -55,7 +55,7 @@ public sealed class HeuristicStructuredExtractionService(
         return items;
     }
 
-    public Task<IReadOnlyCollection<ExtractedItem>> ExtractAsync(NormalizedMessage message, CancellationToken cancellationToken)
+    public Task<IReadOnlyCollection<ExtractedItem>> ExtractAsync(ChatMessage message, CancellationToken cancellationToken)
     {
         var window = new ConversationWindow(
             message.UserId,
@@ -67,7 +67,7 @@ public sealed class HeuristicStructuredExtractionService(
     }
 
     public static Task<IReadOnlyCollection<ExtractedItem>> ExtractCoreAsync(
-        NormalizedMessage message,
+        ChatMessage message,
         TimeZoneInfo referenceTimeZone,
         CancellationToken cancellationToken)
     {
@@ -95,7 +95,7 @@ public sealed class HeuristicStructuredExtractionService(
             .GroupBy(message => message.ExternalMessageId, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal);
 
-        var enrichmentByEventId = new Dictionary<string, (TextEnrichmentResponse Enrichment, NormalizedMessage Message)>(StringComparer.Ordinal);
+        var enrichmentByEventId = new Dictionary<string, (TextEnrichmentResponse Enrichment, ChatMessage Message)>(StringComparer.Ordinal);
 
         foreach (var sourceEventId in items
                      .Select(item => item.SourceEventId)
@@ -326,7 +326,7 @@ public sealed class HeuristicStructuredExtractionService(
     }
 
     private static ExtractedItem CreateRecoveredMeetingItem(
-        NormalizedMessage sourceMessage,
+        ChatMessage sourceMessage,
         string summary,
         string? person,
         DateTimeOffset dueAt,
@@ -388,13 +388,13 @@ public sealed class HeuristicStructuredExtractionService(
                 .FirstOrDefault(entity => string.Equals(entity.Type, "ORG", StringComparison.OrdinalIgnoreCase))?.Text;
     }
 
-    private static NormalizedMessage? FindTimeZoneClarificationSource(
+    private static ChatMessage? FindTimeZoneClarificationSource(
         ConversationWindow window,
         TimeZoneInfo referenceTimeZone,
         bool hasMeetingContext)
     {
         var meetingContextSeen = hasMeetingContext;
-        NormalizedMessage? candidate = null;
+        ChatMessage? candidate = null;
 
         foreach (var message in window.Messages)
         {

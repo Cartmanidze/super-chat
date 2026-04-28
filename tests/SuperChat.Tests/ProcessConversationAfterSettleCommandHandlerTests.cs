@@ -20,7 +20,7 @@ public sealed class ProcessConversationAfterSettleCommandHandlerTests
     {
         var userId = Guid.NewGuid();
         var roomId = "!room:matrix.localhost";
-        var message = new NormalizedMessage(
+        var message = new ChatMessage(
             Guid.Parse("11111111-1111-1111-1111-111111111111"),
             userId,
             "telegram",
@@ -32,7 +32,7 @@ public sealed class ProcessConversationAfterSettleCommandHandlerTests
             new DateTimeOffset(2026, 03, 13, 10, 00, 00, TimeSpan.Zero),
             false);
 
-        var normalizationService = new RecordingMessageNormalizationService([message]);
+        var normalizationService = new RecordingChatMessageStore([message]);
         var extractionService = new StubExtractionService(
         [
             new ExtractedItem(
@@ -76,7 +76,7 @@ public sealed class ProcessConversationAfterSettleCommandHandlerTests
     {
         var userId = Guid.NewGuid();
         var roomId = "!room:matrix.localhost";
-        var message = new NormalizedMessage(
+        var message = new ChatMessage(
             Guid.Parse("11111111-1111-1111-1111-111111111111"),
             userId,
             "telegram",
@@ -88,7 +88,7 @@ public sealed class ProcessConversationAfterSettleCommandHandlerTests
             new DateTimeOffset(2026, 04, 06, 11, 37, 26, TimeSpan.Zero),
             false);
 
-        var normalizationService = new RecordingMessageNormalizationService([message]);
+        var normalizationService = new RecordingChatMessageStore([message]);
         var extractionService = new StubExtractionService([]);
         var workItemService = new RecordingWorkItemService();
         var bus = new RecordingBus();
@@ -122,7 +122,7 @@ public sealed class ProcessConversationAfterSettleCommandHandlerTests
     {
         var userId = Guid.NewGuid();
         var roomId = "!room:matrix.localhost";
-        var message = new NormalizedMessage(
+        var message = new ChatMessage(
             Guid.Parse("33333333-3333-3333-3333-333333333333"),
             userId,
             "telegram",
@@ -136,7 +136,7 @@ public sealed class ProcessConversationAfterSettleCommandHandlerTests
 
         var bus = new RecordingBus();
         var handler = new ProcessConversationAfterSettleCommandHandler(
-            new RecordingMessageNormalizationService([message]),
+            new RecordingChatMessageStore([message]),
             new StubExtractionService([]),
             new RecordingWorkItemService(),
             bus,
@@ -161,7 +161,7 @@ public sealed class ProcessConversationAfterSettleCommandHandlerTests
     {
         var userId = Guid.NewGuid();
         var roomId = "!room:matrix.localhost";
-        var message = new NormalizedMessage(
+        var message = new ChatMessage(
             Guid.Parse("44444444-4444-4444-4444-444444444444"),
             userId,
             "telegram",
@@ -175,7 +175,7 @@ public sealed class ProcessConversationAfterSettleCommandHandlerTests
 
         var bus = new RecordingBus();
         var handler = new ProcessConversationAfterSettleCommandHandler(
-            new RecordingMessageNormalizationService([message]),
+            new RecordingChatMessageStore([message]),
             new StubExtractionService(
             [
                 new ExtractedItem(
@@ -211,7 +211,7 @@ public sealed class ProcessConversationAfterSettleCommandHandlerTests
                                                       resolve.ExternalChatId == roomId);
     }
 
-    private sealed class RecordingMessageNormalizationService(IReadOnlyList<NormalizedMessage> pendingMessages) : IMessageNormalizationService
+    private sealed class RecordingChatMessageStore(IReadOnlyList<ChatMessage> pendingMessages) : IChatMessageStore
     {
         public List<Guid> MarkedProcessedIds { get; } = [];
 
@@ -223,17 +223,18 @@ public sealed class ProcessConversationAfterSettleCommandHandlerTests
             string senderName,
             string text,
             DateTimeOffset sentAt,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            string? chatTitle = null)
         {
             throw new NotSupportedException();
         }
 
-        public Task<IReadOnlyList<NormalizedMessage>> GetPendingMessagesAsync(CancellationToken cancellationToken)
+        public Task<IReadOnlyList<ChatMessage>> GetPendingMessagesAsync(CancellationToken cancellationToken)
         {
             throw new NotSupportedException();
         }
 
-        public Task<IReadOnlyList<NormalizedMessage>> GetPendingMessagesForConversationAsync(
+        public Task<IReadOnlyList<ChatMessage>> GetPendingMessagesForConversationAsync(
             Guid userId,
             string source,
             string matrixRoomId,
@@ -244,15 +245,15 @@ public sealed class ProcessConversationAfterSettleCommandHandlerTests
                     .Where(item => item.UserId == userId &&
                                    item.Source == source &&
                                    item.ExternalChatId == matrixRoomId)
-                    .ToList() as IReadOnlyList<NormalizedMessage>);
+                    .ToList() as IReadOnlyList<ChatMessage>);
         }
 
-        public Task<IReadOnlyList<NormalizedMessage>> GetRecentMessagesAsync(Guid userId, int take, CancellationToken cancellationToken)
+        public Task<IReadOnlyList<ChatMessage>> GetRecentMessagesAsync(Guid userId, int take, CancellationToken cancellationToken)
         {
             throw new NotSupportedException();
         }
 
-        public Task<IReadOnlyList<NormalizedMessage>> SearchRecentMessagesAsync(Guid userId, string query, int limit, CancellationToken cancellationToken)
+        public Task<IReadOnlyList<ChatMessage>> SearchRecentMessagesAsync(Guid userId, string query, int limit, CancellationToken cancellationToken)
         {
             throw new NotSupportedException();
         }
