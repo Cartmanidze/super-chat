@@ -81,8 +81,29 @@ export function TelegramLoginScreen({ onClose }: TelegramLoginScreenProps) {
 
   const disconnect = useMutation({
     mutationFn: () => telegramGateway.disconnect(token!),
+    // Optimistic: сразу переводим UI в Disconnected, не ждём round-trip.
+    // На ошибке откатываемся к снимку состояния и показываем Alert.
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ["telegram-connection"] });
+      const previous = queryClient.getQueryData<TelegramConnection>([
+        "telegram-connection",
+      ]);
+      queryClient.setQueryData<TelegramConnection>(
+        ["telegram-connection"],
+        (old) =>
+          old
+            ? { ...old, state: "Disconnected", chatLoginStep: null, requiresAction: false }
+            : { state: "Disconnected", matrixUserId: null, chatLoginStep: null, lastSyncedAt: null, requiresAction: false },
+      );
+      return { previous };
+    },
     onSuccess: (next) => queryClient.setQueryData(["telegram-connection"], next),
-    onError: (e: Error) => Alert.alert("Не удалось отключить", e.message),
+    onError: (e: Error, _vars, ctx) => {
+      if (ctx?.previous !== undefined) {
+        queryClient.setQueryData(["telegram-connection"], ctx.previous);
+      }
+      Alert.alert("Не удалось отключить", e.message);
+    },
   });
 
   useEffect(() => {

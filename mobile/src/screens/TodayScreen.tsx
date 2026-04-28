@@ -66,16 +66,45 @@ export function TodayScreen() {
   const invalidateMeetings = () =>
     queryClient.invalidateQueries({ queryKey: ["meetings"] });
 
+  // Optimistic-апдейты: кэш ["meetings"] меняем в момент клика, чтобы UI
+  // не ждал двух round-trip-ов к серверу. На ошибке откатываем кэш и
+  // показываем Alert. На любом исходе фоновый refetch для консистентности.
   const confirmMeeting = useMutation({
     mutationFn: (id: string) => meetingsGateway.confirm(token!, id),
-    onSuccess: invalidateMeetings,
-    onError: (e: Error) => Alert.alert("Не удалось подтвердить", e.message),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ["meetings"] });
+      const previous = queryClient.getQueryData<MeetingCard[]>(["meetings"]);
+      queryClient.setQueryData<MeetingCard[]>(["meetings"], (old = []) =>
+        old.map((m) => (m.id === id ? { ...m, status: "Confirmed" } : m)),
+      );
+      return { previous };
+    },
+    onError: (e: Error, _id, ctx) => {
+      if (ctx?.previous !== undefined) {
+        queryClient.setQueryData(["meetings"], ctx.previous);
+      }
+      Alert.alert("Не удалось подтвердить", e.message);
+    },
+    onSettled: invalidateMeetings,
   });
 
   const dismissMeeting = useMutation({
     mutationFn: (id: string) => meetingsGateway.dismiss(token!, id),
-    onSuccess: invalidateMeetings,
-    onError: (e: Error) => Alert.alert("Не удалось отклонить", e.message),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ["meetings"] });
+      const previous = queryClient.getQueryData<MeetingCard[]>(["meetings"]);
+      queryClient.setQueryData<MeetingCard[]>(["meetings"], (old = []) =>
+        old.filter((m) => m.id !== id),
+      );
+      return { previous };
+    },
+    onError: (e: Error, _id, ctx) => {
+      if (ctx?.previous !== undefined) {
+        queryClient.setQueryData(["meetings"], ctx.previous);
+      }
+      Alert.alert("Не удалось отклонить", e.message);
+    },
+    onSettled: invalidateMeetings,
   });
 
   const openMeetingUrl = async (url: string) => {

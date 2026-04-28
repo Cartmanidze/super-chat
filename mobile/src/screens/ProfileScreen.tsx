@@ -32,7 +32,11 @@ export function ProfileScreen() {
     mutationFn: async () => {
       if (token) await authGateway.logout(token);
     },
-    onSettled: async () => {
+    // Optimistic: сразу чистим локальную сессию и кэш, чтобы пользователь
+    // мгновенно ушёл на onboarding. Сетевой запрос на /auth/logout
+    // (revoke токена) уезжает в фоне; ошибка игнорируется — токен в любом
+    // случае больше не используется на этом устройстве.
+    onMutate: async () => {
       await clearSession();
       queryClient.clear();
     },
