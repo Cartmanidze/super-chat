@@ -34,7 +34,6 @@ var qdrantOptions = scope.ServiceProvider.GetRequiredService<IOptions<QdrantOpti
 var cancellationToken = scope.ServiceProvider.GetRequiredService<IHostApplicationLifetime>().ApplicationStopping;
 
 await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-await LegacyDatabaseMigrationBootstrapper.PrepareAsync(dbContext, logger, cancellationToken);
 
 var pendingMigrations = (await dbContext.Database.GetPendingMigrationsAsync(cancellationToken)).ToList();
 if (pendingMigrations.Count == 0)
