@@ -240,7 +240,9 @@ async def _resume_one_session(user_id: UUID, store: PostgresSessionStore) -> Non
     if registry.get(user_id) is not None:
         return
 
-    session = PostgresSession(user_id, store)
+    # Без restore PostgresSession создаётся пустой — auth_key не загружается из БД
+    # и Telethon считает сессию неавторизованной даже при валидной записи.
+    session = PostgresSession.restore(user_id, store)
     client = TelegramClient(session, TELEGRAM_API_ID, TELEGRAM_API_HASH)
     await client.connect()
 
