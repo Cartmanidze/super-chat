@@ -23,17 +23,6 @@ public sealed record ResolutionCandidateSelectionResult(
 
 public static class ResolutionCandidateSelection
 {
-    private static readonly string[] CompletionKeywords =
-    [
-        "готово", "сделал", "сделано", "отправил", "отправила", "выслал", "прислал",
-        "done", "completed", "sent", "resolved", "shipped"
-    ];
-
-    private static readonly string[] AcknowledgementKeywords =
-    [
-        "получил", "получила", "принято", "вижу", "thanks, got it", "got it", "received", "looks good"
-    ];
-
     private static readonly string[] MeetingKeywords =
     [
         "после встречи", "после созвона", "по итогам встречи", "по итогам созвона",
@@ -57,11 +46,14 @@ public static class ResolutionCandidateSelection
 
     private static double Score(ResolutionCandidateInput candidate, DateTimeOffset now)
     {
+        if (candidate.Kind != ExtractedItemKind.Meeting)
+        {
+            return 0d;
+        }
+
         if (candidate.LaterMessages.Count == 0)
         {
-            return candidate.Kind == ExtractedItemKind.Meeting &&
-                   candidate.DueAt is not null &&
-                   candidate.DueAt <= now
+            return candidate.DueAt is not null && candidate.DueAt <= now
                 ? 0.6d
                 : 0d;
         }
@@ -80,60 +72,10 @@ public static class ResolutionCandidateSelection
                 continue;
             }
 
-            score += candidate.Kind switch
-            {
-                ExtractedItemKind.WaitingOn => ScoreWaitingOn(message, lowered),
-                ExtractedItemKind.Meeting => ScoreMeeting(candidate, lowered, message, candidateTerms, now),
-                ExtractedItemKind.Commitment or ExtractedItemKind.Task => ScoreActionItem(candidate, lowered, candidateTerms),
-                _ => 0d
-            };
+            score += ScoreMeeting(candidate, lowered, message, candidateTerms, now);
         }
 
         return Math.Clamp(score, 0d, 1d);
-    }
-
-    private static double ScoreWaitingOn(ResolutionEvidenceMessageInput message, string lowered)
-    {
-        var score = 0.2d;
-        if (WaitingOnTurnDetector.IsOwnSender(message.SenderName))
-        {
-            score += 0.5d;
-        }
-
-        if (lowered.Length >= 20)
-        {
-            score += 0.15d;
-        }
-
-        return score;
-    }
-
-    private static double ScoreActionItem(
-        ResolutionCandidateInput candidate,
-        string lowered,
-        HashSet<string> candidateTerms)
-    {
-        var score = 0.1d;
-
-        if (ContainsAny(lowered, CompletionKeywords))
-        {
-            score += 0.45d;
-        }
-
-        if (ContainsAny(lowered, AcknowledgementKeywords))
-        {
-            score += 0.25d;
-        }
-
-        score += ComputeTermOverlapScore(lowered, candidateTerms);
-
-        if (!string.IsNullOrWhiteSpace(candidate.Person) &&
-            lowered.Contains(candidate.Person.Trim(), StringComparison.OrdinalIgnoreCase))
-        {
-            score += 0.1d;
-        }
-
-        return score;
     }
 
     private static double ScoreMeeting(

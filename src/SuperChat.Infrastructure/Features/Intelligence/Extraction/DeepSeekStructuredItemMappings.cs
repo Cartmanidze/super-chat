@@ -101,29 +101,20 @@ internal static class DeepSeekStructuredItemMappings
     public static bool TryToExtractedItemKind(this string? kind, out ExtractedItemKind extractedItemKind)
     {
         var normalized = kind?.Trim().ToLowerInvariant();
-        extractedItemKind = normalized switch
+        if (normalized is "meeting" or "call")
         {
-            "task" or "todo" or "action" => ExtractedItemKind.Task,
-            "commitment" or "promise" => ExtractedItemKind.Commitment,
-            "waiting_on" or "waitingon" or "waiting" or "follow_up" => ExtractedItemKind.WaitingOn,
-            "meeting" or "call" => ExtractedItemKind.Meeting,
-            _ => default
-        };
+            extractedItemKind = ExtractedItemKind.Meeting;
+            return true;
+        }
 
-        return normalized is "task" or "todo" or "action" or
-            "commitment" or "promise" or
-            "waiting_on" or "waitingon" or "waiting" or "follow_up" or
-            "meeting" or "call";
+        extractedItemKind = default;
+        return false;
     }
 
     public static string ToDefaultStructuredItemTitle(this ExtractedItemKind kind, string? person)
     {
         return kind switch
         {
-            ExtractedItemKind.WaitingOn when !string.IsNullOrWhiteSpace(person) => $"Нужно ответить: {person!.Trim()}",
-            ExtractedItemKind.WaitingOn => "Нужно ответить",
-            ExtractedItemKind.Commitment => "Ты пообещал",
-            ExtractedItemKind.Task => "Нужен следующий шаг",
             ExtractedItemKind.Meeting => "Скоро встреча",
             _ => "Важный сигнал"
         };

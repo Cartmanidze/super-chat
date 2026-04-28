@@ -205,7 +205,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IMeetingService, MeetingService>();
         services.AddSingleton<ConversationResolutionService>();
         services.AddSingleton<WorkItemWriter>();
-        services.AddSingleton<WorkItemAutoResolutionService>();
         services.AddSingleton<IWorkItemService, WorkItemService>();
         services.AddSingleton<IRetrievalService, RetrievalService>();
         services.AddSingleton<IUserTimeZoneResolver, AppUserTimeZoneResolver>();

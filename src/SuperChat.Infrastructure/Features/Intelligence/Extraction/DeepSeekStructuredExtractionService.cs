@@ -128,40 +128,29 @@ public sealed class DeepSeekStructuredExtractionService(
         deterministicMeeting?.MergeInto(items, window);
 
         HeuristicStructuredExtractionService.ApplyTimeZoneClarificationRules(window, items, referenceTimeZone);
-        HeuristicStructuredExtractionService.ApplyWaitingOnWindowRules(window, items);
     }
 
     private static string BuildSystemPrompt(string timeZoneId)
     {
         return $$"""
-            You extract grounded work signals from a short Telegram dialogue window for a productivity product.
+            You extract grounded meeting signals from a short Telegram dialogue window for a productivity product.
             Return JSON only in the shape {"items":[...]}.
             Always return valid JSON without markdown or prose.
 
-            Allowed item kinds:
-            - "waiting_on"
-            - "commitment"
-            - "task"
+            Only one item kind is allowed:
             - "meeting"
 
             Rules:
             - Read the whole dialogue window, not one message in isolation.
             - Use only information explicitly grounded in the dialogue.
-            - Do not invent people, deadlines, promises, or meetings.
-            - "waiting_on" means the user likely owes someone a reply or next step now.
-            - Prefer "waiting_on" only when the latest meaningful dialogue turn still belongs to someone other than the user.
-            - An explicit inbound question to the user usually counts as "waiting_on" when unanswered_external_turn is true.
-            - Introductory recruiter, sales, vendor, or partnership outreach still counts as "waiting_on" when it ends with a direct question and the user has not replied in the same window.
-            - "commitment" means the user promised to do something.
-            - "task" means the dialogue contains a concrete requested action or deliverable.
+            - Do not invent people, deadlines, or meetings.
             - "meeting" means the dialogue proposes, confirms, or schedules a meeting/call.
             - Treat interview-related phrases (e.g. "interview", "собеседование", "интервью") as meeting signals when they include concrete date/time context.
-            - Return {"items":[]} only when ALL strong cues are absent: request/command, unanswered direct question, explicit promise, or meeting/interview scheduling with date/time.
+            - Return {"items":[]} when there is no meeting/interview scheduling with concrete date/time.
             - If an interview phrase includes concrete date/time, emit a "meeting" item with confidence >= 0.75.
-            - Prefer the most useful single item per kind; avoid duplicates.
+            - Avoid duplicates; prefer one item per distinct meeting.
             - Never output more than 4 items.
             - Every emitted item must include keys: kind, title, person, deadline, priority, confidence, summary.
-            - If there is no real signal, return {"items":[]}.
             - title must be short, useful, and in Russian.
             - summary must be concise, in Russian, and grounded in the dialogue.
             - person should contain only an explicit person or counterpart name when present, otherwise null.

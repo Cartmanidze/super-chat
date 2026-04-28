@@ -51,7 +51,6 @@ public sealed class HeuristicStructuredExtractionService(
 
         await EnrichItemsAsync(window, items, referenceTimeZone, cancellationToken);
         ApplyTimeZoneClarificationRules(window, items, referenceTimeZone);
-        ApplyWaitingOnWindowRules(window, items);
         return items;
     }
 
@@ -134,12 +133,6 @@ public sealed class HeuristicStructuredExtractionService(
                 person = ResolveCounterpartyName(enrichment);
             }
 
-            var title = item.Kind == ExtractedItemKind.WaitingOn &&
-                        string.Equals(item.Title, "Нужно ответить", StringComparison.Ordinal) &&
-                        !string.IsNullOrWhiteSpace(person)
-                ? $"Нужно ответить: {person}"
-                : item.Title;
-
             var dueAt = item.DueAt ?? ResolveDueAt(
                 enrichment,
                 referenceTimeZone,
@@ -147,7 +140,6 @@ public sealed class HeuristicStructuredExtractionService(
                 requireFuture: item.Kind == ExtractedItemKind.Meeting);
             items[index] = item with
             {
-                Title = title,
                 Person = person,
                 DueAt = dueAt
             };
@@ -256,47 +248,13 @@ public sealed class HeuristicStructuredExtractionService(
         return null;
     }
 
-    internal static void ApplyWaitingOnWindowRules(ConversationWindow window, List<ExtractedItem> items)
-    {
-        var unresolvedMessage = WaitingOnTurnDetector.GetUnansweredExternalMessage(window);
-        if (unresolvedMessage is null)
-        {
-            items.RemoveAll(item => item.Kind == ExtractedItemKind.WaitingOn);
-            return;
-        }
-
-        for (var index = 0; index < items.Count; index++)
-        {
-            var item = items[index];
-            if (item.Kind != ExtractedItemKind.WaitingOn)
-            {
-                continue;
-            }
-
-            var person = string.IsNullOrWhiteSpace(item.Person) && CanUseCounterpartyName(unresolvedMessage.SenderName)
-                ? unresolvedMessage.SenderName.Trim()
-                : item.Person;
-
-            var title = string.Equals(item.Title, "Нужно ответить", StringComparison.Ordinal) &&
-                        !string.IsNullOrWhiteSpace(person)
-                ? $"Нужно ответить: {person}"
-                : item.Title;
-
-            items[index] = item with
-            {
-                Title = title,
-                Person = person,
-                SourceEventId = unresolvedMessage.ExternalMessageId,
-                ObservedAt = unresolvedMessage.SentAt
-            };
-        }
-    }
-
     internal static void ApplyTimeZoneClarificationRules(
         ConversationWindow window,
         List<ExtractedItem> items,
         TimeZoneInfo referenceTimeZone)
     {
+        // Если временная зона у встречи неоднозначна — лучше не показывать её совсем,
+        // чем показывать с потенциально неверным временем.
         var clarificationSource = FindTimeZoneClarificationSource(window, referenceTimeZone, items.Count > 0);
         if (clarificationSource is null)
         {
@@ -304,25 +262,6 @@ public sealed class HeuristicStructuredExtractionService(
         }
 
         items.RemoveAll(item => item.Kind == ExtractedItemKind.Meeting);
-        if (items.Any(item =>
-                item.Kind == ExtractedItemKind.WaitingOn &&
-                string.Equals(item.Title, "Нужно уточнить часовой пояс", StringComparison.Ordinal)))
-        {
-            return;
-        }
-
-        items.Add(new ExtractedItem(
-            Guid.NewGuid(),
-            clarificationSource.UserId,
-            ExtractedItemKind.WaitingOn,
-            "Нужно уточнить часовой пояс",
-            clarificationSource.Text.Trim(),
-            clarificationSource.ExternalChatId,
-            clarificationSource.ExternalMessageId,
-            null,
-            clarificationSource.SentAt,
-            null,
-            new Confidence(0.92)));
     }
 
     private static ExtractedItem CreateRecoveredMeetingItem(
@@ -357,13 +296,6 @@ public sealed class HeuristicStructuredExtractionService(
         return lowered.Contains("interview", StringComparison.Ordinal) ||
                lowered.Contains(RussianInterviewStem, StringComparison.Ordinal) ||
                ContainsAny(lowered, MeetingCueKeywords);
-    }
-
-    private static bool CanUseCounterpartyName(string senderName)
-    {
-        return !string.IsNullOrWhiteSpace(senderName) &&
-               !string.Equals(senderName.Trim(), "Unknown", StringComparison.OrdinalIgnoreCase) &&
-               !string.Equals(senderName.Trim(), "You", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string? ResolveCounterpartyName(TextEnrichmentResponse enrichment)

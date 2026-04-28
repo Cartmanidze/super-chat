@@ -14,7 +14,6 @@ namespace SuperChat.Infrastructure.Features.Intelligence.Resolution;
 internal sealed class ConversationResolutionService(
     IDbContextFactory<SuperChatDbContext> dbContextFactory,
     IAiResolutionService aiResolutionService,
-    WorkItemAutoResolutionService workItemAutoResolutionService,
     MeetingAutoResolutionService meetingAutoResolutionService,
     IOptions<ResolutionOptions> resolutionOptions,
     ILogger<ConversationResolutionService> logger)
@@ -43,7 +42,6 @@ internal sealed class ConversationResolutionService(
                 appliedCount);
         }
 
-        await workItemAutoResolutionService.ResolveConversationAsync(userId, externalChatId, cancellationToken);
         await meetingAutoResolutionService.ResolveConversationAsync(userId, externalChatId, now, cancellationToken);
     }
 
