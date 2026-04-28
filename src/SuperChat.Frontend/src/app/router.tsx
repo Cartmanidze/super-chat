@@ -1,7 +1,6 @@
 import { createRootRoute, createRoute, createRouter } from "@tanstack/react-router";
 import { HomePage } from "../pages/home-page";
 import { MeetingsPage } from "../pages/meetings-page";
-import { SearchPage } from "../pages/search-page";
 import { ConnectionsPage } from "../pages/connections-page";
 import { FeedbackPage } from "../pages/feedback-page";
 import { AdminPage } from "../pages/admin-page";
@@ -32,15 +31,6 @@ const todayRoute = createRoute({
   component: MeetingsPage,
 });
 
-const searchRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/search",
-  validateSearch: (search: Record<string, unknown>) => ({
-    q: typeof search.q === "string" ? search.q : "",
-  }),
-  component: SearchPage,
-});
-
 const connectionsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/settings/connections",
@@ -68,7 +58,6 @@ const routeTree = rootRoute.addChildren([
   indexRoute,
   authRoute,
   todayRoute,
-  searchRoute,
   connectionsRoute,
   feedbackRoute,
   adminRoute,

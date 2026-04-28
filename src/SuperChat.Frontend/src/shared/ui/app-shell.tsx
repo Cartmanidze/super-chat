@@ -9,7 +9,6 @@ import { DateChip } from "./date-chip";
 const PRIMARY_LINKS = [
   { to: "/", label: "Главная" },
   { to: "/today", label: "Встречи" },
-  { to: "/search", label: "Поиск" },
   { to: "/settings/connections", label: "Подключения" },
   { to: "/feedback", label: "Отзыв" },
 ] as const;

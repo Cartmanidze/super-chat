@@ -6,7 +6,6 @@ import { useSessionStore } from "../store/session";
 import { OnboardingScreen } from "../screens/OnboardingScreen";
 import { AuthScreen } from "../screens/AuthScreen";
 import { TodayScreen } from "../screens/TodayScreen";
-import { SearchScreen } from "../screens/SearchScreen";
 import { ProfileScreen } from "../screens/ProfileScreen";
 import { ConnectStack } from "./ConnectStack";
 import { TabBar } from "./TabBar";
@@ -40,7 +39,6 @@ function MainTabs() {
       initialRouteName="Today"
     >
       <Tabs.Screen name="Today" component={TodayScreen} />
-      <Tabs.Screen name="Search" component={SearchScreen} />
       <Tabs.Screen name="Connect" component={ConnectStack} />
       <Tabs.Screen name="Profile" component={ProfileScreen} />
     </Tabs.Navigator>

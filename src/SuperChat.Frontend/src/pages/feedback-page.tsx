@@ -6,7 +6,6 @@ import { PageSection } from "../shared/ui/page-section";
 
 const areaOptions = [
   { value: "today", label: "Встречи" },
-  { value: "search", label: "Поиск" },
   { value: "connections", label: "Подключения" },
 ];
 
