@@ -135,6 +135,6 @@ export function ConnectionsScreen() {
 
 function StatePill({ state }: { state: "live" | "pending" | "soon" }) {
   if (state === "live") return <Pill kind="confirmed">Активно</Pill>;
-  if (state === "pending") return <Pill kind="pending">Нужно действие</Pill>;
+  if (state === "pending") return <Pill kind="pending">Нужен вход</Pill>;
   return <Pill kind="past">Скоро</Pill>;
 }

@@ -41,7 +41,7 @@ export function ProfileScreen() {
   return (
     <Screen>
       <Header
-        subtitle="Профиль"
+        subtitle="Аккаунт"
         title={
           <Text
             style={{
@@ -52,7 +52,7 @@ export function ProfileScreen() {
               letterSpacing: -0.6,
             }}
           >
-            Я
+            Профиль
           </Text>
         }
       />
@@ -60,19 +60,29 @@ export function ProfileScreen() {
         <Card>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
             <Avatar who={initials(email)} size={56} variant="g2" />
-            <View style={{ flex: 1 }}>
-              <Text style={{ ...typography.heading, fontFamily: "Manrope_700Bold", fontSize: 16, color: colors.bone, letterSpacing: -0.3 }}>
+            <View style={{ flex: 1, minWidth: 0, gap: 8 }}>
+              <Text
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                style={{
+                  ...typography.heading,
+                  fontFamily: "Manrope_700Bold",
+                  fontSize: 15,
+                  color: colors.bone,
+                  letterSpacing: -0.3,
+                }}
+              >
                 {email ?? "Гость"}
               </Text>
-              <Text style={{ ...typography.body, fontSize: 12, color: colors.ash400, marginTop: 2 }}>
-                Пилот
-              </Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <Text style={{ ...typography.body, fontSize: 12, color: colors.ash400 }}>Пилот</Text>
+                {me.data ? (
+                  <Pill kind={me.data.requiresTelegramAction ? "pending" : "confirmed"}>
+                    {me.data.requiresTelegramAction ? "Нужен вход" : "Готово"}
+                  </Pill>
+                ) : null}
+              </View>
             </View>
-            {me.data ? (
-              <Pill kind={me.data.requiresTelegramAction ? "pending" : "confirmed"}>
-                {me.data.requiresTelegramAction ? "Нужно действие" : "Готово"}
-              </Pill>
-            ) : null}
           </View>
         </Card>
 
