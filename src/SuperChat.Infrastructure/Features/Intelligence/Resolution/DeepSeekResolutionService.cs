@@ -86,12 +86,7 @@ internal sealed class DeepSeekResolutionService(
                 continue;
             }
 
-            var resolutionSource = candidate.Kind switch
-            {
-                ExtractedItemKind.WaitingOn => WorkItemResolutionState.AutoAiReply,
-                ExtractedItemKind.Meeting => WorkItemResolutionState.AutoAiMeetingCompletion,
-                _ => WorkItemResolutionState.AutoAiCompletion
-            };
+            var resolutionSource = WorkItemResolutionState.AutoAiMeetingCompletion;
 
             results.Add(new AiResolutionDecisionResult(
                 candidate.Id,

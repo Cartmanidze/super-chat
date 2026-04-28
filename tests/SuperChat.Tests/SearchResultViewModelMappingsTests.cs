@@ -11,7 +11,7 @@ public sealed class SearchResultViewModelMappingsTests
         var result = new WorkItemRecord(
             Guid.NewGuid(),
             Guid.NewGuid(),
-            ExtractedItemKind.Commitment,
+            ExtractedItemKind.Meeting,
             "Send deck",
             "Need to send the final deck.",
             "!sales:matrix.localhost",
@@ -34,7 +34,7 @@ public sealed class SearchResultViewModelMappingsTests
         var result = new WorkItemRecord(
             Guid.NewGuid(),
             Guid.NewGuid(),
-            ExtractedItemKind.Task,
+            ExtractedItemKind.Meeting,
             "Need update",
             "Need to return with an update.",
             "!sales:matrix.localhost",

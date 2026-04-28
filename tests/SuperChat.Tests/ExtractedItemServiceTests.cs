@@ -29,7 +29,7 @@ public sealed class ExtractedItemServiceTests
             new ExtractedItem(
                 Guid.NewGuid(),
                 userId,
-                ExtractedItemKind.Task,
+                ExtractedItemKind.Meeting,
                 "Follow-up candidate",
                 "video.mp4",
                 "!room:matrix.localhost",
@@ -61,7 +61,7 @@ public sealed class ExtractedItemServiceTests
                 {
                     Id = Guid.NewGuid(),
                     UserId = userId,
-                    Kind = ExtractedItemKind.Task,
+                    Kind = ExtractedItemKind.Meeting,
                     Title = "Follow-up candidate",
                     Summary = "Обманул",
                     ExternalChatId = "!room:matrix.localhost",
@@ -73,7 +73,7 @@ public sealed class ExtractedItemServiceTests
                 {
                     Id = Guid.NewGuid(),
                     UserId = userId,
-                    Kind = ExtractedItemKind.Task,
+                    Kind = ExtractedItemKind.Meeting,
                     Title = "Send contract",
                     Summary = "Please send the contract tomorrow.",
                     ExternalChatId = "!sales:matrix.localhost",
@@ -249,7 +249,7 @@ public sealed class ExtractedItemServiceTests
             {
                 Id = itemId,
                 UserId = userId,
-                Kind = ExtractedItemKind.WaitingOn,
+                Kind = ExtractedItemKind.Meeting,
                 Title = "Need to reply",
                 Summary = "Marina is waiting for the answer.",
                 ExternalChatId = "!sales:matrix.localhost",
@@ -303,7 +303,7 @@ public sealed class ExtractedItemServiceTests
             {
                 Id = itemId,
                 UserId = userId,
-                Kind = ExtractedItemKind.Commitment,
+                Kind = ExtractedItemKind.Meeting,
                 Title = "You promised to send the deck",
                 Summary = "Need to send the final deck.",
                 ExternalChatId = "!sales:matrix.localhost",
@@ -652,7 +652,7 @@ public sealed class ExtractedItemServiceTests
     private static WorkItemService CreateService(IDbContextFactory<SuperChatDbContext> factory)
     {
         return new WorkItemService(
-            new WorkItemWriter(factory, CreateMeetingService(factory), NullLogger<WorkItemWriter>.Instance),
+            new WorkItemWriter(CreateMeetingService(factory), NullLogger<WorkItemWriter>.Instance),
             new EfWorkItemRepository(factory),
             TimeProvider.System);
     }

@@ -90,14 +90,7 @@ internal static class WorkItemPresentationMetadata
 
     public static WorkItemType? ResolveType(ExtractedItemKind kind)
     {
-        return kind switch
-        {
-            ExtractedItemKind.WaitingOn => WorkItemType.Request,
-            ExtractedItemKind.Meeting => WorkItemType.Meeting,
-            ExtractedItemKind.Task => WorkItemType.ActionItem,
-            ExtractedItemKind.Commitment => WorkItemType.ActionItem,
-            _ => null
-        };
+        return kind == ExtractedItemKind.Meeting ? WorkItemType.Meeting : null;
     }
 
     public static WorkItemType? ResolveType(string? legacyKind)
@@ -109,14 +102,9 @@ internal static class WorkItemPresentationMetadata
 
     public static WorkItemStatus? ResolveStatus(ExtractedItemKind kind, string summary)
     {
-        return kind switch
-        {
-            ExtractedItemKind.WaitingOn => WorkItemStatus.AwaitingResponse,
-            ExtractedItemKind.Task => WorkItemStatus.ToDo,
-            ExtractedItemKind.Commitment => WorkItemStatus.ToDo,
-            ExtractedItemKind.Meeting => ToWorkItemStatus(ResolveMeetingStatus(summary)),
-            _ => null
-        };
+        return kind == ExtractedItemKind.Meeting
+            ? ToWorkItemStatus(ResolveMeetingStatus(summary))
+            : null;
     }
 
     public static DomainMeetingStatus ResolveMeetingStatus(string summary)
@@ -152,14 +140,7 @@ internal static class WorkItemPresentationMetadata
 
     public static WorkItemOwner? ResolveOwner(ExtractedItemKind kind)
     {
-        return kind switch
-        {
-            ExtractedItemKind.WaitingOn => WorkItemOwner.Contact,
-            ExtractedItemKind.Meeting => WorkItemOwner.Both,
-            ExtractedItemKind.Task => WorkItemOwner.Me,
-            ExtractedItemKind.Commitment => WorkItemOwner.Me,
-            _ => null
-        };
+        return kind == ExtractedItemKind.Meeting ? WorkItemOwner.Both : null;
     }
 
     public static WorkItemOwner? ResolveOwner(string? legacyKind)
@@ -171,14 +152,7 @@ internal static class WorkItemPresentationMetadata
 
     public static WorkItemOrigin? ResolveOrigin(ExtractedItemKind kind)
     {
-        return kind switch
-        {
-            ExtractedItemKind.WaitingOn => WorkItemOrigin.Request,
-            ExtractedItemKind.Commitment => WorkItemOrigin.Promise,
-            ExtractedItemKind.Task => WorkItemOrigin.DetectedFromChat,
-            ExtractedItemKind.Meeting => WorkItemOrigin.DetectedFromChat,
-            _ => null
-        };
+        return kind == ExtractedItemKind.Meeting ? WorkItemOrigin.DetectedFromChat : null;
     }
 
     public static WorkItemOrigin? ResolveOrigin(string? legacyKind)

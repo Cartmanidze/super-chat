@@ -23,7 +23,7 @@ public sealed class ChatTitlePresentationTests
                 new WorkItemRecord(
                     Guid.NewGuid(),
                     userId,
-                    ExtractedItemKind.Task,
+                    ExtractedItemKind.Meeting,
                     "Send contract",
                     "Please send the contract tomorrow.",
                     "!sales:matrix.localhost",

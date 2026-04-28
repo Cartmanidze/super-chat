@@ -72,7 +72,6 @@ public sealed class WorkItemServiceReadRepositoryBoundaryTests
         return (WorkItemService)constructor.Invoke(
         [
             new WorkItemWriter(
-                Substitute.For<IDbContextFactory<SuperChatDbContext>>(),
                 Substitute.For<IMeetingService>(),
                 NullLogger<WorkItemWriter>.Instance),
             repository,
@@ -92,7 +91,7 @@ public sealed class WorkItemServiceReadRepositoryBoundaryTests
         return new WorkItemRecord(
             Guid.NewGuid(),
             userId,
-            ExtractedItemKind.Task,
+            ExtractedItemKind.Meeting,
             "Send contract",
             "Please send the contract tomorrow.",
             "!sales:matrix.localhost",

@@ -38,7 +38,7 @@ public sealed class ProcessConversationAfterSettleCommandHandlerTests
             new ExtractedItem(
                 Guid.Parse("22222222-2222-2222-2222-222222222222"),
                 userId,
-                ExtractedItemKind.Task,
+                ExtractedItemKind.Meeting,
                 "Follow up",
                 "Please call me tomorrow.",
                 roomId,
@@ -181,7 +181,7 @@ public sealed class ProcessConversationAfterSettleCommandHandlerTests
                 new ExtractedItem(
                     Guid.Parse("55555555-5555-5555-5555-555555555555"),
                     userId,
-                    ExtractedItemKind.Task,
+                    ExtractedItemKind.Meeting,
                     "Prepare notes",
                     "please prepare the notes",
                     roomId,

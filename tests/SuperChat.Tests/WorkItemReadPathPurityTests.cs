@@ -24,7 +24,7 @@ public sealed class WorkItemReadPathPurityTests
             {
                 Id = itemId,
                 UserId = userId,
-                Kind = ExtractedItemKind.WaitingOn,
+                Kind = ExtractedItemKind.Meeting,
                 Title = "Need to reply",
                 Summary = "Marina is waiting for the answer.",
                 ExternalChatId = "!sales:matrix.localhost",
@@ -66,7 +66,7 @@ public sealed class WorkItemReadPathPurityTests
     private static WorkItemService CreateService(IDbContextFactory<SuperChatDbContext> factory)
     {
         return new WorkItemService(
-            new WorkItemWriter(factory, CreateMeetingService(factory), NullLogger<WorkItemWriter>.Instance),
+            new WorkItemWriter(CreateMeetingService(factory), NullLogger<WorkItemWriter>.Instance),
             new EfWorkItemRepository(factory),
             TimeProvider.System);
     }

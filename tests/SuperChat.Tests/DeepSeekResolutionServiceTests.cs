@@ -52,7 +52,7 @@ public sealed class DeepSeekResolutionServiceTests
             new ConversationResolutionCandidate(
                 candidateId,
                 ResolutionCandidateType.WorkItem,
-                ExtractedItemKind.Commitment,
+                ExtractedItemKind.Meeting,
                 "Отправить дек",
                 "Нужно отправить финальный дек.",
                 "!sales:matrix.localhost",
@@ -68,7 +68,7 @@ public sealed class DeepSeekResolutionServiceTests
         var decision = Assert.Single(result);
         Assert.Equal(candidateId, decision.CandidateId);
         Assert.Equal(WorkItemResolutionState.Completed, decision.ResolutionKind);
-        Assert.Equal(WorkItemResolutionState.AutoAiCompletion, decision.ResolutionSource);
+        Assert.Equal(WorkItemResolutionState.AutoAiMeetingCompletion, decision.ResolutionSource);
         Assert.Equal(new DateTimeOffset(2026, 03, 16, 09, 07, 00, TimeSpan.Zero), decision.ResolvedAt);
         Assert.Equal("deepseek-reasoner", decision.Model);
         Assert.Equal(["$evt-done"], decision.EvidenceMessageIds);
@@ -105,7 +105,7 @@ public sealed class DeepSeekResolutionServiceTests
             new ConversationResolutionCandidate(
                 Guid.NewGuid(),
                 ResolutionCandidateType.WorkItem,
-                ExtractedItemKind.Task,
+                ExtractedItemKind.Meeting,
                 "Нужен следующий шаг",
                 "Нужно вернуться с апдейтом.",
                 "!sales:matrix.localhost",

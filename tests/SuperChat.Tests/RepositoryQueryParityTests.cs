@@ -94,7 +94,7 @@ public sealed class RepositoryQueryParityTests
                 {
                     Id = Guid.NewGuid(),
                     UserId = userId,
-                    Kind = ExtractedItemKind.Task,
+                    Kind = ExtractedItemKind.Meeting,
                     Title = "Follow-up candidate",
                     Summary = "video.mp4",
                     ExternalChatId = "!room:matrix.localhost",
@@ -108,7 +108,7 @@ public sealed class RepositoryQueryParityTests
                 {
                     Id = Guid.NewGuid(),
                     UserId = userId,
-                    Kind = ExtractedItemKind.Task,
+                    Kind = ExtractedItemKind.Meeting,
                     Title = "Send contract",
                     Summary = "Please send the contract tomorrow.",
                     ExternalChatId = "!sales:matrix.localhost",
@@ -164,7 +164,7 @@ public sealed class RepositoryQueryParityTests
                 {
                     Id = Guid.NewGuid(),
                     UserId = userId,
-                    Kind = ExtractedItemKind.Task,
+                    Kind = ExtractedItemKind.Meeting,
                     Title = "Generated design brief",
                     Summary = artifactText,
                     ExternalChatId = "!design:matrix.localhost",
@@ -178,7 +178,7 @@ public sealed class RepositoryQueryParityTests
                 {
                     Id = Guid.NewGuid(),
                     UserId = userId,
-                    Kind = ExtractedItemKind.Task,
+                    Kind = ExtractedItemKind.Meeting,
                     Title = "Book customer interview",
                     Summary = "Coordinate the next interview slot with the customer.",
                     ExternalChatId = "!research:matrix.localhost",
@@ -291,7 +291,7 @@ public sealed class RepositoryQueryParityTests
                 {
                     Id = Guid.NewGuid(),
                     UserId = userId,
-                    Kind = ExtractedItemKind.Task,
+                    Kind = ExtractedItemKind.Meeting,
                     Title = "Follow-up candidate",
                     Summary = "Reminder about contract handoff",
                     ExternalChatId = "!sales:matrix.localhost",
@@ -305,7 +305,7 @@ public sealed class RepositoryQueryParityTests
                 {
                     Id = Guid.NewGuid(),
                     UserId = userId,
-                    Kind = ExtractedItemKind.Task,
+                    Kind = ExtractedItemKind.Meeting,
                     Title = "Generated artifact about contract",
                     Summary = artifactSummary,
                     ExternalChatId = "!design:matrix.localhost",
@@ -319,7 +319,7 @@ public sealed class RepositoryQueryParityTests
                 {
                     Id = Guid.NewGuid(),
                     UserId = userId,
-                    Kind = ExtractedItemKind.Task,
+                    Kind = ExtractedItemKind.Meeting,
                     Title = "Send CONTRACT to client",
                     Summary = "Please send the contract tomorrow.",
                     ExternalChatId = "!sales:matrix.localhost",
@@ -333,7 +333,7 @@ public sealed class RepositoryQueryParityTests
                 {
                     Id = Guid.NewGuid(),
                     UserId = userId,
-                    Kind = ExtractedItemKind.Task,
+                    Kind = ExtractedItemKind.Meeting,
                     Title = "Old contract reminder",
                     Summary = "Old contract follow-up",
                     ExternalChatId = "!sales:matrix.localhost",
@@ -347,7 +347,7 @@ public sealed class RepositoryQueryParityTests
                 {
                     Id = Guid.NewGuid(),
                     UserId = userId,
-                    Kind = ExtractedItemKind.Task,
+                    Kind = ExtractedItemKind.Meeting,
                     Title = "Unrelated lunch order",
                     Summary = "Lunch is ready",
                     ExternalChatId = "!cafeteria:matrix.localhost",
@@ -408,7 +408,7 @@ public sealed class RepositoryQueryParityTests
                 {
                     Id = Guid.NewGuid(),
                     UserId = userId,
-                    Kind = ExtractedItemKind.Task,
+                    Kind = ExtractedItemKind.Meeting,
                     Title = $"Generated artifact #{i} contract",
                     Summary = artifactSummary,
                     ExternalChatId = "!design:matrix.localhost",
@@ -424,7 +424,7 @@ public sealed class RepositoryQueryParityTests
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
-                Kind = ExtractedItemKind.Task,
+                Kind = ExtractedItemKind.Meeting,
                 Title = "Send contract to client",
                 Summary = "Real contract reminder to ship today.",
                 ExternalChatId = "!sales:matrix.localhost",

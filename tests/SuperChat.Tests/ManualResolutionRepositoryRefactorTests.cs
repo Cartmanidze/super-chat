@@ -112,7 +112,7 @@ public sealed class ManualResolutionRepositoryRefactorTests
                 {
                     Id = Guid.NewGuid(),
                     UserId = userId,
-                    Kind = ExtractedItemKind.Task,
+                    Kind = ExtractedItemKind.Meeting,
                     Title = "Send contract",
                     Summary = "Please send the contract tomorrow.",
                     ExternalChatId = "!sales:matrix.localhost",
@@ -127,7 +127,7 @@ public sealed class ManualResolutionRepositoryRefactorTests
                 {
                     Id = Guid.NewGuid(),
                     UserId = userId,
-                    Kind = ExtractedItemKind.Task,
+                    Kind = ExtractedItemKind.Meeting,
                     Title = "Send contract duplicate",
                     Summary = "Please send the contract tomorrow.",
                     ExternalChatId = "!sales:matrix.localhost",
@@ -142,7 +142,7 @@ public sealed class ManualResolutionRepositoryRefactorTests
                 {
                     Id = Guid.NewGuid(),
                     UserId = userId,
-                    Kind = ExtractedItemKind.Task,
+                    Kind = ExtractedItemKind.Meeting,
                     Title = "Prepare deck",
                     Summary = "Prepare the new deck.",
                     ExternalChatId = "!sales:matrix.localhost",

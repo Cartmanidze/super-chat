@@ -7,7 +7,6 @@ using Rebus.Transport.InMem;
 using Rebus.Timeouts;
 using SuperChat.Contracts.Features.Admin;
 using SuperChat.Contracts.Features.Auth;
-using SuperChat.Contracts.Features.Chat;
 using SuperChat.Contracts.Features.Integrations;
 using SuperChat.Contracts.Features.Integrations.Max;
 using SuperChat.Contracts.Features.Integrations.Telegram;
@@ -194,9 +193,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IChatTitleService, ChatMessageChatTitleService>();
         services.AddSingleton<IncomingMessageFilter>();
         services.AddSingleton<IChatMessageStore, ChatMessageStore>();
-        services.AddSingleton<IChatTemplateCatalog, ChatTemplateCatalog>();
-        services.AddSingleton<IChatTemplateHandler, MeetingsChatTemplateHandler>();
-        services.AddSingleton<IChatAnswerGenerationService, ChatAnswerGenerationService>();
         services.AddSingleton<IChunkBuilderService, ChunkBuilderService>();
         services.AddSingleton<IChunkIndexingService, ChunkIndexingService>();
         services.AddSingleton<IMeetingProjectionService, MeetingProjectionService>();
@@ -214,7 +210,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAiResolutionService, DeepSeekResolutionService>();
         services.AddSingleton<IDigestService, DigestService>();
         services.AddSingleton<ISearchService, SearchService>();
-        services.AddSingleton<IChatExperienceService, ChatExperienceService>();
 
         // Repositories
         services.AddSingleton<IWorkItemRepository, EfWorkItemRepository>();

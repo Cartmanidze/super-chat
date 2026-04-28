@@ -7,10 +7,7 @@ namespace SuperChat.Tests;
 public sealed class WorkItemPresentationMetadataTests
 {
     [Theory]
-    [InlineData(ExtractedItemKind.WaitingOn, WorkItemType.Request, WorkItemOwner.Contact, WorkItemOrigin.Request)]
     [InlineData(ExtractedItemKind.Meeting, WorkItemType.Meeting, WorkItemOwner.Both, WorkItemOrigin.DetectedFromChat)]
-    [InlineData(ExtractedItemKind.Task, WorkItemType.ActionItem, WorkItemOwner.Me, WorkItemOrigin.DetectedFromChat)]
-    [InlineData(ExtractedItemKind.Commitment, WorkItemType.ActionItem, WorkItemOwner.Me, WorkItemOrigin.Promise)]
     public void TypedResolvers_MapKindToPresentationMetadata(
         ExtractedItemKind kind,
         WorkItemType expectedType,
@@ -32,14 +29,4 @@ public sealed class WorkItemPresentationMetadataTests
         Assert.Equal(WorkItemStatus.Cancelled, cancelled);
     }
 
-    [Fact]
-    public void LegacyStringResolvers_RemainCompatibleDuringMigration()
-    {
-        Assert.Equal(
-            WorkItemPresentationMetadata.ResolveType(ExtractedItemKind.Task),
-            WorkItemPresentationMetadata.ResolveType("Task"));
-        Assert.Equal(
-            WorkItemPresentationMetadata.ResolveStatus(ExtractedItemKind.WaitingOn, "Need an answer"),
-            WorkItemPresentationMetadata.ResolveStatus("WaitingOn", "Need an answer"));
-    }
 }
