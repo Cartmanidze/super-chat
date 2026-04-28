@@ -204,6 +204,10 @@ async def lifespan(app: FastAPI):
             store = PostgresSessionStore(DATABASE_URL, cipher)
             http = httpx.AsyncClient(timeout=10.0)
             registry.configure(store=store, http=http, disabled_reason=None)
+            # Поднимаем сохранённые сессии — иначе после рестарта sidecar
+            # никакой пользователь не получит входящих/исходящих сообщений,
+            # пока вручную не нажмёт «Переподключить Telegram».
+            await _resume_persisted_sessions(store)
 
     try:
         yield
@@ -211,6 +215,52 @@ async def lifespan(app: FastAPI):
         await registry.close()
         if http is not None:
             await http.aclose()
+
+
+async def _resume_persisted_sessions(store: PostgresSessionStore) -> None:
+    try:
+        user_ids = store.list_user_ids()
+    except Exception:
+        logger.exception("Failed to enumerate persisted Telegram sessions")
+        return
+
+    if not user_ids:
+        logger.info("No persisted Telegram sessions to resume on startup")
+        return
+
+    logger.info("Resuming %d persisted Telegram session(s) on startup", len(user_ids))
+    for user_id in user_ids:
+        try:
+            await _resume_one_session(user_id, store)
+        except Exception:
+            logger.exception("Failed to resume Telegram session for %s", user_id)
+
+
+async def _resume_one_session(user_id: UUID, store: PostgresSessionStore) -> None:
+    if registry.get(user_id) is not None:
+        return
+
+    session = PostgresSession(user_id, store)
+    client = TelegramClient(session, TELEGRAM_API_ID, TELEGRAM_API_HASH)
+    await client.connect()
+
+    if not await client.is_user_authorized():
+        # Пользователь либо не довёл логин, либо сессия отозвана — оставляем
+        # на повторный ручной /connect, ничего не подтягиваем.
+        logger.warning("Persisted session for %s is not authorized; skipping resume", user_id)
+        await client.disconnect()
+        return
+
+    state = SessionState(
+        user_id=user_id,
+        client=client,
+        phone=None,
+        phone_code_hash=None,
+        status="connected",
+    )
+    registry.set(state)
+    await _complete_connection(state)
+    logger.info("Resumed Telegram session for %s", user_id)
 
 
 app = FastAPI(title="SuperChat Telegram Userbot", lifespan=lifespan)

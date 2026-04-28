@@ -123,6 +123,15 @@ class PostgresSessionStore:
                 )
             connection.commit()
 
+    def list_user_ids(self) -> list[UUID]:
+        """Возвращает все user_id с сохранёнными Telegram-сессиями.
+        Используется на старте sidecar для auto-resume."""
+        with psycopg.connect(self._dsn) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("select user_id from telegram_sessions")
+                rows = cursor.fetchall()
+        return [UUID(str(row[0])) for row in rows]
+
     @property
     def cipher(self) -> SessionCipher:
         return self._cipher
