@@ -108,7 +108,8 @@ public sealed class ChatMessageStore(
         string text,
         DateTimeOffset sentAt,
         CancellationToken cancellationToken,
-        string? chatTitle = null)
+        string? chatTitle = null,
+        bool isOutgoing = false)
     {
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         var exists = await dbContext.ChatMessages
@@ -144,7 +145,8 @@ public sealed class ChatMessageStore(
             Text = text,
             SentAt = sentAt,
             ReceivedAt = DateTimeOffset.UtcNow,
-            Processed = false
+            Processed = false,
+            IsOutgoing = isOutgoing
         });
 
         logger.LogInformation(

@@ -38,7 +38,10 @@ public static class WaitingOnTurnDetector
 
     public static bool IsOwnMessage(ChatMessage message)
     {
-        return IsOwnSender(message.SenderName);
+        // Primary: persisted outgoing flag from the userbot sidecar.
+        // Fallback: legacy heuristic on sender name "You" — оставлено для совместимости
+        // со старыми сообщениями из БД, у которых is_outgoing ещё не проставлен.
+        return message.IsOutgoing || IsOwnSender(message.SenderName);
     }
 
     public static bool IsOwnSender(string? senderName)

@@ -13,4 +13,5 @@ internal sealed class ChatMessageEntity
     public DateTimeOffset SentAt { get; set; }
     public DateTimeOffset ReceivedAt { get; set; }
     public bool Processed { get; set; }
+    public bool IsOutgoing { get; set; }
 }

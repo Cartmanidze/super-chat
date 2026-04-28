@@ -316,9 +316,12 @@ async def _complete_connection(state: SessionState) -> None:
     state.telegram_user_id = getattr(me, "id", None)
     state.status = "connected"
 
+    # Слушаем и входящие (от собеседников), и исходящие (что пользователь сам пишет
+    # с любого Telegram-клиента). Без outgoing event-ов SuperChat не видит ответы
+    # пользователя, и waiting/commitment/meeting auto-resolution ломаются.
     state.client.add_event_handler(
         _make_message_handler(state.user_id),
-        events.NewMessage(incoming=True, outgoing=False),
+        events.NewMessage(),
     )
 
     # Keep a strong reference so the asyncio event loop does not GC the task.
@@ -361,6 +364,7 @@ async def _forward_message(user_id: UUID, event: events.NewMessage.Event) -> Non
     chat_title = _build_chat_title(chat, fallback=sender_name)
     chat_id = str(event.chat_id)
     message_id = f"{chat_id}:{message.id}"
+    is_outgoing = bool(getattr(message, "out", False))
 
     payload = {
         "user_id": str(user_id),
@@ -370,6 +374,7 @@ async def _forward_message(user_id: UUID, event: events.NewMessage.Event) -> Non
         "sender_name": sender_name,
         "text": message.message,
         "sent_at": message.date.isoformat(),
+        "is_outgoing": is_outgoing,
     }
 
     body = json.dumps(payload, separators=(",", ":")).encode("utf-8")

@@ -13,7 +13,8 @@ public sealed record ChatMessage(
     DateTimeOffset SentAt,
     DateTimeOffset ReceivedAt,
     bool Processed,
-    string? ChatTitle = null)
+    string? ChatTitle = null,
+    bool IsOutgoing = false)
 {
     private readonly bool _validated = Validate(Id, UserId, Source, ExternalChatId, ExternalMessageId, SenderName);
 

@@ -99,7 +99,8 @@ public sealed class ReceiveIncomingMessageCommandHandlerTests
             string text,
             DateTimeOffset sentAt,
             CancellationToken cancellationToken,
-            string? chatTitle = null)
+            string? chatTitle = null,
+            bool isOutgoing = false)
         {
             Stored.Add(new StoredMessage(userId, source, externalChatId, externalMessageId, senderName, text, sentAt));
             return Task.FromResult(true);

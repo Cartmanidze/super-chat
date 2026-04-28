@@ -42,7 +42,8 @@ internal static class PersistenceMappings
             entity.SentAt,
             entity.ReceivedAt,
             entity.Processed,
-            entity.ChatTitle);
+            entity.ChatTitle,
+            entity.IsOutgoing);
     }
 
     public static ExtractedItem ToDomain(this ExtractedItemEntity entity)

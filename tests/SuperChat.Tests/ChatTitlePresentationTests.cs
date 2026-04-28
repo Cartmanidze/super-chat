@@ -261,7 +261,8 @@ public sealed class ChatTitlePresentationTests
             string text,
             DateTimeOffset sentAt,
             CancellationToken cancellationToken,
-            string? chatTitle = null)
+            string? chatTitle = null,
+            bool isOutgoing = false)
         {
             throw new NotSupportedException();
         }

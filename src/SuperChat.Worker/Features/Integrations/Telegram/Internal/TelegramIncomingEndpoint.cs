@@ -89,7 +89,8 @@ public static class TelegramIncomingEndpoint
             payload.Text,
             payload.SentAt,
             cancellationToken,
-            chatTitle: payload.ChatTitle);
+            chatTitle: payload.ChatTitle,
+            isOutgoing: payload.IsOutgoing);
 
         SuperChatMetrics.ChatMessagesByPathTotal
             .WithLabels("userbot", stored ? "stored" : "duplicate")
@@ -147,5 +148,6 @@ public static class TelegramIncomingEndpoint
         [property: JsonPropertyName("sender_name")] string SenderName,
         [property: JsonPropertyName("text")] string Text,
         [property: JsonPropertyName("sent_at")] DateTimeOffset SentAt,
-        [property: JsonPropertyName("chat_title")] string? ChatTitle = null);
+        [property: JsonPropertyName("chat_title")] string? ChatTitle = null,
+        [property: JsonPropertyName("is_outgoing")] bool IsOutgoing = false);
 }

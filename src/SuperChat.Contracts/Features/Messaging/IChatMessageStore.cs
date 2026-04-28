@@ -13,7 +13,8 @@ public interface IChatMessageStore
         string text,
         DateTimeOffset sentAt,
         CancellationToken cancellationToken,
-        string? chatTitle = null);
+        string? chatTitle = null,
+        bool isOutgoing = false);
 
     Task<IReadOnlyList<ChatMessage>> GetPendingMessagesAsync(CancellationToken cancellationToken);
 
