@@ -3,10 +3,18 @@
 Stores only the essentials to resume a Telegram connection: dc_id, server_address, port,
 and the encrypted auth_key. Entity/file caches live in memory and are rebuilt by Telethon
 as needed when the client starts.
+
+I/O строится на async psycopg, чтобы один пользователь, который сейчас пишет сессию
+в БД, не блокировал event-loop для всех остальных. Telethon-сеттеры вызываются
+синхронно (`session.auth_key = key`), поэтому реальная запись запускается через
+fire-and-forget asyncio.create_task — память обновляется немедленно, БД догоняет
+за миллисекунды.
 """
 from __future__ import annotations
 
+import asyncio
 import base64
+import logging
 import os
 import secrets
 from dataclasses import dataclass
@@ -17,6 +25,8 @@ import psycopg
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from telethon.crypto import AuthKey
 from telethon.sessions import MemorySession
+
+logger = logging.getLogger("telegram_userbot_service.postgres_session")
 
 
 @dataclass
@@ -67,16 +77,16 @@ class SessionCipher:
 
 
 class PostgresSessionStore:
-    """Synchronous helper that reads/writes session rows through psycopg."""
+    """Async helper that reads/writes session rows through psycopg."""
 
     def __init__(self, dsn: str, cipher: SessionCipher) -> None:
         self._dsn = dsn
         self._cipher = cipher
 
-    def load(self, user_id: UUID) -> Optional[SessionRow]:
-        with psycopg.connect(self._dsn) as connection:
-            with connection.cursor() as cursor:
-                cursor.execute(
+    async def load(self, user_id: UUID) -> Optional[SessionRow]:
+        async with await psycopg.AsyncConnection.connect(self._dsn) as connection:
+            async with connection.cursor() as cursor:
+                await cursor.execute(
                     """
                     select user_id, dc_id, server_address, port, auth_key_encrypted
                     from telegram_sessions
@@ -84,7 +94,7 @@ class PostgresSessionStore:
                     """,
                     (str(user_id),),
                 )
-                row = cursor.fetchone()
+                row = await cursor.fetchone()
                 if row is None:
                     return None
                 return SessionRow(
@@ -95,10 +105,10 @@ class PostgresSessionStore:
                     auth_key_encrypted=bytes(row[4]),
                 )
 
-    def upsert(self, row: SessionRow) -> None:
-        with psycopg.connect(self._dsn) as connection:
-            with connection.cursor() as cursor:
-                cursor.execute(
+    async def upsert(self, row: SessionRow) -> None:
+        async with await psycopg.AsyncConnection.connect(self._dsn) as connection:
+            async with connection.cursor() as cursor:
+                await cursor.execute(
                     """
                     insert into telegram_sessions
                         (user_id, dc_id, server_address, port, auth_key_encrypted, created_at, updated_at)
@@ -112,24 +122,24 @@ class PostgresSessionStore:
                     """,
                     (str(row.user_id), row.dc_id, row.server_address, row.port, row.auth_key_encrypted),
                 )
-            connection.commit()
+            await connection.commit()
 
-    def delete(self, user_id: UUID) -> None:
-        with psycopg.connect(self._dsn) as connection:
-            with connection.cursor() as cursor:
-                cursor.execute(
+    async def delete(self, user_id: UUID) -> None:
+        async with await psycopg.AsyncConnection.connect(self._dsn) as connection:
+            async with connection.cursor() as cursor:
+                await cursor.execute(
                     "delete from telegram_sessions where user_id = %s",
                     (str(user_id),),
                 )
-            connection.commit()
+            await connection.commit()
 
-    def list_user_ids(self) -> list[UUID]:
+    async def list_user_ids(self) -> list[UUID]:
         """Возвращает все user_id с сохранёнными Telegram-сессиями.
         Используется на старте sidecar для auto-resume."""
-        with psycopg.connect(self._dsn) as connection:
-            with connection.cursor() as cursor:
-                cursor.execute("select user_id from telegram_sessions")
-                rows = cursor.fetchall()
+        async with await psycopg.AsyncConnection.connect(self._dsn) as connection:
+            async with connection.cursor() as cursor:
+                await cursor.execute("select user_id from telegram_sessions")
+                rows = await cursor.fetchall()
         return [UUID(str(row[0])) for row in rows]
 
     @property
@@ -141,8 +151,8 @@ class PostgresSession(MemorySession):
     """Telethon Session that persists auth_key and DC info to PostgreSQL.
 
     Relies on MemorySession for entity/file caches to keep the schema small.
-    On every DC/auth_key change we upsert the row; the client can be restored
-    from a fresh process by calling `restore`.
+    On every DC/auth_key change мы планируем upsert через asyncio.create_task,
+    чтобы Telethon-сеттер вернулся мгновенно и не блокировал event-loop.
 
     Note on the `auth_key` override: MemorySession exposes auth_key through a
     property backed by `self._auth_key`. We redefine that property here with our
@@ -155,16 +165,19 @@ class PostgresSession(MemorySession):
         super().__init__()
         self._user_id = user_id
         self._store = store
+        # Храним сильные ссылки на background-таски записи в БД, иначе GC может
+        # съесть их до завершения и часть upsert-ов потеряется.
+        self._pending_persists: set[asyncio.Task] = set()
 
     @classmethod
-    def restore(cls, user_id: UUID, store: PostgresSessionStore) -> "PostgresSession":
+    async def restore(cls, user_id: UUID, store: PostgresSessionStore) -> "PostgresSession":
         session = cls(user_id, store)
-        row = store.load(user_id)
+        row = await store.load(user_id)
         if row is None:
             return session
 
-        # Write directly into MemorySession state to avoid triggering a
-        # redundant persist-on-restore.
+        # Пишем напрямую в state MemorySession, чтобы не вызвать redundant persist
+        # обратно в БД на этапе восстановления.
         session._dc_id = row.dc_id
         session._server_address = row.server_address
         session._port = row.port
@@ -177,7 +190,7 @@ class PostgresSession(MemorySession):
 
     def set_dc(self, dc_id: int, server_address: str, port: int) -> None:
         super().set_dc(dc_id, server_address, port)
-        self._persist()
+        self._schedule_persist()
 
     @property
     def auth_key(self):
@@ -186,14 +199,45 @@ class PostgresSession(MemorySession):
     @auth_key.setter
     def auth_key(self, value: Optional[AuthKey]) -> None:
         self._auth_key = value
-        self._persist()
+        self._schedule_persist()
 
-    def _persist(self) -> None:
+    def _schedule_persist(self) -> None:
+        """Fire-and-forget запись в БД. Telethon-сеттеры синхронны, поэтому
+        реальный upsert уезжает в asyncio.create_task; результат отслеживаем
+        через done-callback, чтобы не потерять traceback при ошибке."""
+        if self._auth_key is None or self._dc_id == 0:
+            return
+
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            # Нет активного event-loop'а (например, на этапе теста/импорта) —
+            # просто пропускаем; данные останутся только в памяти, что для
+            # нон-продакшн-сценариев приемлемо.
+            return
+
+        task = loop.create_task(self._persist())
+        self._pending_persists.add(task)
+        task.add_done_callback(self._on_persist_done)
+
+    def _on_persist_done(self, task: asyncio.Task) -> None:
+        self._pending_persists.discard(task)
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc is not None:
+            logger.exception(
+                "Failed to persist Telegram session for %s",
+                self._user_id,
+                exc_info=exc,
+            )
+
+    async def _persist(self) -> None:
         if self._auth_key is None or self._dc_id == 0:
             return
 
         encrypted = self._store.cipher.encrypt(self._auth_key.key)
-        self._store.upsert(
+        await self._store.upsert(
             SessionRow(
                 user_id=self._user_id,
                 dc_id=self._dc_id,
@@ -203,5 +247,5 @@ class PostgresSession(MemorySession):
             )
         )
 
-    def forget(self) -> None:
-        self._store.delete(self._user_id)
+    async def forget(self) -> None:
+        await self._store.delete(self._user_id)

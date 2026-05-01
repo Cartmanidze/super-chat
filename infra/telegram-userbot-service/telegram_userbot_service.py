@@ -219,7 +219,7 @@ async def lifespan(app: FastAPI):
 
 async def _resume_persisted_sessions(store: PostgresSessionStore) -> None:
     try:
-        user_ids = store.list_user_ids()
+        user_ids = await store.list_user_ids()
     except Exception:
         logger.exception("Failed to enumerate persisted Telegram sessions")
         return
@@ -242,7 +242,7 @@ async def _resume_one_session(user_id: UUID, store: PostgresSessionStore) -> Non
 
     # Без restore PostgresSession создаётся пустой — auth_key не загружается из БД
     # и Telethon считает сессию неавторизованной даже при валидной записи.
-    session = PostgresSession.restore(user_id, store)
+    session = await PostgresSession.restore(user_id, store)
     client = TelegramClient(session, TELEGRAM_API_ID, TELEGRAM_API_HASH)
     await client.connect()
 
@@ -343,7 +343,10 @@ async def disconnect(user_id: UUID) -> dict[str, str]:
 
     state = registry.get(user_id)
     if state is not None and hasattr(state.client.session, "forget"):
-        state.client.session.forget()
+        try:
+            await state.client.session.forget()
+        except Exception:
+            logger.exception("Failed to forget Telegram session for %s", user_id)
     await registry.drop(user_id)
     return {"status": "disconnected"}
 
