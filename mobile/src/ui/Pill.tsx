@@ -62,6 +62,8 @@ export function Pill({ children, kind = "kind", style }: PillProps) {
     >
       {typeof children === "string" ? (
         <Text
+          numberOfLines={1}
+          ellipsizeMode="tail"
           style={{
             ...typography.mono,
             fontSize: 10,

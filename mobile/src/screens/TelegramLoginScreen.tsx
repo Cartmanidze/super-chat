@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Pressable, Text, TextInput, View } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { telegramGateway, type TelegramConnection } from "../api/telegram";
 import { useSessionStore } from "../store/session";
 import { Screen } from "../ui/Screen";
@@ -13,32 +14,38 @@ import { colors, radii, typography } from "../theme/tokens";
 
 type Step = "phone" | "code" | "password";
 
-const META: Record<
-  Step,
-  { index: number; title: string; hint: string; placeholder: string; cta: string; keyboard: "phone-pad" | "number-pad" | "default" }
-> = {
+type StepMeta = {
+  index: number;
+  titleKey: string;
+  hintKey: string;
+  placeholderKey: string;
+  ctaKey: string;
+  keyboard: "phone-pad" | "number-pad" | "default";
+};
+
+const STEPS: Record<Step, StepMeta> = {
   phone: {
     index: 0,
-    title: "Номер телефона",
-    hint: "В формате +7 999 123-45-67. SMS придёт от Telegram.",
-    placeholder: "+7 999 000-00-00",
-    cta: "Получить код",
+    titleKey: "telegramLogin.phoneTitle",
+    hintKey: "telegramLogin.phoneHint",
+    placeholderKey: "telegramLogin.phonePlaceholder",
+    ctaKey: "telegramLogin.phoneCta",
     keyboard: "phone-pad",
   },
   code: {
     index: 1,
-    title: "Код из Telegram",
-    hint: "Telegram пришлёт его на ваш аккаунт. Введите 5 цифр.",
-    placeholder: "12345",
-    cta: "Подтвердить",
+    titleKey: "telegramLogin.codeTitle",
+    hintKey: "telegramLogin.codeHint",
+    placeholderKey: "telegramLogin.codePlaceholder",
+    ctaKey: "telegramLogin.codeCta",
     keyboard: "number-pad",
   },
   password: {
     index: 2,
-    title: "Облачный пароль",
-    hint: "Включена двухфакторка — введите облачный пароль.",
-    placeholder: "Облачный пароль",
-    cta: "Войти",
+    titleKey: "telegramLogin.passwordTitle",
+    hintKey: "telegramLogin.passwordHint",
+    placeholderKey: "telegramLogin.passwordPlaceholder",
+    ctaKey: "telegramLogin.passwordCta",
     keyboard: "default",
   },
 };
@@ -48,6 +55,7 @@ type TelegramLoginScreenProps = {
 };
 
 export function TelegramLoginScreen({ onClose }: TelegramLoginScreenProps) {
+  const { t } = useTranslation();
   const token = useSessionStore((s) => s.accessToken);
   const queryClient = useQueryClient();
   const [value, setValue] = useState("");
@@ -67,7 +75,7 @@ export function TelegramLoginScreen({ onClose }: TelegramLoginScreenProps) {
   const startConnect = useMutation({
     mutationFn: () => telegramGateway.connect(token!),
     onSuccess: (next) => queryClient.setQueryData(["telegram-connection"], next),
-    onError: (e: Error) => Alert.alert("Не удалось начать вход", e.message),
+    onError: (e: Error) => Alert.alert(t("telegramLogin.errorStartTitle"), e.message),
   });
 
   const submitInput = useMutation({
@@ -76,7 +84,7 @@ export function TelegramLoginScreen({ onClose }: TelegramLoginScreenProps) {
       queryClient.setQueryData(["telegram-connection"], next);
       setValue("");
     },
-    onError: (e: Error) => Alert.alert("Ошибка", e.message),
+    onError: (e: Error) => Alert.alert(t("telegramLogin.errorGenericTitle"), e.message),
   });
 
   const disconnect = useMutation({
@@ -102,7 +110,7 @@ export function TelegramLoginScreen({ onClose }: TelegramLoginScreenProps) {
       if (ctx?.previous !== undefined) {
         queryClient.setQueryData(["telegram-connection"], ctx.previous);
       }
-      Alert.alert("Не удалось отключить", e.message);
+      Alert.alert(t("telegramLogin.errorDisconnectTitle"), e.message);
     },
   });
 
@@ -110,21 +118,21 @@ export function TelegramLoginScreen({ onClose }: TelegramLoginScreenProps) {
     if (step) setTimeout(() => inputRef.current?.focus(), 100);
   }, [step]);
 
-  const meta = step ? META[step] : null;
+  const meta = step ? STEPS[step] : null;
   const progress = useMemo(() => (meta ? `${meta.index + 1}/3` : null), [meta]);
 
   return (
     <Screen>
       <Header
-        subtitle="Telegram"
+        subtitle={t("telegramLogin.subtitle")}
         onBack={onClose}
-        title="Подключение"
+        title={t("telegramLogin.title")}
         right={data ? <ConnectionPill connection={data} /> : undefined}
       />
       <View style={{ paddingHorizontal: 16, gap: 14 }}>
         {!step ? (
           <Card>
-            <Eyebrow color={colors.ash500}>Состояние</Eyebrow>
+            <Eyebrow color={colors.ash500}>{t("telegramLogin.stateLabel")}</Eyebrow>
             <Text
               style={{
                 ...typography.heading,
@@ -136,20 +144,20 @@ export function TelegramLoginScreen({ onClose }: TelegramLoginScreenProps) {
               }}
             >
               {data?.state === "Connected"
-                ? "Telegram подключён"
+                ? t("telegramLogin.stateConnected")
                 : requiresAction
-                  ? "Нужно действие"
-                  : "Не подключено"}
+                  ? t("telegramLogin.stateNeedsAction")
+                  : t("telegramLogin.stateNotConnected")}
             </Text>
             <Text style={{ ...typography.body, fontSize: 13, color: colors.ash400, marginTop: 6 }}>
               {data?.state === "Connected"
-                ? "Super Chat читает чаты через защищённую сессию. Можно отключить ниже."
-                : "Super Chat читает чаты через защищённую сессию. Вход — по номеру телефона и одноразовому коду из Telegram."}
+                ? t("telegramLogin.descriptionConnected")
+                : t("telegramLogin.descriptionNotConnected")}
             </Text>
             {data?.state !== "Connected" ? (
               <View style={{ flexDirection: "row", gap: 10, marginTop: 14 }}>
                 <Button variant="primary" full onPress={() => startConnect.mutate()}>
-                  {startConnect.isPending ? "Открываем…" : "Подключить"}
+                  {startConnect.isPending ? t("telegramLogin.connecting") : t("telegramLogin.connectButton")}
                 </Button>
               </View>
             ) : null}
@@ -157,7 +165,7 @@ export function TelegramLoginScreen({ onClose }: TelegramLoginScreenProps) {
         ) : (
           <Card accent>
             <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
-              <Pill kind="kind">Шаг {progress}</Pill>
+              <Pill kind="kind">{t("telegramLogin.stepProgress", { progress })}</Pill>
             </View>
             <Text
               style={{
@@ -168,10 +176,10 @@ export function TelegramLoginScreen({ onClose }: TelegramLoginScreenProps) {
                 letterSpacing: -0.4,
               }}
             >
-              {meta!.title}
+              {t(meta!.titleKey)}
             </Text>
             <Text style={{ ...typography.body, fontSize: 13, color: colors.ash400, marginTop: 6 }}>
-              {meta!.hint}
+              {t(meta!.hintKey)}
             </Text>
 
             <View
@@ -190,7 +198,7 @@ export function TelegramLoginScreen({ onClose }: TelegramLoginScreenProps) {
                 ref={inputRef}
                 value={value}
                 onChangeText={setValue}
-                placeholder={meta!.placeholder}
+                placeholder={t(meta!.placeholderKey)}
                 placeholderTextColor={colors.ash500}
                 keyboardType={meta!.keyboard}
                 secureTextEntry={step === "password"}
@@ -208,14 +216,16 @@ export function TelegramLoginScreen({ onClose }: TelegramLoginScreenProps) {
               onPress={() => submitInput.mutate()}
               style={{ marginTop: 14 }}
             >
-              {submitInput.isPending ? "Отправляем…" : meta!.cta}
+              {submitInput.isPending ? t("telegramLogin.sending") : t(meta!.ctaKey)}
             </Button>
           </Card>
         )}
 
         {data?.state === "Connected" ? (
           <Pressable onPress={() => disconnect.mutate()} style={{ alignSelf: "center", paddingVertical: 12 }}>
-            <Text style={{ ...typography.bodyMd, fontSize: 13, color: colors.bolt400 }}>Отключить Telegram</Text>
+            <Text style={{ ...typography.bodyMd, fontSize: 13, color: colors.bolt400 }}>
+              {t("telegramLogin.disconnectButton")}
+            </Text>
           </Pressable>
         ) : null}
       </View>
@@ -224,9 +234,10 @@ export function TelegramLoginScreen({ onClose }: TelegramLoginScreenProps) {
 }
 
 function ConnectionPill({ connection }: { connection: TelegramConnection }) {
-  if (connection.state === "Connected") return <Pill kind="confirmed">● ON</Pill>;
-  if (connection.requiresAction) return <Pill kind="pending">Действие</Pill>;
-  return <Pill kind="past">OFF</Pill>;
+  const { t } = useTranslation();
+  if (connection.state === "Connected") return <Pill kind="confirmed">{t("telegramLogin.pillOn")}</Pill>;
+  if (connection.requiresAction) return <Pill kind="pending">{t("telegramLogin.pillNeedsAction")}</Pill>;
+  return <Pill kind="past">{t("telegramLogin.pillOff")}</Pill>;
 }
 
 function isStep(value: string | null | undefined): value is Step {

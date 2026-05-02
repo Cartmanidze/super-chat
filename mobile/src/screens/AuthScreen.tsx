@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Pressable, Text, TextInput, View } from "react-native";
 import { useMutation } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
+import { useTranslation } from "react-i18next";
 import { authGateway } from "../api/auth";
 import { useSessionStore } from "../store/session";
 import { Screen } from "../ui/Screen";
@@ -15,6 +16,7 @@ const OTP_LENGTH = 6;
 const RESEND_SECONDS = 42;
 
 export function AuthScreen() {
+  const { t } = useTranslation();
   const setSession = useSessionStore((s) => s.setSession);
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -35,7 +37,7 @@ export function AuthScreen() {
       setResend(RESEND_SECONDS);
       setTimeout(() => codeRef.current?.focus(), 100);
     },
-    onError: (e: Error) => Alert.alert("Не удалось отправить код", e.message),
+    onError: (e: Error) => Alert.alert(t("auth.errorSendCodeTitle"), e.message),
   });
 
   const verifyCode = useMutation({
@@ -48,7 +50,7 @@ export function AuthScreen() {
     onSuccess: async (session) => {
       await setSession(session.accessToken, session.user.email);
     },
-    onError: (e: Error) => Alert.alert("Не удалось войти", e.message),
+    onError: (e: Error) => Alert.alert(t("auth.errorVerifyTitle"), e.message),
   });
   const cells = useMemo(() => {
     const list = code.split("").slice(0, OTP_LENGTH);
@@ -60,7 +62,7 @@ export function AuthScreen() {
 
   return (
     <Screen>
-      <Header subtitle={stage === "email" ? "Шаг 1 · Email" : "Шаг 2 · Подтверждение"} />
+      <Header subtitle={stage === "email" ? t("auth.stepEmail") : t("auth.stepCode")} />
       <View style={{ paddingHorizontal: 22, gap: 20 }}>
         <View style={{ alignItems: "center", marginBottom: 10 }}>
           <BoltChip size={56} radius={18} />
@@ -79,16 +81,16 @@ export function AuthScreen() {
                   letterSpacing: -1,
                 }}
               >
-                Введите почту{"\n"}
-                <Text style={{ color: colors.bolt400 }}>для кода.</Text>
+                {t("auth.titleEnterEmailLine1")}{"\n"}
+                <Text style={{ color: colors.bolt400 }}>{t("auth.titleEnterEmailLine2")}</Text>
               </Text>
               <Text style={{ ...typography.body, fontSize: 13, color: colors.ash400, lineHeight: 20 }}>
-                Отправим 6-значный код. Никаких паролей — только доступ к почте.
+                {t("auth.subtitleEnterEmail")}
               </Text>
             </View>
 
             <View style={{ gap: 10 }}>
-              <Eyebrow color={colors.ash500}>Ваш email</Eyebrow>
+              <Eyebrow color={colors.ash500}>{t("auth.yourEmail")}</Eyebrow>
               <View
                 style={{
                   height: 56,
@@ -103,7 +105,7 @@ export function AuthScreen() {
                 <TextInput
                   value={email}
                   onChangeText={setEmail}
-                  placeholder="you@example.com"
+                  placeholder={t("auth.emailPlaceholder")}
                   placeholderTextColor={colors.ash500}
                   keyboardType="email-address"
                   autoCapitalize="none"
@@ -119,7 +121,7 @@ export function AuthScreen() {
               disabled={email.trim().length === 0 || sendCode.isPending}
               onPress={() => sendCode.mutate()}
             >
-              {sendCode.isPending ? "Отправляем…" : "Получить код →"}
+              {sendCode.isPending ? t("auth.sending") : t("auth.getCodeCta")}
             </Button>
           </>
         ) : (
@@ -135,7 +137,7 @@ export function AuthScreen() {
                   letterSpacing: -1,
                 }}
               >
-                Введите 6 цифр{"\n"}из письма
+                {t("auth.titleEnterCode")}
               </Text>
               <View
                 style={{
@@ -220,7 +222,7 @@ export function AuthScreen() {
               }}
             >
               <View style={{ flex: 1 }}>
-                <Eyebrow color={colors.ash500}>Код активен</Eyebrow>
+                <Eyebrow color={colors.ash500}>{t("auth.codeActive")}</Eyebrow>
                 <View
                   style={{
                     height: 4,
@@ -238,7 +240,9 @@ export function AuthScreen() {
                   />
                 </View>
                 <Text style={{ ...typography.mono, fontSize: 10, color: colors.ash400, marginTop: 6 }}>
-                  {resend > 0 ? `0:${resend.toString().padStart(2, "0")} осталось` : "Можно отправить снова"}
+                  {resend > 0
+                    ? t("auth.timeLeft", { seconds: resend.toString().padStart(2, "0") })
+                    : t("auth.canResendNow")}
                 </Text>
               </View>
               <Pressable
@@ -253,20 +257,24 @@ export function AuthScreen() {
                   opacity: resend > 0 ? 0.5 : 1,
                 }}
               >
-                <Text style={{ ...typography.bodySemi, fontSize: 11, color: colors.ash400 }}>Выслать снова</Text>
+                <Text style={{ ...typography.bodySemi, fontSize: 11, color: colors.ash400 }}>
+                  {t("auth.resendButton")}
+                </Text>
               </Pressable>
             </View>
 
             <Button variant="primary" full disabled={!canSubmit} onPress={() => verifyCode.mutate()}>
               {verifyCode.isPending
-                ? "Проверяем…"
+                ? t("auth.verifying")
                 : filled === OTP_LENGTH
-                  ? "Подтвердить →"
-                  : `Введите ещё ${OTP_LENGTH - filled}`}
+                  ? t("auth.verifyCta")
+                  : t("auth.enterMore", { count: OTP_LENGTH - filled })}
             </Button>
 
             <Pressable onPress={() => setStage("email")} style={{ alignSelf: "center", paddingVertical: 8 }}>
-              <Text style={{ ...typography.bodyMd, fontSize: 12, color: colors.ash400 }}>Изменить email</Text>
+              <Text style={{ ...typography.bodyMd, fontSize: 12, color: colors.ash400 }}>
+                {t("auth.changeEmail")}
+              </Text>
             </Pressable>
           </>
         )}

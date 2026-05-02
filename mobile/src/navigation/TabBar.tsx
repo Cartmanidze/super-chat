@@ -3,6 +3,7 @@ import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
+import { useTranslation } from "react-i18next";
 import { colors, typography } from "../theme/tokens";
 
 const ICONS: Record<string, string> = {
@@ -11,14 +12,15 @@ const ICONS: Record<string, string> = {
   Profile: "◉",
 };
 
-const LABELS: Record<string, string> = {
-  Today: "Сегодня",
-  Connect: "Источники",
-  Profile: "Профиль",
+const LABEL_KEYS: Record<string, string> = {
+  Today: "tabs.today",
+  Connect: "tabs.connect",
+  Profile: "tabs.profile",
 };
 
 export function TabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   return (
     <View
       style={{
@@ -78,7 +80,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                   letterSpacing: 0.2,
                 }}
               >
-                {LABELS[route.name]}
+                {t(LABEL_KEYS[route.name] ?? "")}
               </Text>
             </Pressable>
           );

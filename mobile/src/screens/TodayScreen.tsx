@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Linking, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, Pressable, Text, View } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
+import { useTranslation } from "react-i18next";
 import { meetingsGateway, type MeetingCard } from "../api/meetings";
 import { useSessionStore } from "../store/session";
 import { Screen } from "../ui/Screen";
@@ -13,6 +14,7 @@ import { Button } from "../ui/Button";
 import { Eyebrow } from "../ui/Eyebrow";
 import { colors, radii, typography } from "../theme/tokens";
 import { TODAY_TIME_ZONE, dayBoundsInTimeZone, formatClock, relativeTimeTo } from "../lib/time";
+import { intlLocale } from "../i18n";
 
 function avatarInitials(value: string | null | undefined): string {
   if (!value) return "·";
@@ -23,8 +25,8 @@ function avatarInitials(value: string | null | undefined): string {
   return (parts[0][0] + parts[1][0]).toUpperCase();
 }
 
-function profileInitials(email: string | null | undefined): string {
-  if (!email) return "Я";
+function profileInitials(email: string | null | undefined, fallback: string): string {
+  if (!email) return fallback;
   const local = email.split("@")[0] ?? email;
   return local.slice(0, 2).toUpperCase();
 }
@@ -53,6 +55,7 @@ function pickNext(cards: MeetingCard[], now: Date): MeetingCard | null {
 }
 
 export function TodayScreen() {
+  const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const navigation = useNavigation();
   const token = useSessionStore((s) => s.accessToken);
@@ -83,7 +86,7 @@ export function TodayScreen() {
       if (ctx?.previous !== undefined) {
         queryClient.setQueryData(["meetings"], ctx.previous);
       }
-      Alert.alert("Не удалось подтвердить", e.message);
+      Alert.alert(t("today.confirmErrorTitle"), e.message);
     },
     onSettled: invalidateMeetings,
   });
@@ -102,7 +105,7 @@ export function TodayScreen() {
       if (ctx?.previous !== undefined) {
         queryClient.setQueryData(["meetings"], ctx.previous);
       }
-      Alert.alert("Не удалось отклонить", e.message);
+      Alert.alert(t("today.dismissErrorTitle"), e.message);
     },
     onSettled: invalidateMeetings,
   });
@@ -111,12 +114,12 @@ export function TodayScreen() {
     try {
       const supported = await Linking.canOpenURL(url);
       if (!supported) {
-        Alert.alert("Не удалось открыть ссылку", url);
+        Alert.alert(t("today.openLinkErrorTitle"), url);
         return;
       }
       await Linking.openURL(url);
     } catch (e) {
-      Alert.alert("Не удалось открыть ссылку", String(e));
+      Alert.alert(t("today.openLinkErrorTitle"), String(e));
     }
   };
 
@@ -135,17 +138,20 @@ export function TodayScreen() {
     return cards.filter((c) => {
       const at = c.dueAt ?? c.observedAt;
       if (!at) return false;
-      const t = new Date(at).getTime();
-      return t >= start && t < end;
+      const ts = new Date(at).getTime();
+      return ts >= start && ts < end;
     }).length;
   }, [cards, now]);
 
   const headlineRel = next ? relativeTimeTo(next.dueAt ?? next.observedAt, now) : null;
+  // i18n.language нужен в зависимости только чтобы пересчитать formatWeekDay
+  // при переключении языка прямо в раннере приложения.
+  const weekday = useMemo(() => formatWeekDay(now, i18n.language), [now, i18n.language]);
 
   return (
     <Screen>
       <Header
-        subtitle={`${formatWeekDay(now)} · ${formatClock(now)}`}
+        subtitle={t("today.weekdayClock", { weekday, clock: formatClock(now) })}
         title={
           <View>
             <Text
@@ -159,8 +165,8 @@ export function TodayScreen() {
               }}
             >
               {todayCount > 0
-                ? `${todayCount} ${pluralMeetings(todayCount)} сегодня.`
-                : "Свободный день."}
+                ? t("today.todayCount", { count: todayCount })
+                : t("today.freeDay")}
             </Text>
             {headlineRel ? (
               <Text
@@ -173,7 +179,7 @@ export function TodayScreen() {
                   letterSpacing: -0.6,
                 }}
               >
-                Ближайшая — {headlineRel.label}
+                {t("today.nextMeetingPrefix", { label: headlineRel.label })}
               </Text>
             ) : null}
           </View>
@@ -183,9 +189,9 @@ export function TodayScreen() {
             onPress={() => navigation.navigate("Profile" as never)}
             hitSlop={8}
             accessibilityRole="button"
-            accessibilityLabel="Открыть профиль"
+            accessibilityLabel={t("today.openProfileA11y")}
           >
-            <Avatar who={profileInitials(email)} size={32} variant="g2" />
+            <Avatar who={profileInitials(email, t("profile.guest").slice(0, 1).toUpperCase())} size={32} variant="g2" />
           </Pressable>
         }
       />
@@ -205,7 +211,7 @@ export function TodayScreen() {
 
         {pending.length > 0 ? (
           <>
-            <SectionHead title="Ждут подтверждения" count={pending.length} />
+            <SectionHead title={t("today.pendingSection")} count={pending.length} />
             <View style={{ gap: 6 }}>
               {pending.map((c) => (
                 <PendingRow
@@ -220,15 +226,15 @@ export function TodayScreen() {
           </>
         ) : null}
 
-        <SectionHead title="Расписание дня" count={todayCount > 0 ? todayCount : null} />
+        <SectionHead title={t("today.scheduleSection")} count={todayCount > 0 ? todayCount : null} />
         <View style={{ paddingHorizontal: 4 }}>
           {cards.length === 0 && !meetings.isLoading ? (
             <Card>
               <Text style={{ ...typography.heading, fontFamily: "Manrope_700Bold", fontSize: 16, color: colors.bone }}>
-                Пока тихо
+                {t("today.emptyTitle")}
               </Text>
               <Text style={{ ...typography.body, fontSize: 13, color: colors.ash400, marginTop: 6 }}>
-                Соберём встречи, как только что-то пролетит в чатах.
+                {t("today.emptySubtitle")}
               </Text>
             </Card>
           ) : null}
@@ -260,6 +266,7 @@ function NextMeetingHero({
   isConfirming,
   isDismissing,
 }: NextMeetingHeroProps) {
+  const { t } = useTranslation();
   const rel = relativeTimeTo(card.dueAt ?? card.observedAt, now);
   const at = card.dueAt ?? card.observedAt;
   const isPending = card.status === "PendingConfirmation";
@@ -267,10 +274,12 @@ function NextMeetingHero({
   return (
     <Card accent>
       <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }}>
-        <Pill kind="kind">⚡ {rel.phase === "live" ? "Сейчас" : rel.label}</Pill>
+        <Pill kind="kind">⚡ {rel.phase === "live" ? t("today.now") : rel.label}</Pill>
         <Pill kind="gold">{Math.round(card.confidence * 100)}%</Pill>
       </View>
       <Text
+        numberOfLines={2}
+        ellipsizeMode="tail"
         style={{
           ...typography.heading,
           fontFamily: "Manrope_700Bold",
@@ -282,7 +291,11 @@ function NextMeetingHero({
       >
         {card.title}
       </Text>
-      <Text style={{ ...typography.body, fontSize: 12, color: colors.ash400, lineHeight: 18, marginBottom: 12 }}>
+      <Text
+        numberOfLines={2}
+        ellipsizeMode="tail"
+        style={{ ...typography.body, fontSize: 12, color: colors.ash400, lineHeight: 18, marginBottom: 12 }}
+      >
         <Text style={{ color: colors.bolt400 }}>{card.chatTitle}</Text>
         {card.summary ? ` · ${card.summary}` : ""}
       </Text>
@@ -300,39 +313,44 @@ function NextMeetingHero({
           {formatClock(at)}
         </Text>
         <Text style={{ ...typography.mono, fontSize: 10, color: colors.bolt400, letterSpacing: 1.4, textTransform: "uppercase" }}>
-          {card.meetingProvider ?? "Встреча"}
+          {card.meetingProvider ?? t("today.providerFallback")}
         </Text>
       </View>
       {hasActions ? (
-        <View style={{ flexDirection: "row", gap: 8 }}>
+        // Раскладка из двух уровней. Верхний — основная ссылка на встречу
+        // (full-width), нижний — confirm + dismiss. Раньше всё лежало в одной
+        // строке, и три кнопки на 360 px не помещались: текст "Подтвердить"
+        // обрезался. Теперь основной CTA сам по себе, а пара действий ниже.
+        <View style={{ gap: 8 }}>
           {card.meetingJoinUrl ? (
             <Button
               variant="primary"
-              style={{ flex: 1, minHeight: 42 }}
+              full
+              style={{ minHeight: 42 }}
               onPress={() => onOpenUrl(card.meetingJoinUrl!)}
             >
-              Открыть ссылку
+              {t("today.openLinkCta")}
             </Button>
           ) : null}
           {card.id && isPending ? (
-            <Button
-              variant="ghost"
-              style={{ flex: 1, minHeight: 42 }}
-              disabled={isConfirming}
-              onPress={() => onConfirm(card.id!)}
-            >
-              {isConfirming ? "..." : "Подтвердить"}
-            </Button>
-          ) : null}
-          {card.id && isPending ? (
-            <Button
-              variant="ghost"
-              style={{ flex: 1, minHeight: 42 }}
-              disabled={isDismissing}
-              onPress={() => onDismiss(card.id!)}
-            >
-              {isDismissing ? "..." : "Отклонить"}
-            </Button>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <Button
+                variant="ghost"
+                style={{ flex: 1, minHeight: 42 }}
+                disabled={isConfirming}
+                onPress={() => onConfirm(card.id!)}
+              >
+                {isConfirming ? <ActivityIndicator size="small" color={colors.bone} /> : t("today.confirmCta")}
+              </Button>
+              <Button
+                variant="ghost"
+                style={{ flex: 1, minHeight: 42 }}
+                disabled={isDismissing}
+                onPress={() => onDismiss(card.id!)}
+              >
+                {isDismissing ? <ActivityIndicator size="small" color={colors.bone} /> : t("today.dismissCta")}
+              </Button>
+            </View>
           ) : null}
         </View>
       ) : null}
@@ -348,6 +366,7 @@ type PendingRowProps = {
 };
 
 function PendingRow({ card, onConfirm, onDismiss, isBusy }: PendingRowProps) {
+  const { t } = useTranslation();
   const canAct = card.id != null && !isBusy;
   return (
     <View
@@ -371,11 +390,19 @@ function PendingRow({ card, onConfirm, onDismiss, isBusy }: PendingRowProps) {
             </Text>
           ) : null}
         </View>
-        <Text style={{ ...typography.heading, fontFamily: "Manrope_700Bold", fontSize: 14, color: colors.bone, letterSpacing: -0.3 }}>
+        <Text
+          numberOfLines={2}
+          ellipsizeMode="tail"
+          style={{ ...typography.heading, fontFamily: "Manrope_700Bold", fontSize: 14, color: colors.bone, letterSpacing: -0.3 }}
+        >
           {card.title}
         </Text>
-        <Text style={{ ...typography.body, fontSize: 11, color: colors.ash400, marginTop: 2 }}>
-          из <Text style={{ color: colors.bolt400 }}>{card.chatTitle}</Text>
+        <Text
+          numberOfLines={1}
+          ellipsizeMode="tail"
+          style={{ ...typography.body, fontSize: 11, color: colors.ash400, marginTop: 2 }}
+        >
+          {t("today.fromChatPrefix")}<Text style={{ color: colors.bolt400 }}>{card.chatTitle}</Text>
         </Text>
       </View>
       {card.id != null ? (
@@ -383,6 +410,7 @@ function PendingRow({ card, onConfirm, onDismiss, isBusy }: PendingRowProps) {
           <Pressable
             disabled={!canAct}
             onPress={() => onConfirm(card.id!)}
+            accessibilityLabel={t("today.confirmCta")}
             style={{
               width: 34,
               height: 34,
@@ -400,6 +428,7 @@ function PendingRow({ card, onConfirm, onDismiss, isBusy }: PendingRowProps) {
           <Pressable
             disabled={!canAct}
             onPress={() => onDismiss(card.id!)}
+            accessibilityLabel={t("today.dismissCta")}
             style={{
               width: 34,
               height: 34,
@@ -421,6 +450,7 @@ function PendingRow({ card, onConfirm, onDismiss, isBusy }: PendingRowProps) {
 }
 
 function TimelineRow({ card, now }: { card: MeetingCard; now: Date }) {
+  const { t } = useTranslation();
   const at = card.dueAt ?? card.observedAt;
   const rel = relativeTimeTo(at, now);
   const isPast = rel.phase === "past";
@@ -450,6 +480,8 @@ function TimelineRow({ card, now }: { card: MeetingCard; now: Date }) {
       </View>
       <View style={{ flex: 1, gap: 4 }}>
         <Text
+          numberOfLines={2}
+          ellipsizeMode="tail"
           style={{
             ...typography.heading,
             fontFamily: "Manrope_700Bold",
@@ -460,14 +492,26 @@ function TimelineRow({ card, now }: { card: MeetingCard; now: Date }) {
         >
           {card.title}
         </Text>
-        <Text style={{ ...typography.body, fontSize: 12, color: colors.ash400, lineHeight: 18 }}>{card.summary}</Text>
+        {card.summary ? (
+          <Text
+            numberOfLines={2}
+            ellipsizeMode="tail"
+            style={{ ...typography.body, fontSize: 12, color: colors.ash400, lineHeight: 18 }}
+          >
+            {card.summary}
+          </Text>
+        ) : null}
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 }}>
           <Avatar who={avatarInitials(card.chatTitle)} size={20} variant={avatarVariant(card.chatTitle)} />
-          <Text style={{ ...typography.mono, fontSize: 10, color: colors.bolt400, letterSpacing: 0.8 }}>
+          <Text
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            style={{ ...typography.mono, fontSize: 10, color: colors.bolt400, letterSpacing: 0.8, flexShrink: 1 }}
+          >
             {card.chatTitle}
           </Text>
           <Text style={{ ...typography.mono, fontSize: 10, color: colors.ash500, letterSpacing: 0.8 }}>
-            · {isPast ? "прошла" : isLive ? "идёт" : rel.label}
+            · {isPast ? t("today.past") : isLive ? t("today.live") : rel.label}
           </Text>
         </View>
       </View>
@@ -494,15 +538,7 @@ function SectionHead({ title, count }: { title: string; count: number | null }) 
   );
 }
 
-function formatWeekDay(d: Date): string {
-  const wd = d.toLocaleDateString("ru-RU", { weekday: "short" });
+function formatWeekDay(d: Date, _language: string): string {
+  const wd = d.toLocaleDateString(intlLocale(), { weekday: "short" });
   return wd.charAt(0).toUpperCase() + wd.slice(1);
-}
-
-function pluralMeetings(n: number): string {
-  const m10 = n % 10;
-  const m100 = n % 100;
-  if (m10 === 1 && m100 !== 11) return "встреча";
-  if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return "встречи";
-  return "встреч";
 }

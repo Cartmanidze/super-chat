@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Pressable, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { useTranslation } from "react-i18next";
 import { useSessionStore } from "../store/session";
 import { meGateway } from "../api/me";
 import { Screen } from "../ui/Screen";
@@ -14,24 +15,60 @@ import { Eyebrow } from "../ui/Eyebrow";
 import type { ConnectStackParamList } from "../navigation/ConnectStack";
 import { colors, typography } from "../theme/tokens";
 
+// Базовый список источников. Все названия и подписи берём через i18n,
+// здесь храним только идентификатор бренда + ключи переводов.
 type Source = {
   key: string;
   brand: BrandKind;
-  title: string;
-  subtitle: string;
+  titleKey: string;
+  subtitleKey: string;
   state: "live" | "pending" | "soon";
-  note?: string;
+  noteKey?: string;
 };
 
 const SOURCES: Source[] = [
-  { key: "tg", brand: "tg", title: "Telegram", subtitle: "Чаты и группы", state: "live", note: "Активная сессия. Обновляется в реальном времени." },
-  { key: "gm", brand: "gm", title: "Gmail", subtitle: "Приглашения и .ics", state: "soon", note: "Запустим, как только будет готов OAuth-поток." },
-  { key: "sl", brand: "sl", title: "Slack", subtitle: "DM и каналы", state: "soon", note: "В приватной бете." },
-  { key: "ol", brand: "ol", title: "Outlook", subtitle: "Microsoft 365", state: "soon" },
-  { key: "wa", brand: "wa", title: "WhatsApp", subtitle: "Личные и рабочие", state: "soon" },
+  {
+    key: "tg",
+    brand: "tg",
+    titleKey: "connections.telegramTitle",
+    subtitleKey: "connections.telegramSubtitle",
+    state: "live",
+    noteKey: "connections.telegramNote",
+  },
+  {
+    key: "gm",
+    brand: "gm",
+    titleKey: "connections.gmailTitle",
+    subtitleKey: "connections.gmailSubtitle",
+    state: "soon",
+    noteKey: "connections.gmailNote",
+  },
+  {
+    key: "sl",
+    brand: "sl",
+    titleKey: "connections.slackTitle",
+    subtitleKey: "connections.slackSubtitle",
+    state: "soon",
+    noteKey: "connections.slackNote",
+  },
+  {
+    key: "ol",
+    brand: "ol",
+    titleKey: "connections.outlookTitle",
+    subtitleKey: "connections.outlookSubtitle",
+    state: "soon",
+  },
+  {
+    key: "wa",
+    brand: "wa",
+    titleKey: "connections.whatsappTitle",
+    subtitleKey: "connections.whatsappSubtitle",
+    state: "soon",
+  },
 ];
 
 export function ConnectionsScreen() {
+  const { t } = useTranslation();
   const token = useSessionStore((s) => s.accessToken);
   const navigation = useNavigation<NativeStackNavigationProp<ConnectStackParamList>>();
   const me = useQuery({
@@ -53,7 +90,7 @@ export function ConnectionsScreen() {
   return (
     <Screen>
       <Header
-        subtitle="Источники"
+        subtitle={t("connections.subtitle")}
         title={
           <Text
             style={{
@@ -64,7 +101,7 @@ export function ConnectionsScreen() {
               letterSpacing: -0.6,
             }}
           >
-            Подключения
+            {t("connections.title")}
           </Text>
         }
       />
@@ -86,27 +123,27 @@ export function ConnectionsScreen() {
                         letterSpacing: -0.3,
                       }}
                     >
-                      {src.title}
+                      {t(src.titleKey)}
                     </Text>
                     <StatePill state={src.state} />
                   </View>
                   <Text style={{ ...typography.body, fontSize: 12, color: colors.ash400, marginTop: 2 }}>
-                    {src.subtitle}
+                    {t(src.subtitleKey)}
                   </Text>
                 </View>
                 {isTelegram ? (
                   <Button variant="ghost" style={{ minHeight: 36, paddingHorizontal: 14 }} onPress={openTelegram}>
-                    {src.state === "live" ? "Открыть" : "Подключить"}
+                    {src.state === "live" ? t("connections.openCta") : t("connections.connectCta")}
                   </Button>
                 ) : (
                   <Button variant="ghost" style={{ minHeight: 36, paddingHorizontal: 14 }}>
-                    В очередь
+                    {t("connections.queueCta")}
                   </Button>
                 )}
               </View>
-              {src.note ? (
+              {src.noteKey ? (
                 <Text style={{ ...typography.body, fontSize: 12, color: colors.ash400, marginTop: 12 }}>
-                  {src.note}
+                  {t(src.noteKey)}
                 </Text>
               ) : null}
             </Card>
@@ -122,9 +159,9 @@ export function ConnectionsScreen() {
 
         <Card>
           <View style={{ alignItems: "center", paddingVertical: 8 }}>
-            <Eyebrow color={colors.ash500}>Предложить источник</Eyebrow>
+            <Eyebrow color={colors.ash500}>{t("connections.suggestEyebrow")}</Eyebrow>
             <Text style={{ ...typography.body, fontSize: 12, color: colors.ash400, textAlign: "center", marginTop: 8 }}>
-              Discord? VK? Расскажите, что подключить следующим.
+              {t("connections.suggestText")}
             </Text>
           </View>
         </Card>
@@ -134,7 +171,8 @@ export function ConnectionsScreen() {
 }
 
 function StatePill({ state }: { state: "live" | "pending" | "soon" }) {
-  if (state === "live") return <Pill kind="confirmed">Активно</Pill>;
-  if (state === "pending") return <Pill kind="pending">Нужен вход</Pill>;
-  return <Pill kind="past">Скоро</Pill>;
+  const { t } = useTranslation();
+  if (state === "live") return <Pill kind="confirmed">{t("connections.pillActive")}</Pill>;
+  if (state === "pending") return <Pill kind="pending">{t("connections.pillNeedsLogin")}</Pill>;
+  return <Pill kind="past">{t("connections.pillSoon")}</Pill>;
 }

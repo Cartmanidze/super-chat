@@ -1,3 +1,5 @@
+import i18n, { intlLocale } from "../i18n";
+
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
@@ -47,68 +49,48 @@ export type RelativeTime = {
   label: string;
 };
 
+// Бьём разницу во времени на фазы и формируем читаемую подпись через i18next.
+// Плюрализация (минута / минуты / минут) живёт в *_one/_few/_many ключах локалей —
+// i18next сам выберет нужную форму по правилам ru/en для текущего значения count.
 export function relativeTimeTo(target: Date | string | null, now: Date = new Date()): RelativeTime {
-  if (!target) return { phase: "future", label: "время не указано" };
+  const t = i18n.t.bind(i18n);
+  if (!target) return { phase: "future", label: t("time.unknown") };
   const date = typeof target === "string" ? new Date(target) : target;
-  if (Number.isNaN(date.getTime())) return { phase: "future", label: "время не указано" };
+  if (Number.isNaN(date.getTime())) return { phase: "future", label: t("time.unknown") };
 
   const diff = date.getTime() - now.getTime();
   if (diff < -15 * MINUTE) {
-    if (Math.abs(diff) < HOUR) return { phase: "past", label: "прошла" };
+    if (Math.abs(diff) < HOUR) return { phase: "past", label: t("time.passed") };
     if (Math.abs(diff) < DAY) {
       const hours = Math.round(Math.abs(diff) / HOUR);
-      return { phase: "past", label: `${hours} ${pluralHours(hours)} назад` };
+      return { phase: "past", label: t("time.agoHours", { count: hours }) };
     }
     const days = Math.round(Math.abs(diff) / DAY);
-    return { phase: "past", label: `${days} ${pluralDays(days)} назад` };
+    return { phase: "past", label: t("time.agoDays", { count: days }) };
   }
-  if (Math.abs(diff) <= 15 * MINUTE) return { phase: "live", label: "сейчас" };
+  if (Math.abs(diff) <= 15 * MINUTE) return { phase: "live", label: t("time.now") };
   if (diff < HOUR) {
     const minutes = Math.max(1, Math.round(diff / MINUTE));
-    return { phase: "soon", label: `через ${minutes} ${pluralMin(minutes)}` };
+    return { phase: "soon", label: t("time.inMinutes", { count: minutes }) };
   }
   if (diff < DAY) {
     const hours = Math.round(diff / HOUR);
-    return { phase: "today", label: `через ${hours} ${pluralHours(hours)}` };
+    return { phase: "today", label: t("time.inHours", { count: hours }) };
   }
   const days = Math.round(diff / DAY);
-  return { phase: "future", label: `через ${days} ${pluralDays(days)}` };
+  return { phase: "future", label: t("time.inDays", { count: days }) };
 }
 
 export function formatClock(value: Date | string | null): string {
   if (!value) return "--:--";
   const d = typeof value === "string" ? new Date(value) : value;
   if (Number.isNaN(d.getTime())) return "--:--";
-  return d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", hour12: false });
+  return d.toLocaleTimeString(intlLocale(), { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
 export function formatWeekDayShort(value: Date | string | null): string {
   if (!value) return "";
   const d = typeof value === "string" ? new Date(value) : value;
   if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleDateString("ru-RU", { weekday: "short" });
-}
-
-function pluralMin(n: number): string {
-  const m10 = n % 10;
-  const m100 = n % 100;
-  if (m10 === 1 && m100 !== 11) return "минуту";
-  if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return "минуты";
-  return "минут";
-}
-
-function pluralHours(n: number): string {
-  const m10 = n % 10;
-  const m100 = n % 100;
-  if (m10 === 1 && m100 !== 11) return "час";
-  if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return "часа";
-  return "часов";
-}
-
-function pluralDays(n: number): string {
-  const m10 = n % 10;
-  const m100 = n % 100;
-  if (m10 === 1 && m100 !== 11) return "день";
-  if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return "дня";
-  return "дней";
+  return d.toLocaleDateString(intlLocale(), { weekday: "short" });
 }

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
 import { BoltIcon } from "../ui/BoltIcon";
 import { BoltChip } from "../ui/BoltChip";
 import { BrandIcon } from "../ui/BrandIcon";
@@ -18,6 +19,7 @@ type OnboardingScreenProps = {
 };
 
 export function OnboardingScreen({ onFinish }: OnboardingScreenProps) {
+  const { t } = useTranslation();
   const [step, setStep] = useState(0);
   const next = () => setStep((s) => Math.min(3, s + 1));
   const finish = () => onFinish();
@@ -51,12 +53,12 @@ export function OnboardingScreen({ onFinish }: OnboardingScreenProps) {
           <Dots count={4} active={step} style={{ alignSelf: "center" }} />
           {step < 3 ? (
             <Button variant="primary" full onPress={next}>
-              {step === 0 ? "Начать →" : "Дальше →"}
+              {step === 0 ? t("onboarding.startCta") : t("onboarding.nextCta")}
             </Button>
           ) : (
             <>
               <Button variant="primary" full onPress={finish}>
-                Получить код →
+                {t("onboarding.finishCta")}
               </Button>
               <Text
                 style={{
@@ -68,7 +70,7 @@ export function OnboardingScreen({ onFinish }: OnboardingScreenProps) {
                   lineHeight: 14,
                 }}
               >
-                Продолжая, вы соглашаетесь с условиями и политикой данных.
+                {t("onboarding.terms")}
               </Text>
             </>
           )}
@@ -79,6 +81,7 @@ export function OnboardingScreen({ onFinish }: OnboardingScreenProps) {
 }
 
 function SlideHero() {
+  const { t } = useTranslation();
   return (
     <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 56, gap: 20 }}>
       <View style={{ alignItems: "center", marginVertical: 12 }}>
@@ -104,7 +107,7 @@ function SlideHero() {
 
       <View style={{ gap: 14 }}>
         <Eyebrow color={colors.gold400} style={{ alignSelf: "center" }}>
-          ⚡ Flash-speed second brain
+          {t("onboarding.slide1Eyebrow")}
         </Eyebrow>
         <Text
           style={{
@@ -117,8 +120,8 @@ function SlideHero() {
             letterSpacing: -1,
           }}
         >
-          Ни одной встречи{"\n"}
-          <Text style={{ color: colors.bolt400 }}>мимо. Больше.</Text>
+          {t("onboarding.slide1TitleLine1")}{"\n"}
+          <Text style={{ color: colors.bolt400 }}>{t("onboarding.slide1TitleLine2")}</Text>
         </Text>
         <Text
           style={{
@@ -129,7 +132,7 @@ function SlideHero() {
             textAlign: "center",
           }}
         >
-          Super Chat читает ваши чаты и сам превращает разговоры во встречи.
+          {t("onboarding.slide1Subtitle")}
         </Text>
 
         <View
@@ -158,9 +161,10 @@ function SlideHero() {
 }
 
 function SlideHow() {
+  const { t } = useTranslation();
   return (
     <View style={{ paddingHorizontal: 22, paddingTop: 60, gap: 12 }}>
-      <Eyebrow>02 · Как это работает</Eyebrow>
+      <Eyebrow>{t("onboarding.slide2Eyebrow")}</Eyebrow>
       <Text
         style={{
           ...typography.display,
@@ -171,7 +175,7 @@ function SlideHow() {
           letterSpacing: -0.8,
         }}
       >
-        Ваши чаты — в расписание
+        {t("onboarding.slide2Title")}
       </Text>
 
       <View
@@ -187,12 +191,16 @@ function SlideHow() {
         }}
       >
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
-          <Avatar who="КН" size={22} variant="g2" />
-          <Text style={{ ...typography.bodySemi, fontSize: 12, color: colors.info }}>Катя Н.</Text>
-          <Text style={{ ...typography.mono, fontSize: 10, color: colors.ash500 }}>14:02 · TG</Text>
+          <Avatar who={t("onboarding.slide2MessageSenderInitials")} size={22} variant="g2" />
+          <Text style={{ ...typography.bodySemi, fontSize: 12, color: colors.info }}>
+            {t("onboarding.slide2MessageSender")}
+          </Text>
+          <Text style={{ ...typography.mono, fontSize: 10, color: colors.ash500 }}>
+            {t("onboarding.slide2MessageMeta")}
+          </Text>
         </View>
         <Text style={{ ...typography.body, fontSize: 13, color: colors.bone, lineHeight: 19 }}>
-          Давайте в пятницу в 18:30 созвонимся по пилоту?
+          {t("onboarding.slide2MessageText")}
         </Text>
       </View>
 
@@ -212,14 +220,16 @@ function SlideHow() {
           }}
         >
           <BoltIcon size={11} variant="red" />
-          <Text style={{ ...typography.mono, fontSize: 10, color: colors.bolt400, letterSpacing: 1.6 }}>1.4S</Text>
+          <Text style={{ ...typography.mono, fontSize: 10, color: colors.bolt400, letterSpacing: 1.6 }}>
+            {t("onboarding.slide2Latency")}
+          </Text>
         </View>
         <View style={{ width: 1, height: 16, backgroundColor: colors.bolt500 }} />
       </View>
 
       <Card accent style={{ padding: 14 }}>
         <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
-          <Pill kind="kind">⚡ найдено</Pill>
+          <Pill kind="kind">{t("onboarding.slide2CardKind")}</Pill>
           <Pill kind="gold">92%</Pill>
         </View>
         <Text
@@ -231,16 +241,18 @@ function SlideHow() {
             marginBottom: 6,
           }}
         >
-          Синк по пилоту
+          {t("onboarding.slide2CardTitle")}
         </Text>
         <View style={{ gap: 4 }}>
-          <Row label="Когда" value="пт, 18:30 · 45 мин" />
-          <Row label="Где" value="Google Meet" />
+          <Row label={t("onboarding.slide2RowWhen")} value={t("onboarding.slide2RowWhenValue")} />
+          <Row label={t("onboarding.slide2RowWhere")} value={t("onboarding.slide2RowWhereValue")} />
           <View style={{ flexDirection: "row", gap: 12 }}>
-            <Text style={{ ...typography.bodyMd, fontSize: 12, color: colors.ash500, width: 50 }}>Кто</Text>
+            <Text style={{ ...typography.bodyMd, fontSize: 12, color: colors.ash500, width: 50 }}>
+              {t("onboarding.slide2RowWho")}
+            </Text>
             <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <Avatar who="КН" size={18} variant="g2" />
-              <Avatar who="ИС" size={18} variant="g1" style={{ marginLeft: -6 }} />
+              <Avatar who={t("onboarding.slide2WhoInitialsA")} size={18} variant="g2" />
+              <Avatar who={t("onboarding.slide2WhoInitialsB")} size={18} variant="g1" style={{ marginLeft: -6 }} />
               <Text style={{ ...typography.body, fontSize: 12, color: colors.bone, marginLeft: 6 }}>+2</Text>
             </View>
           </View>
@@ -248,7 +260,7 @@ function SlideHow() {
       </Card>
 
       <Text style={{ ...typography.body, fontSize: 13, color: colors.ash400, marginTop: 6 }}>
-        Сообщения не покидают ваше устройство без разрешения.
+        {t("onboarding.slide2Privacy")}
       </Text>
     </View>
   );
@@ -264,14 +276,30 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 function SlideValue() {
+  const { t } = useTranslation();
   const items = [
-    { ic: "✓", c: colors.success, t: "Подтверждайте касанием", s: "Свайп вправо — в календарь. Влево — удалить." },
-    { ic: "⟳", c: colors.info, t: "Сам разруливает перенос", s: "Договорились передвинуть — старая исчезнет." },
-    { ic: "◎", c: colors.gold400, t: "Тихо, когда нечего сказать", s: "Пуш только если есть что-то новое." },
+    {
+      ic: "✓",
+      c: colors.success,
+      titleKey: "onboarding.slide3Item1Title",
+      subtitleKey: "onboarding.slide3Item1Subtitle",
+    },
+    {
+      ic: "⟳",
+      c: colors.info,
+      titleKey: "onboarding.slide3Item2Title",
+      subtitleKey: "onboarding.slide3Item2Subtitle",
+    },
+    {
+      ic: "◎",
+      c: colors.gold400,
+      titleKey: "onboarding.slide3Item3Title",
+      subtitleKey: "onboarding.slide3Item3Subtitle",
+    },
   ];
   return (
     <View style={{ paddingHorizontal: 22, paddingTop: 60, gap: 14 }}>
-      <Eyebrow>03 · Что вы получаете</Eyebrow>
+      <Eyebrow>{t("onboarding.slide3Eyebrow")}</Eyebrow>
       <Text
         style={{
           ...typography.display,
@@ -282,7 +310,7 @@ function SlideValue() {
           letterSpacing: -0.8,
         }}
       >
-        Контроль — за вами,{"\n"}рутина — за нами.
+        {t("onboarding.slide3TitleLine1")}{"\n"}{t("onboarding.slide3TitleLine2")}
       </Text>
 
       <View style={{ gap: 10, marginTop: 4 }}>
@@ -323,9 +351,11 @@ function SlideValue() {
                   marginBottom: 3,
                 }}
               >
-                {it.t}
+                {t(it.titleKey)}
               </Text>
-              <Text style={{ ...typography.body, fontSize: 12, color: colors.ash400, lineHeight: 17 }}>{it.s}</Text>
+              <Text style={{ ...typography.body, fontSize: 12, color: colors.ash400, lineHeight: 17 }}>
+                {t(it.subtitleKey)}
+              </Text>
             </View>
           </View>
         ))}
@@ -349,16 +379,16 @@ function SlideValue() {
             87%
           </Text>
           <Text style={{ ...typography.mono, fontSize: 9, color: colors.ash400, marginTop: 6, textAlign: "center" }}>
-            СРЕДНЯЯ{"\n"}УВЕРЕННОСТЬ
+            {t("onboarding.slide3StatConfidenceLine1")}{"\n"}{t("onboarding.slide3StatConfidenceLine2")}
           </Text>
         </View>
         <View style={{ width: 1, height: 40, backgroundColor: colors.borderLine }} />
         <View style={{ alignItems: "center" }}>
           <Text style={{ ...typography.display, fontFamily: "Manrope_800ExtraBold", fontSize: 26, color: colors.bolt400 }}>
-            1.4с
+            {t("onboarding.slide3StatPerMessageValue")}
           </Text>
           <Text style={{ ...typography.mono, fontSize: 9, color: colors.ash400, marginTop: 6, textAlign: "center" }}>
-            НА ОДНО{"\n"}СООБЩЕНИЕ
+            {t("onboarding.slide3StatPerMessageLine1")}{"\n"}{t("onboarding.slide3StatPerMessageLine2")}
           </Text>
         </View>
       </View>
@@ -367,11 +397,12 @@ function SlideValue() {
 }
 
 function SlideCTA() {
+  const { t } = useTranslation();
   return (
     <View style={{ paddingHorizontal: 22, paddingTop: 56, gap: 22 }}>
       <View style={{ alignItems: "center", gap: 14 }}>
         <BoltChip size={64} radius={20} />
-        <Eyebrow color={colors.gold400}>04 · Поехали</Eyebrow>
+        <Eyebrow color={colors.gold400}>{t("onboarding.slide4Eyebrow")}</Eyebrow>
       </View>
       <View style={{ alignItems: "center", gap: 10 }}>
         <Text
@@ -385,8 +416,8 @@ function SlideCTA() {
             letterSpacing: -1,
           }}
         >
-          Войти за{"\n"}
-          <Text style={{ color: colors.bolt400 }}>20 секунд</Text>
+          {t("onboarding.slide4TitleLine1")}{"\n"}
+          <Text style={{ color: colors.bolt400 }}>{t("onboarding.slide4TitleLine2")}</Text>
         </Text>
         <Text
           style={{
@@ -398,7 +429,7 @@ function SlideCTA() {
             lineHeight: 20,
           }}
         >
-          Без паролей. Просто email и одноразовый код.
+          {t("onboarding.slide4Subtitle")}
         </Text>
       </View>
     </View>
