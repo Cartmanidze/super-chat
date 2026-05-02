@@ -27,24 +27,24 @@ internal sealed class OneWayClientPipelineCommandScheduler(
 
     public async Task DispatchChatMessageStoredAsync(
         SuperChatDbContext dbContext,
-        Guid userId,
-        string source,
-        string externalChatId,
-        Guid normalizedMessageId,
-        string externalMessageId,
-        DateTimeOffset sentAt,
+        ChatMessageStoredEvent payload,
         CancellationToken cancellationToken)
     {
-        using var scope = MessagePipelineTrace.BeginScope(logger, userId, externalChatId, normalizedMessageId, externalMessageId);
+        using var scope = MessagePipelineTrace.BeginScope(
+            logger,
+            payload.UserId,
+            payload.ExternalChatId,
+            payload.ChatMessageId,
+            payload.ExternalMessageId);
 
         var queueName = pipelineMessagingOptions.Value.InputQueueName;
-        var rebuildFrom = sentAt.AddMinutes(-Math.Max(1, chunkingOptions.Value.MaxGapMinutes));
+        var rebuildFrom = payload.SentAt.AddMinutes(-Math.Max(1, chunkingOptions.Value.MaxGapMinutes));
 
         logger.LogInformation(
             "Dispatching one-way pipeline commands for chat message. Queue={Queue}, Source={Source}, SentAt={SentAt}, RebuildFrom={RebuildFrom}, SettleDelaySeconds={SettleDelaySeconds}.",
             queueName,
-            source,
-            sentAt,
+            payload.Source,
+            payload.SentAt,
             rebuildFrom,
             ConversationWindowSettlement.SettleDelay.TotalSeconds);
 
@@ -68,40 +68,40 @@ internal sealed class OneWayClientPipelineCommandScheduler(
 
             using var rebusTransactionScope = new RebusTransactionScope();
             rebusTransactionScope.UseOutbox(npgsqlConnection, npgsqlTransaction);
-            await DispatchAsync(queueName, userId, source, externalChatId, normalizedMessageId, externalMessageId, sentAt, rebuildFrom, cancellationToken);
+            await DispatchAsync(queueName, payload, rebuildFrom, cancellationToken);
             await rebusTransactionScope.CompleteAsync();
             return;
         }
 
-        await DispatchAsync(queueName, userId, source, externalChatId, normalizedMessageId, externalMessageId, sentAt, rebuildFrom, cancellationToken);
+        await DispatchAsync(queueName, payload, rebuildFrom, cancellationToken);
     }
 
     private async Task DispatchAsync(
         string queueName,
-        Guid userId,
-        string source,
-        string externalChatId,
-        Guid normalizedMessageId,
-        string externalMessageId,
-        DateTimeOffset sentAt,
+        ChatMessageStoredEvent payload,
         DateTimeOffset rebuildFrom,
         CancellationToken cancellationToken)
     {
         await bus.Advanced.Routing.Defer(
             queueName,
             ConversationWindowSettlement.SettleDelay,
-            new ProcessConversationAfterSettleCommand(userId, source, externalChatId, normalizedMessageId, externalMessageId));
+            new ProcessConversationAfterSettleCommand(
+                payload.UserId,
+                payload.Source,
+                payload.ExternalChatId,
+                payload.ChatMessageId,
+                payload.ExternalMessageId));
         await bus.Advanced.Routing.Send(
             queueName,
             new RebuildConversationChunksCommand(
-                userId,
-                externalChatId,
+                payload.UserId,
+                payload.ExternalChatId,
                 rebuildFrom,
-                normalizedMessageId,
-                externalMessageId));
+                payload.ChatMessageId,
+                payload.ExternalMessageId));
 
         SuperChatMetrics.PipelineDispatchTotal.WithLabels("one_way", "process_conversation_after_settle").Inc();
         SuperChatMetrics.PipelineDispatchTotal.WithLabels("one_way", "rebuild_conversation_chunks").Inc();
-        logger.LogInformation("One-way pipeline commands dispatched successfully. Queue={Queue}, SentAt={SentAt}.", queueName, sentAt);
+        logger.LogInformation("One-way pipeline commands dispatched successfully. Queue={Queue}, SentAt={SentAt}.", queueName, payload.SentAt);
     }
 }

@@ -111,36 +111,40 @@ public sealed class ChatMessageStore(
         string? chatTitle = null,
         bool isOutgoing = false)
     {
+        // Дедуп — двухэтапный. Источник истины — unique-индекс
+        // (user_id, external_chat_id, external_message_id) на уровне БД: повторный insert
+        // ловится в catch DbUpdateException и трактуется как дубликат. Опережающий
+        // AnyAsync ниже — оптимизация: на типичном повторе sidecar-а (ретрай при
+        // нестабильной сети) экономит лишний INSERT-attempt + unique-violation
+        // exception, плюс закрывает кейс in-memory тестового провайдера, который
+        // unique-constraint не уважает.
+        //
+        // TODO(privacy): Text сейчас лежит в БД plain-text. На случай leak-а dump-а
+        // имеет смысл шифровать его симметричным ключом (как auth_key в telegram_sessions),
+        // но это отдельный проект — нужен ключ-роутер, миграция существующих записей
+        // и решение, как давать поиск по содержимому.
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-        var exists = await dbContext.ChatMessages
+        var alreadyExists = await dbContext.ChatMessages
             .AsNoTracking()
-            .AnyAsync(item => item.UserId == userId && item.ExternalChatId == externalChatId && item.ExternalMessageId == externalMessageId, cancellationToken);
-
-        if (exists)
+            .AnyAsync(
+                item => item.UserId == userId &&
+                        item.ExternalChatId == externalChatId &&
+                        item.ExternalMessageId == externalMessageId,
+                cancellationToken);
+        if (alreadyExists)
         {
-            using var duplicateScope = MessagePipelineTrace.BeginScope(logger, userId, externalChatId, triggerExternalMessageId: externalMessageId);
-            // Preview содержимого сообщения не пишем в Information-лог — оно может уехать
-            // в Loki/Grafana, к которым имеют доступ ops, и это утечка приватной переписки.
-            // На уровне Debug превью добавлено отдельной строкой ниже.
-            logger.LogInformation(
-                "Skipped chat message because it already exists. Source={Source}, SenderName={SenderName}, SentAt={SentAt}, TextLength={TextLength}.",
-                source,
-                senderName,
-                sentAt,
-                text.Length);
-            logger.LogDebug(
-                "Skipped duplicate message preview: {Preview}",
-                MessagePipelineTrace.CreatePreview(text));
+            using var dupScope = MessagePipelineTrace.BeginScope(logger, userId, externalChatId, triggerExternalMessageId: externalMessageId);
+            LogDuplicate(source, senderName, sentAt, text);
             SuperChatMetrics.ChatMessagesDuplicateTotal.WithLabels(source).Inc();
             return false;
         }
 
-        var normalizedMessageId = Guid.NewGuid();
-        using var scope = MessagePipelineTrace.BeginScope(logger, userId, externalChatId, normalizedMessageId, externalMessageId);
+        var chatMessageId = Guid.NewGuid();
+        using var scope = MessagePipelineTrace.BeginScope(logger, userId, externalChatId, chatMessageId, externalMessageId);
 
         dbContext.ChatMessages.Add(new ChatMessageEntity
         {
-            Id = normalizedMessageId,
+            Id = chatMessageId,
             UserId = userId,
             Source = source,
             ExternalChatId = externalChatId,
@@ -154,15 +158,7 @@ public sealed class ChatMessageStore(
             IsOutgoing = isOutgoing
         });
 
-        logger.LogInformation(
-            "Persisting chat message. Source={Source}, SenderName={SenderName}, SentAt={SentAt}, TextLength={TextLength}.",
-            source,
-            senderName,
-            sentAt,
-            text.Length);
-        logger.LogDebug(
-            "Persisted message preview: {Preview}",
-            MessagePipelineTrace.CreatePreview(text));
+        var payload = new ChatMessageStoredEvent(userId, source, externalChatId, chatMessageId, externalMessageId, sentAt);
 
         if (pipelineCommandScheduler.RequiresTransactionalDispatch)
         {
@@ -171,27 +167,15 @@ public sealed class ChatMessageStore(
             try
             {
                 await dbContext.SaveChangesAsync(cancellationToken);
-                await pipelineCommandScheduler.DispatchChatMessageStoredAsync(
-                    dbContext,
-                    userId,
-                    source,
-                    externalChatId,
-                    normalizedMessageId,
-                    externalMessageId,
-                    sentAt,
-                    cancellationToken);
+                await pipelineCommandScheduler.DispatchChatMessageStoredAsync(dbContext, payload, cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
-                logger.LogInformation(
-                    "Stored chat message and dispatched pipeline commands transactionally. SentAt={SentAt}.",
-                    sentAt);
+                LogStored(source, senderName, sentAt, text);
                 SuperChatMetrics.ChatMessagesStoredTotal.WithLabels(source).Inc();
                 return true;
             }
             catch (DbUpdateException)
             {
-                logger.LogInformation(
-                    "Skipped chat message after transactional save attempt because it was already written concurrently. SentAt={SentAt}.",
-                    sentAt);
+                LogDuplicate(source, senderName, sentAt, text);
                 SuperChatMetrics.ChatMessagesDuplicateTotal.WithLabels(source).Inc();
                 return false;
             }
@@ -200,28 +184,40 @@ public sealed class ChatMessageStore(
         try
         {
             await dbContext.SaveChangesAsync(cancellationToken);
-            await pipelineCommandScheduler.DispatchChatMessageStoredAsync(
-                dbContext,
-                userId,
-                source,
-                externalChatId,
-                normalizedMessageId,
-                externalMessageId,
-                sentAt,
-                cancellationToken);
-            logger.LogInformation(
-                "Stored chat message and dispatched pipeline commands. SentAt={SentAt}.",
-                sentAt);
+            await pipelineCommandScheduler.DispatchChatMessageStoredAsync(dbContext, payload, cancellationToken);
+            LogStored(source, senderName, sentAt, text);
             SuperChatMetrics.ChatMessagesStoredTotal.WithLabels(source).Inc();
             return true;
         }
         catch (DbUpdateException)
         {
-            logger.LogInformation(
-                "Skipped chat message after save attempt because it was already written concurrently. SentAt={SentAt}.",
-                sentAt);
+            LogDuplicate(source, senderName, sentAt, text);
             SuperChatMetrics.ChatMessagesDuplicateTotal.WithLabels(source).Inc();
             return false;
         }
+    }
+
+    private void LogStored(string source, string senderName, DateTimeOffset sentAt, string text)
+    {
+        // Information — без preview, чтобы переписка не уезжала в Loki/Grafana.
+        // На уровне Debug отдельная строка с превью — для дев-стенда.
+        logger.LogInformation(
+            "Stored chat message. Source={Source}, SenderName={SenderName}, SentAt={SentAt}, TextLength={TextLength}.",
+            source,
+            senderName,
+            sentAt,
+            text.Length);
+        logger.LogDebug("Stored message preview: {Preview}", MessagePipelineTrace.CreatePreview(text));
+    }
+
+    private void LogDuplicate(string source, string senderName, DateTimeOffset sentAt, string text)
+    {
+        logger.LogInformation(
+            "Skipped duplicate chat message. Source={Source}, SenderName={SenderName}, SentAt={SentAt}, TextLength={TextLength}.",
+            source,
+            senderName,
+            sentAt,
+            text.Length);
+        logger.LogDebug("Skipped duplicate preview: {Preview}", MessagePipelineTrace.CreatePreview(text));
     }
 }

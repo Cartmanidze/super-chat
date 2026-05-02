@@ -244,15 +244,16 @@ public sealed class ChatMessageStoreTests
 
         public Task DispatchChatMessageStoredAsync(
             SuperChatDbContext dbContext,
-            Guid userId,
-            string source,
-            string externalChatId,
-            Guid normalizedMessageId,
-            string externalMessageId,
-            DateTimeOffset sentAt,
+            ChatMessageStoredEvent payload,
             CancellationToken cancellationToken)
         {
-            Dispatches.Add(new RecordedDispatch(userId, source, externalChatId, normalizedMessageId, externalMessageId, sentAt));
+            Dispatches.Add(new RecordedDispatch(
+                payload.UserId,
+                payload.Source,
+                payload.ExternalChatId,
+                payload.ChatMessageId,
+                payload.ExternalMessageId,
+                payload.SentAt));
             return Task.CompletedTask;
         }
     }

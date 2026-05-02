@@ -8,11 +8,6 @@ public interface IPipelineCommandScheduler
 
     Task DispatchChatMessageStoredAsync(
         SuperChatDbContext dbContext,
-        Guid userId,
-        string source,
-        string externalChatId,
-        Guid normalizedMessageId,
-        string externalMessageId,
-        DateTimeOffset sentAt,
+        ChatMessageStoredEvent payload,
         CancellationToken cancellationToken);
 }

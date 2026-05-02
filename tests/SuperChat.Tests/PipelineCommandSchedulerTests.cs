@@ -7,6 +7,7 @@ using Rebus.Bus.Advanced;
 using SuperChat.Contracts.Features.Intelligence.Retrieval;
 using SuperChat.Contracts.Features.Operations;
 using SuperChat.Domain.Features.Intelligence;
+using SuperChat.Infrastructure.Abstractions;
 using SuperChat.Infrastructure.Features.Operations;
 using SuperChat.Infrastructure.Shared.Persistence;
 
@@ -47,12 +48,7 @@ public sealed class PipelineCommandSchedulerTests
 
         await scheduler.DispatchChatMessageStoredAsync(
             dbContext,
-            userId,
-            "telegram",
-            "!room:matrix.localhost",
-            messageId,
-            "$evt-1",
-            sentAt,
+            new ChatMessageStoredEvent(userId, "telegram", "!room:matrix.localhost", messageId, "$evt-1", sentAt),
             CancellationToken.None);
 
         await routing.Received(1).Defer(
@@ -84,12 +80,13 @@ public sealed class PipelineCommandSchedulerTests
         using var dbContext = CreateDbContext();
         await scheduler.DispatchChatMessageStoredAsync(
             dbContext,
-            Guid.NewGuid(),
-            "telegram",
-            "!room:matrix.localhost",
-            Guid.NewGuid(),
-            "$evt-1",
-            DateTimeOffset.UtcNow,
+            new ChatMessageStoredEvent(
+                Guid.NewGuid(),
+                "telegram",
+                "!room:matrix.localhost",
+                Guid.NewGuid(),
+                "$evt-1",
+                DateTimeOffset.UtcNow),
             CancellationToken.None);
     }
 
