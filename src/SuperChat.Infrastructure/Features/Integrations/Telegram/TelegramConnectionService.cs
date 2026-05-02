@@ -185,6 +185,32 @@ public sealed class TelegramConnectionService(
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task MarkRevokedAsync(Guid userId, string reason, CancellationToken cancellationToken)
+    {
+        // Sidecar обнаружил, что Telegram отозвал auth_key (resume failed
+        // или периодический probe). Не сбрасываем LastSyncedAt — пусть UI
+        // помнит, когда последний раз нормально синкались, это полезно
+        // при разборе «когда всё развалилось».
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var entity = await FindOrCreateAsync(dbContext, userId, cancellationToken);
+
+        var previousState = entity.State;
+        if (previousState != TelegramConnectionState.Revoked)
+        {
+            // Логируем только реальные переходы, чтобы повторные probe-вызовы
+            // health-check не засоряли Loki.
+            logger.LogWarning(
+                "Telegram session revoked for user {UserId}: previousState={PreviousState}, reason={Reason}.",
+                userId,
+                previousState,
+                reason);
+        }
+
+        entity.State = TelegramConnectionState.Revoked;
+        entity.UpdatedAt = timeProvider.GetUtcNow();
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     private async Task<TelegramConnection> SubmitDevelopmentLoginInputAsync(
         AppUser user,
         string input,

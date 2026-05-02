@@ -8,6 +8,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using SuperChat.Domain.Features.Integrations.Telegram;
 using SuperChat.Infrastructure.Shared.Persistence;
 using SuperChat.Worker.Features.Integrations.Telegram.Internal;
 
@@ -116,10 +117,113 @@ public sealed class TelegramIncomingEndpointTests : IClassFixture<TelegramIncomi
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    [Fact]
+    public async Task SessionRevoked_UpdatesConnectionStateToRevoked_WhenSignatureIsValid()
+    {
+        using var client = _factory.CreateClient();
+        var userId = Guid.NewGuid();
+
+        // Сначала переведём пользователя в Connected, чтобы было что отзывать.
+        await using (var seedDbContext = await CreateDbContextAsync())
+        {
+            seedDbContext.TelegramConnections.Add(new TelegramConnectionEntity
+            {
+                UserId = userId,
+                State = TelegramConnectionState.Connected,
+                UpdatedAt = DateTimeOffset.UtcNow.AddMinutes(-10)
+            });
+            await seedDbContext.SaveChangesAsync();
+        }
+
+        var body = JsonSerializer.Serialize(new
+        {
+            user_id = userId,
+            reason = "not_authorized_on_resume",
+            timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+        });
+
+        using var request = BuildSignedRequestForRevoked(body, HmacSecret);
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        await using var dbContext = await CreateDbContextAsync();
+        var connection = await dbContext.TelegramConnections.SingleAsync(item => item.UserId == userId);
+        Assert.Equal(TelegramConnectionState.Revoked, connection.State);
+    }
+
+    [Fact]
+    public async Task SessionRevoked_ReturnsUnauthorized_WhenSignatureIsInvalid()
+    {
+        using var client = _factory.CreateClient();
+        var body = JsonSerializer.Serialize(new
+        {
+            user_id = Guid.NewGuid(),
+            reason = "x",
+            timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+        });
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/internal/telegram/session-revoked")
+        {
+            Content = new StringContent(body, Encoding.UTF8, "application/json")
+        };
+        request.Headers.Add("X-Superchat-Signature", "sha256=deadbeef");
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task SessionRevoked_ReturnsBadRequest_WhenUserIdMissing()
+    {
+        using var client = _factory.CreateClient();
+        var body = JsonSerializer.Serialize(new
+        {
+            user_id = Guid.Empty,
+            reason = "x",
+            timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+        });
+
+        using var request = BuildSignedRequestForRevoked(body, HmacSecret);
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task SessionRevoked_ReturnsUnauthorized_WhenTimestampIsStale()
+    {
+        using var client = _factory.CreateClient();
+        var stale = DateTimeOffset.UtcNow.AddHours(-1).ToUnixTimeSeconds();
+        var body = JsonSerializer.Serialize(new
+        {
+            user_id = Guid.NewGuid(),
+            reason = "x",
+            timestamp = stale
+        });
+
+        using var request = BuildSignedRequestForRevoked(body, HmacSecret);
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
     private static HttpRequestMessage BuildSignedRequest(string body, string secret)
     {
         var signature = TelegramIncomingEndpoint.ComputeSignature(body, secret);
         var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/internal/telegram/incoming")
+        {
+            Content = new StringContent(body, Encoding.UTF8, "application/json")
+        };
+        request.Headers.Add("X-Superchat-Signature", $"sha256={signature}");
+        return request;
+    }
+
+    private static HttpRequestMessage BuildSignedRequestForRevoked(string body, string secret)
+    {
+        var signature = TelegramIncomingEndpoint.ComputeSignature(body, secret);
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/internal/telegram/session-revoked")
         {
             Content = new StringContent(body, Encoding.UTF8, "application/json")
         };

@@ -59,6 +59,15 @@ except ValueError:
     TELEGRAM_API_ID = 0
 TELEGRAM_API_HASH = os.environ.get("TELEGRAM_API_HASH", "")
 
+# Период health-check всех живых клиентов. Делаем большим (5 минут), чтобы не
+# создавать постоянный фон запросов к Telegram. is_user_authorized() — это
+# users.GetUsers([InputUserSelf]) на API, лёгкий, но при тысячах сессий
+# суммарный трафик ощутимый. Для пилота 5 минут — компромисс между
+# скоростью реакции на отзыв и нагрузкой.
+HEALTH_CHECK_INTERVAL_SECONDS = float(
+    os.environ.get("HEALTH_CHECK_INTERVAL_SECONDS", "300")
+)
+
 
 @dataclass
 class SessionState:
@@ -191,6 +200,7 @@ async def lifespan(app: FastAPI):
     disabled_reason = _resolve_disabled_reason()
     http: Optional[httpx.AsyncClient] = None
     store: Optional[PostgresSessionStore] = None
+    health_check_task: Optional[asyncio.Task] = None
 
     if disabled_reason is not None:
         logger.warning("Telegram userbot sidecar starts in disabled mode: %s", disabled_reason)
@@ -209,10 +219,22 @@ async def lifespan(app: FastAPI):
             # никакой пользователь не получит входящих/исходящих сообщений,
             # пока вручную не нажмёт «Переподключить Telegram».
             await _resume_persisted_sessions(store)
+            # Стартуем фоновый health-check после resume — чтобы первый
+            # тик не пересёкся с восстановлением сессий.
+            health_check_task = asyncio.create_task(
+                _health_check_loop(HEALTH_CHECK_INTERVAL_SECONDS),
+                name="telegram-health-check",
+            )
 
     try:
         yield
     finally:
+        if health_check_task is not None:
+            health_check_task.cancel()
+            try:
+                await health_check_task
+            except (asyncio.CancelledError, Exception):
+                pass
         await registry.close()
         if http is not None:
             await http.aclose()
@@ -248,10 +270,14 @@ async def _resume_one_session(user_id: UUID, store: PostgresSessionStore) -> Non
     await client.connect()
 
     if not await client.is_user_authorized():
-        # Пользователь либо не довёл логин, либо сессия отозвана — оставляем
-        # на повторный ручной /connect, ничего не подтягиваем.
-        logger.warning("Persisted session for %s is not authorized; skipping resume", user_id)
+        # Пользователь либо не довёл логин, либо Telegram отозвал auth_key.
+        # Раньше мы просто молча отключались — UI продолжал показывать
+        # state=Connected, и пользователь не понимал, почему сообщения не
+        # приходят. Теперь уведомляем .NET-worker, чтобы он перевёл состояние
+        # в Revoked и UI/мобилка показали «нужен вход».
+        logger.warning("Persisted session for %s is not authorized; marking revoked", user_id)
         await client.disconnect()
+        await _notify_session_revoked(user_id, reason="not_authorized_on_resume")
         return
 
     state = SessionState(
@@ -264,6 +290,104 @@ async def _resume_one_session(user_id: UUID, store: PostgresSessionStore) -> Non
     registry.set(state)
     await _complete_connection(state)
     logger.info("Resumed Telegram session for %s", user_id)
+
+
+async def _notify_session_revoked(user_id: UUID, reason: str) -> None:
+    """Сообщает SuperChat-worker, что сессия больше не авторизована.
+
+    Идемпотентно: worker может получать повторные уведомления (например,
+    health-check будет звать каждые 5 минут до перезапуска контейнера) —
+    он только обновит UpdatedAt и не сломается.
+    """
+    if registry.disabled_reason is not None:
+        return
+
+    if not SUPERCHAT_API_URL or not HMAC_SECRET:
+        # На уровне DI в _resolve_disabled_reason это уже проверено, но
+        # дополнительная защита от race condition при rolling restart.
+        logger.warning(
+            "Cannot notify session-revoked for %s: SUPERCHAT_API_URL or HMAC_SECRET missing",
+            user_id,
+        )
+        return
+
+    payload = {
+        "user_id": str(user_id),
+        "reason": reason,
+        "timestamp": int(time.time()),
+    }
+    body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    signature = hmac.new(HMAC_SECRET.encode("utf-8"), body, hashlib.sha256).hexdigest()
+    headers = {
+        "Content-Type": "application/json",
+        "X-Superchat-Signature": f"sha256={signature}",
+    }
+
+    try:
+        response = await registry.http().post(
+            f"{SUPERCHAT_API_URL}/api/v1/internal/telegram/session-revoked",
+            content=body,
+            headers=headers,
+        )
+        if response.status_code >= 400:
+            logger.warning(
+                "SuperChat rejected session-revoked notification for %s: %s",
+                user_id,
+                response.status_code,
+            )
+    except Exception:
+        # Сетевая ошибка не должна валить health-check loop. На следующей
+        # итерации worker всё равно попробует снова — сессия не вернётся
+        # сама собой, без действия пользователя.
+        logger.exception("Failed to notify session-revoked for %s", user_id)
+
+
+async def _health_check_loop(interval_seconds: float) -> None:
+    """Раз в interval_seconds опрашиваем все live-клиенты и проверяем, что
+    Telegram всё ещё считает их авторизованными. Если нет — выкидываем из
+    registry и сообщаем .NET-worker, чтобы UI показал «нужен вход».
+
+    Запускается из lifespan и живёт всё время работы контейнера. Падение
+    одной итерации не валит цикл — ждём и пробуем снова.
+    """
+    logger.info("Starting Telegram session health-check loop (interval=%.0fs)", interval_seconds)
+    while True:
+        try:
+            await asyncio.sleep(interval_seconds)
+            await _probe_all_sessions()
+        except asyncio.CancelledError:
+            logger.info("Health-check loop cancelled")
+            raise
+        except Exception:
+            logger.exception("Health-check loop iteration failed; will retry next tick")
+
+
+async def _probe_all_sessions() -> None:
+    """Снимок registry на момент вызова — чтобы конкурентные drop/connect
+    из endpoints не дрались с итерацией."""
+    user_ids = list(registry._sessions.keys())  # snapshot, не view
+    if not user_ids:
+        return
+
+    for user_id in user_ids:
+        state = registry.get(user_id)
+        if state is None:
+            continue
+        try:
+            authorized = await state.client.is_user_authorized()
+        except Exception:
+            logger.exception("is_user_authorized() crashed for %s", user_id)
+            continue
+
+        if authorized:
+            continue
+
+        logger.warning(
+            "Health-check: session for %s is no longer authorized; marking revoked",
+            user_id,
+        )
+        await registry.drop(user_id)
+        await _notify_session_revoked(user_id, reason="not_authorized_on_health_check")
 
 
 app = FastAPI(title="SuperChat Telegram Userbot", lifespan=lifespan)

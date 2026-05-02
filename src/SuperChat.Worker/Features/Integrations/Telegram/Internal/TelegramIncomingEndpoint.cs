@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SuperChat.Contracts.Features.Integrations.Telegram;
 using SuperChat.Contracts.Features.Messaging;
@@ -36,6 +37,7 @@ public static class TelegramIncomingEndpoint
             .ExcludeFromDescription();
 
         group.MapPost("/incoming", HandleAsync);
+        group.MapPost("/session-revoked", HandleSessionRevokedAsync);
 
         return endpoints;
     }
@@ -134,6 +136,87 @@ public static class TelegramIncomingEndpoint
 
         return Results.Ok();
     }
+
+    private static async Task<IResult> HandleSessionRevokedAsync(
+        HttpContext httpContext,
+        [FromServices] IOptions<TelegramUserbotOptions> optionsAccessor,
+        [FromServices] ITelegramConnectionService connectionService,
+        [FromServices] TimeProvider timeProvider,
+        [FromServices] ILoggerFactory loggerFactory,
+        CancellationToken cancellationToken)
+    {
+        var options = optionsAccessor.Value;
+        if (!options.Enabled || string.IsNullOrWhiteSpace(options.HmacSecret))
+        {
+            return Results.NotFound();
+        }
+
+        if (httpContext.Request.ContentLength is long contentLength && contentLength > MaxBodyBytes)
+        {
+            return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
+        }
+
+        if (!httpContext.Request.Headers.TryGetValue(SignatureHeaderName, out var signatureValues) ||
+            signatureValues.Count == 0 ||
+            string.IsNullOrWhiteSpace(signatureValues[0]))
+        {
+            return Results.Unauthorized();
+        }
+
+        var providedSignature = signatureValues[0]!.Trim();
+        if (!providedSignature.StartsWith(SignaturePrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.Unauthorized();
+        }
+
+        var rawBody = await ReadBodyWithLimitAsync(httpContext.Request.Body, MaxBodyBytes, cancellationToken);
+        if (rawBody is null)
+        {
+            return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
+        }
+
+        if (!VerifySignature(rawBody, providedSignature.AsSpan(SignaturePrefix.Length), options.HmacSecret))
+        {
+            return Results.Unauthorized();
+        }
+
+        SessionRevokedPayload? payload;
+        try
+        {
+            payload = JsonSerializer.Deserialize<SessionRevokedPayload>(rawBody);
+        }
+        catch (JsonException)
+        {
+            return Results.BadRequest(new { error = "invalid_json" });
+        }
+
+        if (payload is null || payload.UserId == Guid.Empty)
+        {
+            return Results.BadRequest(new { error = "invalid_payload" });
+        }
+
+        // Replay-protection — тот же ±5 минут, что и для /incoming.
+        if (!IsTimestampFresh(payload.Timestamp, timeProvider))
+        {
+            return Results.Unauthorized();
+        }
+
+        var reason = string.IsNullOrWhiteSpace(payload.Reason) ? "unknown" : payload.Reason!;
+        await connectionService.MarkRevokedAsync(payload.UserId, reason, cancellationToken);
+
+        var logger = loggerFactory.CreateLogger("TelegramSessionRevoked");
+        logger.LogInformation(
+            "Telegram session marked revoked. UserId={UserId}, Reason={Reason}.",
+            payload.UserId,
+            reason);
+
+        return Results.Ok();
+    }
+
+    internal sealed record SessionRevokedPayload(
+        [property: JsonPropertyName("user_id")] Guid UserId,
+        [property: JsonPropertyName("reason")] string? Reason = null,
+        [property: JsonPropertyName("timestamp")] long? Timestamp = null);
 
     internal static async Task<string?> ReadBodyWithLimitAsync(
         Stream body,

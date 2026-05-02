@@ -22,4 +22,13 @@ public interface ITelegramConnectionService
     Task<IReadOnlyList<TelegramConnection>> GetReadyForDevelopmentSyncAsync(CancellationToken cancellationToken);
 
     Task MarkSynchronizedAsync(Guid userId, DateTimeOffset synchronizedAt, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Помечает соединение как отозванное со стороны Telegram (sidecar получил
+    /// is_user_authorized() == false при resume или health-check). Не делает
+    /// сетевых вызовов в sidecar — только обновляет state в БД, чтобы UI
+    /// показал «нужен вход». Идемпотентно: повторные вызовы для уже Revoked
+    /// просто обновляют UpdatedAt.
+    /// </summary>
+    Task MarkRevokedAsync(Guid userId, string reason, CancellationToken cancellationToken);
 }

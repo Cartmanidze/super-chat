@@ -27,6 +27,11 @@ internal static class IntegrationConnectionMappings
             TelegramConnectionState.Connected => IntegrationConnectionState.Connected,
             TelegramConnectionState.RequiresSetup => IntegrationConnectionState.RequiresSetup,
             TelegramConnectionState.Disconnected => IntegrationConnectionState.Disconnected,
+            // Revoked = Telegram отозвал auth_key. Внешнему контракту IntegrationConnectionState
+            // отдельного значения нет — мапим в Disconnected, чтобы UI показал «нужен вход».
+            // Внутренний enum TelegramConnectionState отличает Revoked от Disconnected
+            // (для аналитики и логов), наружу разница не уезжает.
+            TelegramConnectionState.Revoked => IntegrationConnectionState.Disconnected,
             TelegramConnectionState.Error => IntegrationConnectionState.Error,
             TelegramConnectionState.LoginAwaitingPhone => IntegrationConnectionState.Pending,
             TelegramConnectionState.LoginAwaitingCode => IntegrationConnectionState.Pending,

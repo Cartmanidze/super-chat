@@ -86,5 +86,7 @@ public sealed class IntegrationConnectionServiceTests
             => Task.FromResult<IReadOnlyList<TelegramConnection>>([connection]);
 
         public Task MarkSynchronizedAsync(Guid userId, DateTimeOffset synchronizedAt, CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task MarkRevokedAsync(Guid userId, string reason, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 }
