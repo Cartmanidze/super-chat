@@ -27,6 +27,7 @@ import hmac
 import json
 import logging
 import os
+import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Optional
@@ -430,6 +431,9 @@ async def _forward_message(user_id: UUID, event: events.NewMessage.Event) -> Non
         "text": message.message,
         "sent_at": message.date.isoformat(),
         "is_outgoing": is_outgoing,
+        # Unix-секунды на момент отправки. Worker отбрасывает запросы старше ±5 минут —
+        # защита от replay-атак.
+        "timestamp": int(time.time()),
     }
 
     body = json.dumps(payload, separators=(",", ":")).encode("utf-8")

@@ -119,12 +119,17 @@ public sealed class ChatMessageStore(
         if (exists)
         {
             using var duplicateScope = MessagePipelineTrace.BeginScope(logger, userId, externalChatId, triggerExternalMessageId: externalMessageId);
+            // Preview содержимого сообщения не пишем в Information-лог — оно может уехать
+            // в Loki/Grafana, к которым имеют доступ ops, и это утечка приватной переписки.
+            // На уровне Debug превью добавлено отдельной строкой ниже.
             logger.LogInformation(
-                "Skipped chat message because it already exists. Source={Source}, SenderName={SenderName}, SentAt={SentAt}, TextLength={TextLength}, Preview={Preview}.",
+                "Skipped chat message because it already exists. Source={Source}, SenderName={SenderName}, SentAt={SentAt}, TextLength={TextLength}.",
                 source,
                 senderName,
                 sentAt,
-                text.Length,
+                text.Length);
+            logger.LogDebug(
+                "Skipped duplicate message preview: {Preview}",
                 MessagePipelineTrace.CreatePreview(text));
             SuperChatMetrics.ChatMessagesDuplicateTotal.WithLabels(source).Inc();
             return false;
@@ -150,11 +155,13 @@ public sealed class ChatMessageStore(
         });
 
         logger.LogInformation(
-            "Persisting chat message. Source={Source}, SenderName={SenderName}, SentAt={SentAt}, TextLength={TextLength}, Preview={Preview}.",
+            "Persisting chat message. Source={Source}, SenderName={SenderName}, SentAt={SentAt}, TextLength={TextLength}.",
             source,
             senderName,
             sentAt,
-            text.Length,
+            text.Length);
+        logger.LogDebug(
+            "Persisted message preview: {Preview}",
             MessagePipelineTrace.CreatePreview(text));
 
         if (pipelineCommandScheduler.RequiresTransactionalDispatch)

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -15,6 +16,12 @@ public static class MaxIncomingEndpoint
     private const string SignatureHeaderName = "X-Superchat-Signature";
     private const string SignaturePrefix = "sha256=";
 
+    private const string SourceLabel = "max";
+
+    private const int MaxBodyBytes = 64 * 1024;
+
+    private static readonly TimeSpan SignatureFreshnessWindow = TimeSpan.FromMinutes(5);
+
     public static IEndpointRouteBuilder MapMaxInternalEndpoints(this IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/internal/max")
@@ -30,13 +37,18 @@ public static class MaxIncomingEndpoint
         HttpContext httpContext,
         [FromServices] IOptions<MaxUserbotOptions> optionsAccessor,
         [FromServices] IChatMessageStore normalizationService,
-        [FromServices] ILogger<IncomingPayload> logger,
+        [FromServices] TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
         var options = optionsAccessor.Value;
         if (!options.Enabled || string.IsNullOrWhiteSpace(options.HmacSecret))
         {
             return Results.NotFound();
+        }
+
+        if (httpContext.Request.ContentLength is long contentLength && contentLength > MaxBodyBytes)
+        {
+            return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
         }
 
         if (!httpContext.Request.Headers.TryGetValue(SignatureHeaderName, out var signatureValues) ||
@@ -52,8 +64,11 @@ public static class MaxIncomingEndpoint
             return Results.Unauthorized();
         }
 
-        using var bodyReader = new StreamReader(httpContext.Request.Body, Encoding.UTF8);
-        var rawBody = await bodyReader.ReadToEndAsync(cancellationToken);
+        var rawBody = await ReadBodyWithLimitAsync(httpContext.Request.Body, MaxBodyBytes, cancellationToken);
+        if (rawBody is null)
+        {
+            return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
+        }
 
         if (!VerifySignature(rawBody, providedSignature.AsSpan(SignaturePrefix.Length), options.HmacSecret))
         {
@@ -80,9 +95,14 @@ public static class MaxIncomingEndpoint
             return Results.BadRequest(new { error = "invalid_payload" });
         }
 
+        if (!IsTimestampFresh(payload.Timestamp, timeProvider))
+        {
+            return Results.Unauthorized();
+        }
+
         var stored = await normalizationService.TryStoreAsync(
             payload.UserId,
-            ChatSourceKind.Max.ToSourceLabel(),
+            SourceLabel,
             payload.ExternalChatId,
             payload.ExternalMessageId,
             payload.SenderName,
@@ -97,6 +117,40 @@ public static class MaxIncomingEndpoint
             .Inc();
 
         return Results.Ok();
+    }
+
+    internal static async Task<string?> ReadBodyWithLimitAsync(
+        Stream body,
+        int maxBytes,
+        CancellationToken cancellationToken)
+    {
+        var buffer = new byte[Math.Min(8192, maxBytes)];
+        using var memory = new MemoryStream(maxBytes);
+        var totalRead = 0;
+        int read;
+        while ((read = await body.ReadAsync(buffer.AsMemory(), cancellationToken)) > 0)
+        {
+            totalRead += read;
+            if (totalRead > maxBytes)
+            {
+                return null;
+            }
+            await memory.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+        }
+
+        return Encoding.UTF8.GetString(memory.GetBuffer(), 0, (int)memory.Length);
+    }
+
+    internal static bool IsTimestampFresh(long? unixSeconds, TimeProvider timeProvider)
+    {
+        if (unixSeconds is null)
+        {
+            return true;
+        }
+
+        var now = timeProvider.GetUtcNow();
+        var sent = DateTimeOffset.FromUnixTimeSeconds(unixSeconds.Value);
+        return (now - sent).Duration() <= SignatureFreshnessWindow;
     }
 
     internal static bool VerifySignature(string rawBody, ReadOnlySpan<char> providedHex, string secret)
@@ -130,7 +184,7 @@ public static class MaxIncomingEndpoint
         var bytes = new byte[hex.Length / 2];
         for (var i = 0; i < bytes.Length; i++)
         {
-            if (!byte.TryParse(hex.Slice(i * 2, 2), System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out var value))
+            if (!byte.TryParse(hex.Slice(i * 2, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var value))
             {
                 return null;
             }
@@ -149,5 +203,6 @@ public static class MaxIncomingEndpoint
         [property: JsonPropertyName("text")] string Text,
         [property: JsonPropertyName("sent_at")] DateTimeOffset SentAt,
         [property: JsonPropertyName("chat_title")] string? ChatTitle = null,
-        [property: JsonPropertyName("is_outgoing")] bool IsOutgoing = false);
+        [property: JsonPropertyName("is_outgoing")] bool IsOutgoing = false,
+        [property: JsonPropertyName("timestamp")] long? Timestamp = null);
 }
