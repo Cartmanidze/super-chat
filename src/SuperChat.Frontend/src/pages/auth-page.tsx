@@ -3,6 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { authGateway } from "../features/auth/gateways/auth-gateway";
 import { useSessionStore } from "../features/auth/stores/session-store";
+import { ApiError } from "../shared/services/http-api";
 
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 42;
@@ -13,6 +14,24 @@ function getBrowserTimeZone(): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+function describeSendCodeError(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 403) return "Этот email не приглашён в пилот.";
+    if (error.status === 429) return "Слишком много запросов кода. Подожди минуту.";
+    if (error.detail) return error.detail;
+  }
+  return "Не удалось отправить код. Попробуй ещё раз.";
+}
+
+function describeVerifyCodeError(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 400) return "Код неверный или истёк. Запроси новый.";
+    if (error.status === 429) return "Слишком много попыток. Подожди и попробуй снова.";
+    if (error.detail) return error.detail;
+  }
+  return "Не удалось войти. Попробуй ещё раз.";
 }
 
 function padCells(code: string): string[] {
@@ -74,7 +93,13 @@ export function AuthPage() {
 
   const otpCells = useMemo(() => padCells(code), [code]);
   const activeIndex = Math.min(code.length, OTP_LENGTH - 1);
-  const canSubmit = code.length === OTP_LENGTH && !verifyCodeMutation.isPending;
+  // После успешной верификации блокируем повторное нажатие «Войти», иначе
+  // пользователь, не дождавшись редиректа, ещё раз отправляет тот же код,
+  // а он уже consumed → 400 «code invalid or expired». Видели такое в проде.
+  const canSubmit =
+    code.length === OTP_LENGTH &&
+    !verifyCodeMutation.isPending &&
+    !verifyCodeMutation.isSuccess;
 
   return (
     <section className="page-section">
@@ -140,7 +165,7 @@ export function AuthPage() {
                 </div>
 
                 {sendCodeMutation.isError ? (
-                  <p className="form-error">{String(sendCodeMutation.error.message)}</p>
+                  <p className="form-error">{describeSendCodeError(sendCodeMutation.error)}</p>
                 ) : null}
               </form>
             </>
@@ -191,7 +216,11 @@ export function AuthPage() {
 
                 <div className="auth-row">
                   <button className="btn is-primary" type="submit" disabled={!canSubmit}>
-                    {verifyCodeMutation.isPending ? "Проверяем…" : "Войти"}
+                    {verifyCodeMutation.isSuccess
+                      ? "Открываем…"
+                      : verifyCodeMutation.isPending
+                        ? "Проверяем…"
+                        : "Войти"}
                     <span className="kbd">↵</span>
                   </button>
                   <span className="resend">
@@ -212,7 +241,7 @@ export function AuthPage() {
                 </div>
 
                 {verifyCodeMutation.isError ? (
-                  <p className="form-error">{String(verifyCodeMutation.error.message)}</p>
+                  <p className="form-error">{describeVerifyCodeError(verifyCodeMutation.error)}</p>
                 ) : null}
               </form>
 
