@@ -3,6 +3,7 @@ obj/
 .vs/
 .idea/
 .vscode/
+.claude/
 TestResults/
 artifacts/
 .DS_Store
